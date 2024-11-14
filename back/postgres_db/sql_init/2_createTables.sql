@@ -8,6 +8,6 @@ CREATE TABLE seemantic_schema.document(
    creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
    last_modification_datetime TIMESTAMPTZ NOT NULL,
    url TEXT NOT NULL, -- if source is seemantic drive, it's the seemantic drive url (not the original file url).
-   title TEXT NOT NULL,
-   sha_256 CHAR(64) NOT NULL -- sha256
+   filename TEXT NOT NULL, -- name of the file when it was uploaded
+   sha_256 CHAR(64) NOT NULL -- sha256 of the file content
 );
