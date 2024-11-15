@@ -3,7 +3,7 @@ from fastapi import UploadFile
 from pydantic import BaseModel
 from uuid import UUID
 
-router: APIRouter = APIRouter()
+router: APIRouter = APIRouter(prefix="api/v1")
 
 
 @router.get("/")
@@ -40,10 +40,13 @@ class Reference(BaseModel):
     file_snippet: FileSnippet
     content: str
 
-class AnswerResponse(BaseModel):
+class QueryResponse(BaseModel):
     answer: str
     references: list[Reference]
 
-@router.post("/queries/answers") 
-async def answer_query() -> AnswerResponse:
-    return AnswerResponse(answer="", references=[])
+class QueryRequest(BaseModel):
+    question: str
+
+@router.post("/queries")
+async def create_query(query: QueryRequest) -> QueryResponse:
+    return QueryResponse(answer="", references=[])
