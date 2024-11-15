@@ -7,8 +7,8 @@ router: APIRouter = APIRouter()
 
 
 @router.get("/")
-async def root() -> dict[str, str]:
-    return {"message": "seemantic API says hello!"}
+async def root() -> str:
+    return "seemantic API says hello!"
 
 
 class FileSnippet(BaseModel):
@@ -19,18 +19,22 @@ class FileSnippetListResponse(BaseModel):
     files: list[FileSnippet]
 
 
-@router.put("/file")
-async def create_or_update_file(file: UploadFile):
+@router.post("/files")
+async def create_file(file: UploadFile):
+    pass
+
+@router.put("/files/{file_id}")
+async def update_file(file_id: str, file: UploadFile):
+    pass
+
+@router.delete("/files/{file_uuid}")
+async def delete_file(file_uuid: UUID):
     pass
 
 @router.get("/file_snippets")
 async def get_file_snippets()-> FileSnippetListResponse:
     return FileSnippetListResponse(files=[])
 
-
-@router.delete("/files/{file_uuid}")
-async def delete_file(file_uuid: UUID):
-    pass
 
 class Reference(BaseModel):
     file_snippet: FileSnippet
@@ -40,6 +44,6 @@ class AnswerResponse(BaseModel):
     answer: str
     references: list[Reference]
 
-@router.get("answer")
-async def get_answer() -> AnswerResponse:
+@router.post("/queries/answers") 
+async def answer_query() -> AnswerResponse:
     return AnswerResponse(answer="", references=[])
