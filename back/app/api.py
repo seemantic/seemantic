@@ -3,7 +3,7 @@ from fastapi import UploadFile
 from pydantic import BaseModel
 from uuid import UUID
 
-router: APIRouter = APIRouter(prefix="api/v1")
+router: APIRouter = APIRouter(prefix="/api/v1")
 
 
 @router.get("/")
@@ -23,7 +23,7 @@ class FileSnippetListResponse(BaseModel):
 async def create_file(file: UploadFile):
     pass
 
-@router.put("/files/{file_id}")
+@router.put("/files/{file_uuid}")
 async def update_file(file_id: str, file: UploadFile):
     pass
 
