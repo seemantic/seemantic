@@ -16,12 +16,8 @@ async def root() -> str:
 
 
 class FileSnippet(BaseModel):
-    path: str
-    filename: str
-    sha_256: str
+    relative_filepath: str
     uuid: UUID
-    creation_datetime: datetime
-    last_modification_datetime: datetime
 
 class FileSnippetList(BaseModel):
     files: list[FileSnippet]
@@ -30,10 +26,10 @@ class CreateFileResponse(BaseModel):
     file_snippet: FileSnippet
 
 
-def _get_file_path(settings: RouteSettings, path: str, filename: str) -> str:
+def _get_file_path(settings: RouteSettings, filepath: str, filename: str) -> str:
     return f"{settings.seemantic_drive_root}/{path}/{filename}"
 
-def _create_or_update_file(destination_path: str, filename: str, file: UploadFile, settings: RouteSettings) -> FileSnippet:
+def _create_or_update_file(destination_relative_filepath: str, filename: str, file: UploadFile, settings: RouteSettings) -> FileSnippet:
     file_path = _get_file_path(settings, destination_path, filename=filename)
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, "wb") as buffer:
@@ -42,21 +38,18 @@ def _create_or_update_file(destination_path: str, filename: str, file: UploadFil
     snippet = FileSnippet(
         path=destination_path,
         filename=filename,
-        sha_256="",
         uuid=uuid.uuid4(),
-        creation_datetime=datetime.now(),
-        last_modification_datetime=datetime.now()
     )
     return snippet
 
 
-@router.post("/files/{destination_path}/{filename}")
-async def create_file(destination_path: str, filename: str, file: UploadFile, settings: RouteSettings) -> CreateFileResponse:
+@router.post("/files/{destination_relative_filepath}")
+async def create_file(destination_relative_filepath: str, file: UploadFile, settings: RouteSettings) -> CreateFileResponse:
  
     snippet = _create_or_update_file(destination_path, filename, file, settings)
     return CreateFileResponse(file_snippet=snippet)
 
-@router.put("/files/{destination_path}/{filename}")
+@router.put("/files/{document_uuid}")
 async def update_file(destination_path: str, filename: str, file: UploadFile, settings: RouteSettings) -> CreateFileResponse:
     snippet = _create_or_update_file(destination_path, filename, file, settings)
     return CreateFileResponse(file_snippet=snippet)
