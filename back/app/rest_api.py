@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Form, Response
 from fastapi import UploadFile
 from pydantic import BaseModel
 from uuid import UUID
@@ -21,20 +21,17 @@ class ApiFileSnippetList(BaseModel):
     files: list[ApiFileSnippet]
 
 
-class FileRequest(BaseModel):
-    relative_path: str
-
 class FileResponse(BaseModel):
     file_snippet: ApiFileSnippet
 
 
 @router.post("/files/")
-async def create_file(file: UploadFile, file_request: FileRequest, biz_service: BizService = Depends(get_biz_service)) -> FileResponse:
-    snippet = biz_service.create_document(relative_path=file_request.relative_path, file=file)
+async def create_file(file: UploadFile, relative_path: str = Form(...), biz_service: BizService = Depends(get_biz_service)) -> FileResponse:
+    snippet = biz_service.create_document(relative_path=relative_path, file=file)
     return FileResponse(file_snippet=ApiFileSnippet(relative_path=snippet.relative_path, id=snippet.id))
 
 @router.put("/files/{id}")
-async def update_file(id: UUID, ufile: UploadFile, file_request: FileRequest, biz_service: BizService = Depends(get_biz_service)) -> FileResponse:
+async def update_file(id: UUID, ufile: UploadFile, relative_path: str = Form(...), biz_service: BizService = Depends(get_biz_service)) -> FileResponse:
     return FileResponse(file_snippet=ApiFileSnippet(relative_path="", id=id))
 
 
