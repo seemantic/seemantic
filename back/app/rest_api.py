@@ -1,13 +1,11 @@
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Depends, Response
 from fastapi import UploadFile
 from pydantic import BaseModel
-import uuid
 from uuid import UUID
-from app.settings import RouteSettings
-from datetime import datetime
-import shutil
-import os
+from app.biz_service import BizService, get_biz_service
+
 router: APIRouter = APIRouter(prefix="/api/v1")
+
 
 
 @router.get("/")
@@ -15,63 +13,44 @@ async def root() -> str:
     return "seemantic API says hello!"
 
 
-class FileSnippet(BaseModel):
-    relative_filepath: str
-    uuid: UUID
+class ApiFileSnippet(BaseModel):
+    relative_path: str
+    id: UUID
 
-class FileSnippetList(BaseModel):
-    files: list[FileSnippet]
-
-class CreateFileResponse(BaseModel):
-    file_snippet: FileSnippet
+class ApiFileSnippetList(BaseModel):
+    files: list[ApiFileSnippet]
 
 
-def _get_file_path(settings: RouteSettings, filepath: str, filename: str) -> str:
-    return f"{settings.seemantic_drive_root}/{path}/{filename}"
+class FileRequest(BaseModel):
+    relative_path: str
 
-def _create_or_update_file(destination_relative_filepath: str, filename: str, file: UploadFile, settings: RouteSettings) -> FileSnippet:
-    file_path = _get_file_path(settings, destination_path, filename=filename)
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
-    snippet = FileSnippet(
-        path=destination_path,
-        filename=filename,
-        uuid=uuid.uuid4(),
-    )
-    return snippet
+class FileResponse(BaseModel):
+    file_snippet: ApiFileSnippet
 
 
-@router.post("/files/{destination_relative_filepath}")
-async def create_file(destination_relative_filepath: str, file: UploadFile, settings: RouteSettings) -> CreateFileResponse:
- 
-    snippet = _create_or_update_file(destination_path, filename, file, settings)
-    return CreateFileResponse(file_snippet=snippet)
+@router.post("/files/")
+async def create_file(file: UploadFile, file_request: FileRequest, biz_service: BizService = Depends(get_biz_service)) -> FileResponse:
+    snippet = biz_service.create_document(relative_path=file_request.relative_path, file=file)
+    return FileResponse(file_snippet=ApiFileSnippet(relative_path=snippet.relative_path, id=snippet.id))
 
-@router.put("/files/{document_uuid}")
-async def update_file(destination_path: str, filename: str, file: UploadFile, settings: RouteSettings) -> CreateFileResponse:
-    snippet = _create_or_update_file(destination_path, filename, file, settings)
-    return CreateFileResponse(file_snippet=snippet)
+@router.put("/files/{id}")
+async def update_file(id: UUID, ufile: UploadFile, file_request: FileRequest, biz_service: BizService = Depends(get_biz_service)) -> FileResponse:
+    return FileResponse(file_snippet=ApiFileSnippet(relative_path="", id=id))
 
 
-@router.delete("/files/{destination_path}/{filename}")
-async def delete_file(destination_path: str, filename: str, settings: RouteSettings) -> Response:
-    file_path = _get_file_path(settings, destination_path, filename=filename)
-    try:
-        os.remove(file_path)
-    except FileNotFoundError:
-        pass # delete is idempotent
+@router.delete("/files/{id}")
+async def delete_file(id: UUID, biz_service: BizService = Depends(get_biz_service)) -> Response:
+    # TODO
     return Response(status_code=204)
 
 
 
 @router.get("/file_snippets")
-async def get_file_snippets(settings: RouteSettings)-> FileSnippetList:
-    return FileSnippetList(files=[])
+async def get_file_snippets(biz_service: BizService = Depends(get_biz_service))-> ApiFileSnippetList:
+    return ApiFileSnippetList(files=[])
 
 class Reference(BaseModel):
-    file_snippet: FileSnippet
+    file_snippet: ApiFileSnippet
     content: str
 
 class QueryResponse(BaseModel):
@@ -82,5 +61,5 @@ class QueryRequest(BaseModel):
     question: str
 
 @router.post("/queries")
-async def create_query(query: QueryRequest, settings: RouteSettings) -> QueryResponse:
+async def create_query(query: QueryRequest, biz_service: BizService = Depends(get_biz_service)) -> QueryResponse:
     return QueryResponse(answer="", references=[])

@@ -9,6 +9,6 @@ CREATE TABLE seemantic_schema.document_snippet(
    id uuid PRIMARY KEY,
    creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
    last_modification_datetime TIMESTAMPTZ NOT NULL,
-   uri TEXT NOT NULL, -- if source is seemantic drive, it's the filepath relative to the seemantic drive path.
-   UNIQUE (uri)
+   relative_path TEXT NOT NULL, -- if source is seemantic drive, it's the filepath relative to the seemantic drive path.
+   UNIQUE (relative_path)
 );
