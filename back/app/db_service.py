@@ -1,7 +1,6 @@
 from app.model import DocumentSnippet
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from uuid import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import MetaData
@@ -29,8 +28,7 @@ class DbService:
 
     engine = create_async_engine(DATABASE_URL, echo=True)
 
-    session_factory = sessionmaker(engine, class_=AsyncSession) # type: ignore
-
+    session_factory = async_sessionmaker(engine, class_=AsyncSession)
 
     async def create_document_snippet(self, document_snippet: DocumentSnippet):
         async with self.session_factory() as session:
