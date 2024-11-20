@@ -1,11 +1,13 @@
 from functools import lru_cache
 import shutil
-from fastapi import Depends, UploadFile
+from typing import BinaryIO
+from fastapi import Depends
 from app.model import DocumentSnippet
 from app.db_service import DbService
 import os
 import uuid
 from app.settings import Settings, get_settings
+import hashlib
 
 class BizService:
 
@@ -19,16 +21,17 @@ class BizService:
     def _get_full_path(self, relative_path: str) -> str:
         return f"{self.seemantic_drive_root}/{relative_path}"
 
-    async def create_document(self, relative_path: str, file: UploadFile) -> DocumentSnippet:
+    async def create_document(self, relative_path: str, file: BinaryIO) -> DocumentSnippet:
         full_path = self._get_full_path(relative_path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
         with open(full_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            shutil.copyfileobj(file, buffer)
         
         snippet = DocumentSnippet(
             id=uuid.uuid4(),
-            relative_path=relative_path
+            relative_path=relative_path,
+            content_sha256=hashlib.sha256(file.read()).hexdigest(),
         )
 
         snippet = await self.db_service.create_document_snippet(snippet)

@@ -18,6 +18,7 @@ class DbDocumentSnippet(DbBase):
     id: Mapped[UUID] = mapped_column(primary_key=True)
     relative_path: Mapped[str]
     last_modification_datetime: Mapped[datetime]
+    content_sha256: Mapped[str]
 
 
 
@@ -33,7 +34,7 @@ class DbService:
     async def create_document_snippet(self, document_snippet: DocumentSnippet):
         async with self.session_factory() as session:
             async with session.begin():
-                db_doc = DbDocumentSnippet(id=document_snippet.id, relative_path=document_snippet.relative_path, last_modification_datetime=datetime.now())
+                db_doc = DbDocumentSnippet(id=document_snippet.id, relative_path=document_snippet.relative_path, last_modification_datetime=datetime.now(), content_sha256=document_snippet.content_sha256)
                 session.add(db_doc)
                 await session.commit()
                 return document_snippet

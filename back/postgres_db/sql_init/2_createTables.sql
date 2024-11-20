@@ -10,5 +10,6 @@ CREATE TABLE seemantic_schema.document_snippet(
    creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
    last_modification_datetime TIMESTAMPTZ NOT NULL,
    relative_path TEXT NOT NULL, -- if source is seemantic drive, it's the filepath relative to the seemantic drive path.
+   content_sha256 CHAR(64) NOT NULL,
    UNIQUE (relative_path)
 );
