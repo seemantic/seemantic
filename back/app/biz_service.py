@@ -19,8 +19,7 @@ class BizService:
     def _get_full_path(self, relative_path: str) -> str:
         return f"{self.seemantic_drive_root}/{relative_path}"
 
-    def create_document(self, relative_path: str, file: UploadFile) -> DocumentSnippet:
-        
+    async def create_document(self, relative_path: str, file: UploadFile) -> DocumentSnippet:
         full_path = self._get_full_path(relative_path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
@@ -31,6 +30,8 @@ class BizService:
             id=uuid.uuid4(),
             relative_path=relative_path
         )
+
+        snippet = await self.db_service.create_document_snippet(snippet)
         return snippet
     
 

@@ -7,7 +7,6 @@ from app.biz_service import BizService, get_biz_service
 router: APIRouter = APIRouter(prefix="/api/v1")
 
 
-
 @router.get("/")
 async def root() -> str:
     return "seemantic API says hello!"
@@ -27,7 +26,7 @@ class FileResponse(BaseModel):
 
 @router.post("/files/")
 async def create_file(file: UploadFile, relative_path: str = Form(...), biz_service: BizService = Depends(get_biz_service)) -> FileResponse:
-    snippet = biz_service.create_document(relative_path=relative_path, file=file)
+    snippet = await biz_service.create_document(relative_path=relative_path, file=file)
     return FileResponse(file_snippet=ApiFileSnippet(relative_path=snippet.relative_path, id=snippet.id))
 
 @router.put("/files/{id}")

@@ -35,7 +35,7 @@ class DbService:
     async def create_document_snippet(self, document_snippet: DocumentSnippet):
         async with self.session_factory() as session:
             async with session.begin():
-                db_doc = DbDocumentSnippet(id=document_snippet.id, relative_path=document_snippet.relative_path, datetime=datetime.now())
+                db_doc = DbDocumentSnippet(id=document_snippet.id, relative_path=document_snippet.relative_path, last_modification_datetime=datetime.now())
                 session.add(db_doc)
                 await session.commit()
                 return document_snippet
