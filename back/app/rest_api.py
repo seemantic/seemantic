@@ -3,6 +3,7 @@ from fastapi import UploadFile
 from pydantic import BaseModel
 from uuid import UUID
 from app.biz_service import BizService, get_biz_service
+from app.db_service import ResourceConflictError
 
 router: APIRouter = APIRouter(prefix="/api/v1")
 
@@ -23,6 +24,7 @@ class ApiFileSnippetList(BaseModel):
 
 class FileResponse(BaseModel):
     file_snippet: ApiFileSnippet
+
 
 
 @router.post("/files/")

@@ -1,9 +1,19 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, status, Request
 from app.rest_api import router
+from fastapi.responses import JSONResponse
+from app.db_service import ResourceConflictError
 import uvicorn
 
 
 app = FastAPI()
+
+@app.exception_handler(ResourceConflictError)
+async def resource_conflict_handler(request: Request, exception: ResourceConflictError) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"detail": str(exception)},
+    )
+
 
 app.include_router(router)
 
