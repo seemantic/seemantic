@@ -31,12 +31,20 @@ class BizService:
         snippet = DocumentSnippet(
             id=uuid.uuid4(),
             relative_path=relative_path,
-            content_sha256=hashlib.sha256(file.read()).hexdigest(),
+            content_sha256=self._compute_file_hash(file),
         )
 
         snippet = await self.db_service.create_document_snippet(snippet)
         return snippet
     
+
+    async def update_document(self, id: uuid.UUID, relative_path: str, file: BinaryIO) -> DocumentSnippet:
+        update_document_snippet = await self.db_service.update_document_snippet(
+            DocumentSnippet(id=id, relative_path=relative_path, content_sha256=self._compute_file_hash(file)))
+        return update_document_snippet
+
+    def _compute_file_hash(self, file: BinaryIO) -> str:
+        return hashlib.sha256(file.read()).hexdigest()
 
     def delete_document(self, id: uuid.UUID) -> None:
         file_path = "TODO"
