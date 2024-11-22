@@ -28,23 +28,12 @@ class FileResponse(BaseModel):
 
 
 @router.post("/files/")
-async def create_file(file: UploadFile, relative_path: str = Form(...), biz_service: BizService = Depends(get_biz_service)) -> FileResponse:
+async def upload_file(file: UploadFile, relative_path: str = Form(...), biz_service: BizService = Depends(get_biz_service)) -> FileResponse:
     snippet = await biz_service.create_document(relative_path=relative_path, file=file.file)
     return FileResponse(file_snippet=_to_api_file_snippet(snippet))
 
 def _to_api_file_snippet(snippet: DocumentSnippet) -> ApiFileSnippet:
     return ApiFileSnippet(relative_path=snippet.relative_path, id=snippet.id, content_sha256=snippet.content_sha256)
-
-@router.put("/files/{id}")
-async def update_file(id: UUID, file: UploadFile, relative_path: str = Form(...), biz_service: BizService = Depends(get_biz_service)) -> FileResponse:
-    snippet = await biz_service.update_document(id, relative_path, file.file)
-    return FileResponse(file_snippet=_to_api_file_snippet(snippet))
-
-@router.delete("/files/{id}")
-async def delete_file(id: UUID, biz_service: BizService = Depends(get_biz_service)) -> Response:
-    # TODO
-    return Response(status_code=204)
-
 
 
 @router.get("/file_snippets")
