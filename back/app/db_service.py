@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from app.model import DocumentSnippet
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -7,7 +6,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import MetaData,update
 from sqlalchemy.orm import declarative_base
 from datetime import datetime
-from sqlalchemy.inspection import inspect
 DATABASE_URL = "postgresql+asyncpg://seemantic_back:seemantic_back_test_pwd@localhost:5432/postgres"
 
 

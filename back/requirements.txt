@@ -8,3 +8,5 @@ ruff==0.1.13
 pydantic-settings==2.6.1
 python-dotenv==1.0.1
 watchfiles==0.24.0
+lancedb==0.16.0
+docling==2.7.0

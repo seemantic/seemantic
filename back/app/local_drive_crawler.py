@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from watchfiles import awatch # type: ignore
 from app.settings import get_settings
+from app.index_document import index_document
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,6 +27,7 @@ async def monitor_directory():
         for change_type, file_path in changes:
             if change_type == 1:  # File created
                 print(f"File created: {file_path}")
+                index_document(file_path)
             elif change_type == 2:  # File modified
                 print(f"File modified: {file_path}")
             elif change_type == 3:  # File deleted
