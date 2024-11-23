@@ -1,54 +1,33 @@
 import asyncio
-from watchfiles import watch
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from watchfiles import awatch # type: ignore
+from app.settings import get_settings
 
-# Example callback function
-def my_callback(event_type, file_path):
-    print(f"File {file_path} was {event_type}")
-
-# Coroutine to watch the directory
-async def watch_directory(directory, callback):
-    async for changes in watch(directory):
-        for event in changes:
-            event_type, file_path = event
-            callback(event_type, file_path)
-
-# Main coroutine to run other tasks alongside watching the directory
-async def main():
-    directory_to_watch = '/path/to/directory'
-    
-    # Start watching the directory in the background
-    watch_task = asyncio.create_task(watch_directory(directory_to_watch, my_callback))
-    
-    # Perform other tasks concurrently
-    print("Performing other tasks while watching directory...")
-    
-    # Example: Simulating other tasks
-    await asyncio.sleep(5)  # Simulating other work that takes 5 seconds
-    print("Finished doing other tasks.")
-    
-    # Allow the watcher to continue running
-    await watch_task  # This will keep the script running as the watcher is still active
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    monitor_task = asyncio.create_task(monitor_directory())
+    try:
+        yield  # Exception occurs, but we still hit finally
+    finally:
+        monitor_task.cancel()
+        try:
+            await monitor_task
+        except asyncio.CancelledError:
+            pass
 
 
-class LocalDriveCrawler:
-    def __init__(self, full_directory_path: str) -> None:
-        self.full_directory_path = full_directory_path
+async def monitor_directory():
+    """
+    Monitors the directory for changes and performs an action.
+    """
+    settings = get_settings()
+    async for changes in awatch(settings.seemantic_drive_root):
+        for change_type, file_path in changes:
+            if change_type == 1:  # File created
+                print(f"File created: {file_path}")
+            elif change_type == 2:  # File modified
+                print(f"File modified: {file_path}")
+            elif change_type == 3:  # File deleted
+                print(f"File deleted: {file_path}")
 
-    async def run(self):
-        watch_task = asyncio.create_task(watch_directory(directory_to_watch, my_callback))
-        
-        # Perform other tasks concurrently
-        print("Performing other tasks while watching directory...")
-        
-        # Example: Simulating other tasks
-        await asyncio.sleep(5)  # Simulating other work that takes 5 seconds
-        print("Finished doing other tasks.")
-        
-        # Allow the watcher to continue running
-        await watch_task  # This will keep the script running as the watcher is still active
-
-# Run the asyncio event loop
-#asyncio.run(main())
-
-
-# https://chatgpt.com/c/6740eff5-1c20-800f-85d4-2d0cc4b3158a

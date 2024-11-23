@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Form, Response
+from fastapi import APIRouter, Depends, Form
 from fastapi import UploadFile
 from pydantic import BaseModel
 from uuid import UUID
