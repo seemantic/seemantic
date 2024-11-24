@@ -1,9 +1,12 @@
 import asyncio
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from watchfiles import awatch # type: ignore
-from app.settings import get_settings
+
+from fastapi import FastAPI
+from watchfiles import awatch  # type: ignore
+
 from app.index_document import index_document
+from app.settings import get_settings
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,8 +22,7 @@ async def lifespan(app: FastAPI):
 
 
 async def monitor_directory():
-    """
-    Monitors the directory for changes and performs an action.
+    """Monitors the directory for changes and performs an action.
     """
     settings = get_settings()
     async for changes in awatch(settings.seemantic_drive_root):

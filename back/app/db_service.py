@@ -1,11 +1,13 @@
-from app.model import DocumentSnippet
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from uuid import UUID
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import MetaData,update
-from sqlalchemy.orm import declarative_base
 from datetime import datetime
+from uuid import UUID
+
+from sqlalchemy import MetaData, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Mapped, declarative_base, mapped_column
+
+from app.model import DocumentSnippet
+
 DATABASE_URL = "postgresql+asyncpg://seemantic_back:seemantic_back_test_pwd@localhost:5432/postgres"
 
 
@@ -23,7 +25,7 @@ class DbDocumentSnippet(DbBase):
 
 class ResourceConflictError(Exception):
     """Raised when a unique constraint is violated."""
-    pass
+
 
 class DbService:
 

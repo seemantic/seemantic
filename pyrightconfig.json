@@ -1,0 +1,10 @@
+{
+    "typeCheckingMode": "strict",
+    "include": ["back/app", "back/tests"],
+    "exclude": [
+        "**/__pycache__",
+        "**/venv",
+        "**/generated",
+        "**/postgres_db",
+      ],
+  }

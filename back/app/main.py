@@ -1,9 +1,10 @@
-from fastapi import FastAPI, status, Request
-from app.rest_api import router
-from fastapi.responses import JSONResponse
-from app.db_service import ResourceConflictError
 import uvicorn
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
+
+from app.db_service import ResourceConflictError
 from app.local_drive_crawler import lifespan
+from app.rest_api import router
 
 app = FastAPI(lifespan=lifespan)
 

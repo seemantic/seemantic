@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, Form
-from fastapi import UploadFile
-from pydantic import BaseModel
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, Form, UploadFile
+from pydantic import BaseModel
+
 from app.biz_service import BizService, get_biz_service
 from app.model import DocumentSnippet
 

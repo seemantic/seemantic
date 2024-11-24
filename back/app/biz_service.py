@@ -1,13 +1,16 @@
-from functools import lru_cache
-import shutil
-from typing import BinaryIO
-from fastapi import Depends
-from app.model import DocumentSnippet
-from app.db_service import DbService
-import os
-import uuid
-from app.settings import Settings, get_settings
 import hashlib
+import os
+import shutil
+import uuid
+from functools import lru_cache
+from typing import BinaryIO
+
+from fastapi import Depends
+
+from app.db_service import DbService
+from app.model import DocumentSnippet
+from app.settings import Settings, get_settings
+
 
 class BizService:
 

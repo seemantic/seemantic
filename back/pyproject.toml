@@ -1,0 +1,39 @@
+[tool.ruff]
+# Specify the target Python version
+target-version = "py310"  # Adjust for your Python version
+
+
+select = [
+    "A",   # PEP 8 compliance and correctness
+    "B",   # Best practices
+    "C",   # Cyclomatic complexity checks
+    "E",   # Pycodestyle errors
+    "F",   # Pyflakes checks
+    "I",   # Import order
+    "N",   # Naming conventions
+    "Q",   # Quote consistency
+    "S",   # Security-related rules
+    "T",   # Type hint checks
+    "UP",  # Pyupgrade suggestions
+    "PIE", # Pyflakes Import Errors
+    "ARG", # Arguments validation rules
+]
+
+
+# No rules ignored (default strict)
+ignore = []
+
+# Enforce a maximum line length (strict for style consistency)
+line-length = 120  # Adjust if necessary (e.g., 79 for stricter standards)
+
+# Avoid exclusions where possible (make exceptions only if necessary)
+exclude = [
+    ".git",
+    "__pycache__",
+    "venv",
+    "build",
+    "dist",
+]
+
+# Auto-fix issues wherever possible
+fix = true
