@@ -37,27 +37,31 @@ class DbService:
     session_factory = async_sessionmaker(engine, class_=AsyncSession)
 
     async def create_document_snippet(self, document_snippet: DocumentSnippet) -> DocumentSnippet:
-        async with self.session_factory() as session:
-            async with session.begin():
-                try:
-                    db_doc = self._to_db_document_snippet(document_snippet)
-                    session.add(db_doc)
-                    await session.commit()
-                    return document_snippet
-                except IntegrityError:
-                    raise ResourceConflictError(f"Document at path '{document_snippet.relative_path}' already exists")
+        async with self.session_factory() as session, session.begin():
+            try:
+                db_doc = self._to_db_document_snippet(document_snippet)
+                session.add(db_doc)
+                await session.commit()
+                return document_snippet
+            except IntegrityError as exc:
+                raise ResourceConflictError(
+                    f"Document at path '{document_snippet.relative_path}' already exists"
+                ) from exc
 
     def _to_db_document_snippet(self, document_snippet: DocumentSnippet) -> DbDocumentSnippet:
-        return DbDocumentSnippet(id=document_snippet.id, relative_path=document_snippet.relative_path, last_modification_datetime=datetime.now(), content_sha256=document_snippet.content_sha256)
-
+        return DbDocumentSnippet(
+            id=document_snippet.id,
+            relative_path=document_snippet.relative_path,
+            last_modification_datetime=datetime.now(),
+            content_sha256=document_snippet.content_sha256,
+        )
 
     async def update_document_snippet(self, document_snippet: DocumentSnippet) -> DocumentSnippet:
         db_snippet: DbDocumentSnippet = self._to_db_document_snippet(document_snippet)
-        update_dict = {col: getattr(db_snippet, col) for col in DbDocumentSnippet.__table__.columns.keys()}
-        
-        async with self.session_factory() as session:
-            async with session.begin():
-                stmt = update(DbDocumentSnippet).where(DbDocumentSnippet.id == document_snippet.id).values(update_dict)
-                await session.execute(stmt)
-                await session.commit()
-                return document_snippet
+        update_dict = {col: getattr(db_snippet, col) for col in DbDocumentSnippet.__table__.columns}
+
+        async with self.session_factory() as session, session.begin():
+            stmt = update(DbDocumentSnippet).where(DbDocumentSnippet.id == document_snippet.id).values(update_dict)
+            await session.execute(stmt)
+            await session.commit()
+            return document_snippet

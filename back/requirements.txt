@@ -11,3 +11,4 @@ watchfiles==0.24.0
 lancedb==0.16.0
 docling==2.7.0
 pyright==1.1.389
+black==24.10.0

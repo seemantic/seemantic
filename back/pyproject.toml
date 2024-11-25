@@ -22,7 +22,7 @@ select = [
 
 
 # No rules ignored (default strict)
-ignore = []
+ignore = ["SIM105"]
 
 
 # Enforce a maximum line length (strict for style consistency)
@@ -44,3 +44,8 @@ fix = true
 [tool.ruff.lint.flake8-builtins]
 # A002: allow for "id" naming
 builtins-ignorelist = ["id"]
+
+
+[tool.black]
+line-length = 120
+target-version = ['py310']
