@@ -17,11 +17,13 @@ select = [
     "UP",  # Pyupgrade suggestions
     "PIE", # Pyflakes Import Errors
     "ARG", # Arguments validation rules
+    "SIM",
 ]
 
 
 # No rules ignored (default strict)
 ignore = []
+
 
 # Enforce a maximum line length (strict for style consistency)
 line-length = 120  # Adjust if necessary (e.g., 79 for stricter standards)
@@ -37,3 +39,8 @@ exclude = [
 
 # Auto-fix issues wherever possible
 fix = true
+
+
+[tool.ruff.lint.flake8-builtins]
+# A002: allow for "id" naming
+builtins-ignorelist = ["id"]

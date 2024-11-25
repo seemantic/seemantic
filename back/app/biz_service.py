@@ -1,14 +1,12 @@
 import hashlib
 import os
 import shutil
-import uuid
 from functools import lru_cache
 from typing import BinaryIO
 
 from fastapi import Depends
 
 from app.db_service import DbService
-from app.model import DocumentSnippet
 from app.settings import Settings, get_settings
 
 
@@ -27,35 +25,17 @@ class BizService:
     def _compute_file_hash(self, file: BinaryIO) -> str:
         return hashlib.sha256(file.read()).hexdigest()
     
-    def _write_file(self, relative_path: str, file: BinaryIO):
+    def create_or_update_document(self, relative_path: str, file: BinaryIO):
+        
         full_path = self._get_full_path(relative_path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, "wb") as buffer:
             shutil.copyfileobj(file, buffer)
 
-    async def create_document(self, relative_path: str, file: BinaryIO) -> DocumentSnippet:
-        self._write_file(relative_path, file)
-        snippet = DocumentSnippet(
-            id=uuid.uuid4(),
-            relative_path=relative_path,
-            content_sha256=self._compute_file_hash(file),
-        )
-        snippet = await self.db_service.create_document_snippet(snippet)
-        return snippet
 
-    async def update_document(self, id: uuid.UUID, relative_path: str, file: BinaryIO) -> DocumentSnippet:
-        self._write_file(relative_path, file)
-        update_document_snippet = await self.db_service.update_document_snippet(
-            DocumentSnippet(id=id, relative_path=relative_path, content_sha256=self._compute_file_hash(file)))
-        return update_document_snippet
-
-
-
-    def delete_document(self, id: uuid.UUID) -> None:
-        
-        file_path = "TODO"
+    def delete_document(self, relative_path: str) -> None:
         try:
-            os.remove(self._get_full_path(file_path))
+            os.remove(self._get_full_path(relative_path))
         except FileNotFoundError:
             pass # delete is idempotent
 

@@ -1,10 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Form, UploadFile
+from fastapi import APIRouter, Depends, Form, Response, UploadFile, status
 from pydantic import BaseModel
 
 from app.biz_service import BizService, get_biz_service
-from app.model import DocumentSnippet
 
 router: APIRouter = APIRouter(prefix="/api/v1")
 
@@ -23,18 +22,16 @@ class ApiFileSnippetList(BaseModel):
     files: list[ApiFileSnippet]
 
 
-class FileResponse(BaseModel):
-    file_snippet: ApiFileSnippet
+@router.put("/files/", status_code=status.HTTP_201_CREATED)
+async def upload_file(file: UploadFile, response: Response, relative_path: str = Form(...), biz_service: BizService = Depends(get_biz_service)):
+    biz_service.create_or_update_document(relative_path=relative_path, file=file.file)
+    location = f"/files/{relative_path}"
+    response.headers["Location"] = location
+    return None
 
-
-
-@router.post("/files/")
-async def upload_file(file: UploadFile, relative_path: str = Form(...), biz_service: BizService = Depends(get_biz_service)) -> FileResponse:
-    snippet = await biz_service.create_document(relative_path=relative_path, file=file.file)
-    return FileResponse(file_snippet=_to_api_file_snippet(snippet))
-
-def _to_api_file_snippet(snippet: DocumentSnippet) -> ApiFileSnippet:
-    return ApiFileSnippet(relative_path=snippet.relative_path, id=snippet.id, content_sha256=snippet.content_sha256)
+@router.delete("/files/{relative_path}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_file(relative_path: str, biz_service: BizService = Depends(get_biz_service)):
+    biz_service.delete_document(relative_path)
 
 
 @router.get("/file_snippets")
