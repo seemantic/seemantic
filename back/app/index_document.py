@@ -1,4 +1,4 @@
-from docling.document_converter import DocumentConverter  # type: ignore
+from docling.document_converter import DocumentConverter  # type: ignore[reportMissingTypeStubs]
 
 
 def index_document(document_full_path: str):

@@ -1,7 +1,7 @@
 import hashlib
-import os
 import shutil
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated, BinaryIO
 
 from fastapi import Depends
@@ -25,16 +25,16 @@ class BizService:
     def _compute_file_hash(self, file: BinaryIO) -> str:
         return hashlib.sha256(file.read()).hexdigest()
 
-    def create_or_update_document(self, relative_path: str, file: BinaryIO):
+    def create_or_update_document(self, relative_path: str, file: BinaryIO) -> None:
 
         full_path = self._get_full_path(relative_path)
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        with open(full_path, "wb") as buffer:
+        Path(full_path).parent.mkdir(parents=True, exist_ok=True)
+        with Path(full_path).open("wb") as buffer:
             shutil.copyfileobj(file, buffer)
 
     def delete_document(self, relative_path: str) -> None:
         try:
-            os.remove(self._get_full_path(relative_path))
+            Path(self._get_full_path(relative_path)).unlink(missing_ok=True)
         except FileNotFoundError:
             pass  # delete is idempotent
 
@@ -42,7 +42,7 @@ class BizService:
 @lru_cache
 def get_biz_service(settings: DepSettings) -> BizService:
     return BizService(
-        db_service=DbService(), seemantic_drive_root=settings.seemantic_drive_root
+        db_service=DbService(), seemantic_drive_root=settings.seemantic_drive_root,
     )
 
 

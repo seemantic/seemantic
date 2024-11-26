@@ -18,11 +18,12 @@ select = [
     "PIE", # Pyflakes Import Errors
     "ARG", # Arguments validation rules
     "SIM",
+    "ALL"
 ]
 
 
 # No rules ignored (default strict)
-ignore = ["SIM105"]
+ignore = ["SIM105", "D", "ANN101"]
 
 
 # Enforce a maximum line length (strict for style consistency)

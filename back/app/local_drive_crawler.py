@@ -1,8 +1,9 @@
 import asyncio
 from contextlib import asynccontextmanager, suppress
+from typing import Any
 
 from fastapi import FastAPI
-from watchfiles import awatch  # type: ignore
+from watchfiles import awatch  # type: ignore[reportUnknownVariable]
 
 from app.index_document import index_document
 from app.settings import get_settings
@@ -19,12 +20,12 @@ async def lifespan(_app: FastAPI):
             await monitor_task
 
 
-async def monitor_directory():
+async def monitor_directory() -> None:
     """Monitors the directory for changes and performs an action."""
     settings = get_settings()
     async for changes in awatch(settings.seemantic_drive_root):
         for change_type, file_path in changes:
             if change_type == 1:  # File created
                 index_document(file_path)
-            elif change_type == 2 or change_type == 3:  # File modified
+            elif change_type in (2, 3):  # File modified
                 pass

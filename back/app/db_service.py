@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import MetaData, update
@@ -37,18 +37,19 @@ class DbService:
     session_factory = async_sessionmaker(engine, class_=AsyncSession)
 
     async def create_document_snippet(
-        self, document_snippet: DocumentSnippet
+        self, document_snippet: DocumentSnippet,
     ) -> DocumentSnippet:
         async with self.session_factory() as session, session.begin():
             try:
                 db_doc = self._to_db_document_snippet(document_snippet)
                 session.add(db_doc)
                 await session.commit()
-                return document_snippet
             except IntegrityError as exc:
                 raise ResourceConflictError(
                     f"Document at path '{document_snippet.relative_path}' already exists"
                 ) from exc
+            else:
+                return document_snippet
 
     def _to_db_document_snippet(
         self, document_snippet: DocumentSnippet
@@ -56,7 +57,7 @@ class DbService:
         return DbDocumentSnippet(
             id=document_snippet.id,
             relative_path=document_snippet.relative_path,
-            last_modification_datetime=datetime.now(),
+            last_modification_datetime=datetime.now(tz=timezone.utc),
             content_sha256=document_snippet.content_sha256,
         )
 
@@ -77,3 +78,6 @@ class DbService:
             await session.execute(stmt)
             await session.commit()
             return document_snippet
+
+
+TODO NICO: En train de corriger les erreurs ruffs "all"

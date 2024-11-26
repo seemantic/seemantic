@@ -11,7 +11,7 @@ app = FastAPI(lifespan=lifespan)
 
 @app.exception_handler(ResourceConflictError)
 async def resource_conflict_handler(
-    _request: Request, exception: ResourceConflictError
+    _request: Request, exception: ResourceConflictError,
 ) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_409_CONFLICT,
@@ -23,4 +23,4 @@ app.include_router(router)
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000)  # type: ignore
+    uvicorn.run(app, host="localhost", port=8000)  # type: ignore[ReportUnknownMember]
