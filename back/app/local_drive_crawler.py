@@ -9,7 +9,7 @@ from app.settings import get_settings
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     monitor_task = asyncio.create_task(monitor_directory())
     try:
         yield  # Exception occurs, but we still hit finally
@@ -26,7 +26,5 @@ async def monitor_directory():
         for change_type, file_path in changes:
             if change_type == 1:  # File created
                 index_document(file_path)
-            elif change_type == 2:  # File modified
-                pass
-            elif change_type == 3:  # File deleted
+            elif change_type == 2 or change_type == 3:  # File modified
                 pass

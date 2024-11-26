@@ -1,1 +1,0 @@
-fastapi dev ./back/app/main.py

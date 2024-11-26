@@ -1,9 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Form, Response, UploadFile, status
+from fastapi import APIRouter, Form, Response, UploadFile, status
 from pydantic import BaseModel
 
-from app.biz_service import BizService, get_biz_service
+from app.biz_service import DepBizService
 
 router: APIRouter = APIRouter(prefix="/api/v1")
 
@@ -27,8 +27,8 @@ class ApiFileSnippetList(BaseModel):
 async def upload_file(
     file: UploadFile,
     response: Response,
+    biz_service: DepBizService,
     relative_path: str = Form(...),
-    biz_service: BizService = Depends(get_biz_service),
 ):
     biz_service.create_or_update_document(relative_path=relative_path, file=file.file)
     location = f"/files/{relative_path}"
@@ -37,12 +37,12 @@ async def upload_file(
 
 
 @router.delete("/files/{relative_path}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_file(relative_path: str, biz_service: BizService = Depends(get_biz_service)):
+async def delete_file(relative_path: str, biz_service: DepBizService):
     biz_service.delete_document(relative_path)
 
 
 @router.get("/file_snippets")
-async def get_file_snippets(biz_service: BizService = Depends(get_biz_service)) -> ApiFileSnippetList:
+async def get_file_snippets(_biz_service: DepBizService) -> ApiFileSnippetList:
     return ApiFileSnippetList(files=[])
 
 
@@ -61,5 +61,7 @@ class QueryRequest(BaseModel):
 
 
 @router.post("/queries")
-async def create_query(query: QueryRequest, biz_service: BizService = Depends(get_biz_service)) -> QueryResponse:
+async def create_query(
+    _query: QueryRequest, _biz_service: DepBizService
+) -> QueryResponse:
     return QueryResponse(answer="", references=[])

@@ -36,7 +36,9 @@ class DbService:
 
     session_factory = async_sessionmaker(engine, class_=AsyncSession)
 
-    async def create_document_snippet(self, document_snippet: DocumentSnippet) -> DocumentSnippet:
+    async def create_document_snippet(
+        self, document_snippet: DocumentSnippet
+    ) -> DocumentSnippet:
         async with self.session_factory() as session, session.begin():
             try:
                 db_doc = self._to_db_document_snippet(document_snippet)
@@ -48,7 +50,9 @@ class DbService:
                     f"Document at path '{document_snippet.relative_path}' already exists"
                 ) from exc
 
-    def _to_db_document_snippet(self, document_snippet: DocumentSnippet) -> DbDocumentSnippet:
+    def _to_db_document_snippet(
+        self, document_snippet: DocumentSnippet
+    ) -> DbDocumentSnippet:
         return DbDocumentSnippet(
             id=document_snippet.id,
             relative_path=document_snippet.relative_path,
@@ -56,12 +60,20 @@ class DbService:
             content_sha256=document_snippet.content_sha256,
         )
 
-    async def update_document_snippet(self, document_snippet: DocumentSnippet) -> DocumentSnippet:
+    async def update_document_snippet(
+        self, document_snippet: DocumentSnippet
+    ) -> DocumentSnippet:
         db_snippet: DbDocumentSnippet = self._to_db_document_snippet(document_snippet)
-        update_dict = {col: getattr(db_snippet, col) for col in DbDocumentSnippet.__table__.columns}
+        update_dict = {
+            col: getattr(db_snippet, col) for col in DbDocumentSnippet.__table__.columns
+        }
 
         async with self.session_factory() as session, session.begin():
-            stmt = update(DbDocumentSnippet).where(DbDocumentSnippet.id == document_snippet.id).values(update_dict)
+            stmt = (
+                update(DbDocumentSnippet)
+                .where(DbDocumentSnippet.id == document_snippet.id)
+                .values(update_dict)
+            )
             await session.execute(stmt)
             await session.commit()
             return document_snippet

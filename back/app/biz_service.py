@@ -2,12 +2,12 @@ import hashlib
 import os
 import shutil
 from functools import lru_cache
-from typing import BinaryIO
+from typing import Annotated, BinaryIO
 
 from fastapi import Depends
 
 from app.db_service import DbService
-from app.settings import Settings, get_settings
+from app.settings import DepSettings
 
 
 class BizService:
@@ -40,5 +40,10 @@ class BizService:
 
 
 @lru_cache
-def get_biz_service(settings: Settings = Depends(get_settings)) -> BizService:
-    return BizService(db_service=DbService(), seemantic_drive_root=settings.seemantic_drive_root)
+def get_biz_service(settings: DepSettings) -> BizService:
+    return BizService(
+        db_service=DbService(), seemantic_drive_root=settings.seemantic_drive_root
+    )
+
+
+DepBizService = Annotated[BizService, Depends(get_biz_service)]
