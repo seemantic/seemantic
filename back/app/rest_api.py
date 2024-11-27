@@ -61,6 +61,7 @@ class QueryRequest(BaseModel):
 
 @router.post("/queries")
 async def create_query(
-    _query: QueryRequest, _biz_service: DepBizService,
+    _query: QueryRequest,
+    _biz_service: DepBizService,
 ) -> QueryResponse:
     return QueryResponse(answer="", references=[])

@@ -51,6 +51,8 @@ class DbService:
             else:
                 return document_snippet
 
+
+
     def _to_db_document_snippet(
         self, document_snippet: DocumentSnippet
     ) -> DbDocumentSnippet:

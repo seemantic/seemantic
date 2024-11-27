@@ -6,17 +6,14 @@ from typing import Annotated, BinaryIO
 
 from fastapi import Depends
 
-from app.db_service import DbService
 from app.settings import DepSettings
 
 
 class BizService:
 
-    db_service: DbService
     seemantic_drive_root: str
 
-    def __init__(self, db_service: DbService, seemantic_drive_root: str) -> None:
-        self.db_service = db_service
+    def __init__(self, seemantic_drive_root: str) -> None:
         self.seemantic_drive_root = seemantic_drive_root
 
     def _get_full_path(self, relative_path: str) -> str:
@@ -41,9 +38,7 @@ class BizService:
 
 @lru_cache
 def get_biz_service(settings: DepSettings) -> BizService:
-    return BizService(
-        db_service=DbService(), seemantic_drive_root=settings.seemantic_drive_root,
-    )
+    return BizService(seemantic_drive_root=settings.seemantic_drive_root)
 
 
 DepBizService = Annotated[BizService, Depends(get_biz_service)]

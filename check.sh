@@ -1,2 +1,3 @@
+black back
 pyright
-ruff check back
+ruff check back --fix
