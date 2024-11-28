@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Form, Response, UploadFile, status
+from fastapi import APIRouter, Response, UploadFile, status
 from pydantic import BaseModel
 
 from app.biz_service import DepBizService
@@ -23,12 +23,12 @@ class ApiFileSnippetList(BaseModel):
     files: list[ApiFileSnippet]
 
 
-@router.put("/files/", status_code=status.HTTP_201_CREATED)
-async def upload_file(
+@router.put("/files/{relative_path}", status_code=status.HTTP_201_CREATED)
+async def upsert_file(
+    relative_path: str,
     file: UploadFile,
     response: Response,
     biz_service: DepBizService,
-    relative_path: str = Form(...),
 ) -> None:
     biz_service.create_or_update_document(relative_path=relative_path, file=file.file)
     location = f"/files/{relative_path}"
