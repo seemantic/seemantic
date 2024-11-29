@@ -28,7 +28,7 @@ def test_upload_file_index_it():
     # ko if folder before dest_relative_path
     # ko if run at git root level instead of back (settings not found) -> OK ? Convention on run tout depuis back pour le dev du back ?
     #    
-    dest_relative_path = "dest_name.txt"
+    dest_relative_path = "relative_dir/dest_name.txt"
     # get the file path, independently of the folder executing the pytest script
     origin_path = Path(__file__).parent / "test_file.txt"
 

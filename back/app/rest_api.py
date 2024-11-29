@@ -23,7 +23,8 @@ class ApiFileSnippetList(BaseModel):
     files: list[ApiFileSnippet]
 
 
-@router.put("/files/{relative_path}", status_code=status.HTTP_201_CREATED)
+# relative_path:path is a fastApi "path converter" to capture a path parameter with "/" inside 'relative_path'
+@router.put("/files/{relative_path:path}", status_code=status.HTTP_201_CREATED)
 async def upsert_file(
     relative_path: str,
     file: UploadFile,
