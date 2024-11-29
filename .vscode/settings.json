@@ -1,7 +1,10 @@
 {
     "python.testing.pytestArgs": [
-        "back"
+        // from /back folder execution path, pytest config is at root (hence ".") inside the pyproject.toml
+        "."
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    // execution path to run pytest is the /back folder
+    "python.testing.cwd": "${workspaceFolder}/back",
 }
