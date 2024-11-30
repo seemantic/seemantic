@@ -1,6 +1,8 @@
 # test upload_file
+import shutil
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.settings import Settings, get_settings
@@ -11,6 +13,21 @@ client = TestClient(app)
 
 def get_settings_override() -> Settings:
     return Settings(seemantic_drive_root="tests/.generated/seemantic_drive")
+
+
+# remove generated files before each test
+@pytest.fixture(autouse=True)
+def _cleanup() -> None:  # pyright: ignore[reportUnusedFunction]
+    shutil.rmtree("tests/.generated/", ignore_errors=True)
+
+
+@pytest.fixture()
+def store_file_on_semantic_drive() -> str:
+    dest_relative_path = "relative_dir/dest_file.txt"
+    dest_full_path = f"{get_settings_override().seemantic_drive_root}/{dest_relative_path}"
+    Path(dest_full_path).parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile("./tests/existing_file_in_drive.txt", dest_full_path)
+    return dest_relative_path
 
 
 app.dependency_overrides[get_settings] = get_settings_override
@@ -29,19 +46,31 @@ app.dependency_overrides[get_settings] = get_settings_override
 # - delete file not existing, do nothing
 
 
-def test_upload_file() -> None:
+def test_upsert_file_on_new_path() -> None:
 
-    dest_relative_path = "relative_dir/dest_name.txt"
-    # get the file path, independently of the folder executing the pytest script
-    origin_path = "./tests/test_file.txt"
+    dest_relative_path = "new_dir/test_upsert_file_on_new_path.txt"
+    origin_path = "./tests/to_upload.txt"
 
     with Path(origin_path).open("rb") as origin_file:
         response = client.put(f"/api/v1/files/{dest_relative_path}", files={"file": origin_file})
         assert response.headers["Location"] == f"/files/{dest_relative_path}"
         assert response.status_code == 201
-        # check that the file is stored
         full_dest_path = f"{get_settings_override().seemantic_drive_root}/{dest_relative_path}"
+        assert Path(full_dest_path).read_text() == "to_upload"
 
-        origin_file.seek(0)  # reset the cursor to the beginning to read it again (it's already read by client.put call)
-        with Path(full_dest_path).open("rb") as dest_file:
-            assert dest_file.read() == origin_file.read()
+
+def test_upsert_file_on_existing_path(store_file_on_semantic_drive: str) -> None:
+    origin_path = "./tests/to_replace.txt"
+    with Path(origin_path).open("rb") as origin_file:
+        response = client.put(f"/api/v1/files/{store_file_on_semantic_drive}", files={"file": origin_file})
+        assert response.headers["Location"] == f"/files/{store_file_on_semantic_drive}"
+        assert response.status_code == 201
+        full_dest_path = f"{get_settings_override().seemantic_drive_root}/{store_file_on_semantic_drive}"
+        assert Path(full_dest_path).read_text() == "to_replace"
+
+
+def test_get_file(store_file_on_semantic_drive: str) -> None:
+    response = client.get(f"/api/v1/files/{store_file_on_semantic_drive}")
+    assert response.status_code == 200
+    assert response.headers["Content-Type"] == "text/plain; charset=utf-8"
+    assert response.text == "existing_file_in_drive"
