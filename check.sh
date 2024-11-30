@@ -1,3 +1,6 @@
-black back
+set -e
+
+cd ./back
+black .
 pyright
-ruff check back --fix
+ruff check . --fix
