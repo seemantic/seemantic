@@ -1,10 +1,9 @@
-from uuid import UUID
-
 from fastapi import APIRouter, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.biz_service import DepBizService
+from app.model import DocumentSnippet
 
 router: APIRouter = APIRouter(prefix="/api/v1")
 
@@ -16,8 +15,6 @@ async def root() -> str:
 
 class ApiFileSnippet(BaseModel):
     relative_path: str
-    id: UUID
-    content_sha256: str
 
 
 class ApiFileSnippetList(BaseModel):
@@ -52,8 +49,9 @@ async def get_file(relative_path: str, biz_service: DepBizService) -> FileRespon
 
 
 @router.get("/file_snippets")
-async def get_file_snippets(_biz_service: DepBizService) -> ApiFileSnippetList:
-    return ApiFileSnippetList(files=[])
+async def get_file_snippets(biz_service: DepBizService) -> ApiFileSnippetList:
+    snippets: list[DocumentSnippet] = biz_service.get_document_snippets()
+    return ApiFileSnippetList(files=[ApiFileSnippet(relative_path=snippet.relative_path) for snippet in snippets])
 
 
 class Reference(BaseModel):

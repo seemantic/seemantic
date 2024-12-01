@@ -6,18 +6,19 @@ from typing import Annotated, BinaryIO
 
 from fastapi import Depends
 
+from app.model import DocumentSnippet
 from app.settings import DepSettings
 
 
 class BizService:
 
-    seemantic_drive_root: str
+    seemantic_drive_root: Path
 
     def __init__(self, seemantic_drive_root: str) -> None:
-        self.seemantic_drive_root = seemantic_drive_root
+        self.seemantic_drive_root = Path(seemantic_drive_root)
 
     def get_full_path(self, relative_path: str) -> Path:
-        return Path(f"{self.seemantic_drive_root}/{relative_path}")
+        return self.seemantic_drive_root / relative_path
 
     def _compute_file_hash(self, file: BinaryIO) -> str:
         return hashlib.sha256(file.read()).hexdigest()
@@ -35,6 +36,15 @@ class BizService:
 
     def delete_document(self, relative_path: str) -> None:
         self.get_full_path(relative_path).unlink(missing_ok=True)
+
+    def get_document_snippets(self) -> list[DocumentSnippet]:
+        file_paths = [
+            str(path.relative_to(self.seemantic_drive_root))
+            for path in self.seemantic_drive_root.rglob("*")
+            if path.is_file()
+        ]
+
+        return [DocumentSnippet(relative_path=relative_path) for relative_path in file_paths]
 
 
 @lru_cache

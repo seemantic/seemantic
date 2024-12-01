@@ -10,24 +10,26 @@ from main import app
 
 client = TestClient(app)
 
+semantic_drive_root = "tests/.generated/seemantic_drive"
+relative_file_path_on_drive = "relative_dir/dest_file.txt"
+absolute_file_path_on_drive = f"{semantic_drive_root}/{relative_file_path_on_drive}"
+
 
 def get_settings_override() -> Settings:
-    return Settings(seemantic_drive_root="tests/.generated/seemantic_drive")
+    return Settings(seemantic_drive_root=semantic_drive_root)
 
 
 # remove generated files before each test
 @pytest.fixture(autouse=True)
 def _cleanup() -> None:  # pyright: ignore[reportUnusedFunction]
-    shutil.rmtree("tests/.generated/", ignore_errors=True)
+    shutil.rmtree(semantic_drive_root, ignore_errors=True)
 
 
 @pytest.fixture()
 def store_file_on_semantic_drive() -> str:
-    dest_relative_path = "relative_dir/dest_file.txt"
-    dest_full_path = f"{get_settings_override().seemantic_drive_root}/{dest_relative_path}"
-    Path(dest_full_path).parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile("./tests/existing_file_in_drive.txt", dest_full_path)
-    return dest_relative_path
+    Path(absolute_file_path_on_drive).parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile("./tests/existing_file_in_drive.txt", absolute_file_path_on_drive)
+    return relative_file_path_on_drive
 
 
 app.dependency_overrides[get_settings] = get_settings_override
@@ -89,3 +91,11 @@ def test_delete_file(store_file_on_semantic_drive: str) -> None:
 def test_delete_file_without_file() -> None:
     response = client.delete("/api/v1/files/this_file_does_not_exist.txt")
     assert response.status_code == 204
+
+
+def test_get_file_snippets(store_file_on_semantic_drive: str) -> None:
+    response = client.get("/api/v1/file_snippets")
+    assert response.status_code == 200
+    result = response.json()
+    assert len(result["files"]) == 1
+    assert result["files"][0]["relative_path"] == relative_file_path_on_drive
