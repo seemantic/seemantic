@@ -65,7 +65,7 @@ class QueryResponse(BaseModel):
 
 
 class QueryRequest(BaseModel):
-    question: str
+    query: str
 
 
 @router.post("/queries")
