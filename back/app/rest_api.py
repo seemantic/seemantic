@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Response, UploadFile, status
+from fastapi import APIRouter, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -43,16 +43,12 @@ async def delete_file(relative_path: str, biz_service: DepBizService) -> None:
 
 
 @router.get("/files/{relative_path:path}")
-async def get_file(file_name: str) -> FileResponse:
-    # Create the full path to the file
-    # file_path = FILE_DIRECTORY / file_name
+async def get_file(relative_path: str, biz_service: DepBizService) -> FileResponse:
+    doc_full_path = biz_service.get_full_file_path_if_exists(relative_path)
+    if doc_full_path:
+        return FileResponse(doc_full_path)
 
-    # Check if the file exists
-    # if not file_path.is_file():
-    #    raise HTTPException(status_code=404, detail="File not found")
-
-    # Return the file as a response
-    return FileResponse(path="TODO")
+    raise HTTPException(status_code=404, detail=f"File {relative_path} not found")
 
 
 @router.get("/file_snippets")

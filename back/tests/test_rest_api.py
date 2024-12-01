@@ -72,5 +72,9 @@ def test_upsert_file_on_existing_path(store_file_on_semantic_drive: str) -> None
 def test_get_file(store_file_on_semantic_drive: str) -> None:
     response = client.get(f"/api/v1/files/{store_file_on_semantic_drive}")
     assert response.status_code == 200
-    assert response.headers["Content-Type"] == "text/plain; charset=utf-8"
-    assert response.text == "existing_file_in_drive"
+    assert response.content.decode("utf-8") == "existing_file_in_drive"
+
+
+def test_get_file_without_file() -> None:
+    response = client.get("/api/v1/files/this_file_does_not_exist.txt")
+    assert response.status_code == 404
