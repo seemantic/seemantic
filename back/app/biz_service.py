@@ -34,10 +34,7 @@ class BizService:
         return full_path if full_path.is_file() else None
 
     def delete_document(self, relative_path: str) -> None:
-        try:
-            Path(self.get_full_path(relative_path)).unlink(missing_ok=True)
-        except FileNotFoundError:
-            pass  # delete is idempotent
+        self.get_full_path(relative_path).unlink(missing_ok=True)
 
 
 @lru_cache

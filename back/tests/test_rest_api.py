@@ -78,3 +78,14 @@ def test_get_file(store_file_on_semantic_drive: str) -> None:
 def test_get_file_without_file() -> None:
     response = client.get("/api/v1/files/this_file_does_not_exist.txt")
     assert response.status_code == 404
+
+
+def test_delete_file(store_file_on_semantic_drive: str) -> None:
+    response = client.delete(f"/api/v1/files/{store_file_on_semantic_drive}")
+    assert response.status_code == 204
+    assert not Path(f"{get_settings_override().seemantic_drive_root}/{store_file_on_semantic_drive}").exists()
+
+
+def test_delete_file_without_file() -> None:
+    response = client.delete("/api/v1/files/this_file_does_not_exist.txt")
+    assert response.status_code == 204

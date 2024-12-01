@@ -37,7 +37,7 @@ async def upsert_file(
     response.headers["Location"] = location
 
 
-@router.delete("/files/{relative_path}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/files/{relative_path:path}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_file(relative_path: str, biz_service: DepBizService) -> None:
     biz_service.delete_document(relative_path)
 
