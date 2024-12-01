@@ -3,27 +3,10 @@
 target-version = "py310"  # Adjust for your Python version
 
 
-select = [
-    "A",   # PEP 8 compliance and correctness
-    "B",   # Best practices
-    "C",   # Cyclomatic complexity checks
-    "E",   # Pycodestyle errors
-    "F",   # Pyflakes checks
-    "I",   # Import order
-    "N",   # Naming conventions
-    "Q",   # Quote consistency
-    "S",   # Security-related rules
-    "T",   # Type hint checks
-    "UP",  # Pyupgrade suggestions
-    "PIE", # Pyflakes Import Errors
-    "ARG", # Arguments validation rules
-    "SIM",
+lint.select = [
     "ALL"
 ]
-
-
-# No rules ignored (default strict)
-ignore = ["SIM105", "D", "ANN101"]
+lint.ignore = ["D", "TC001"]
 
 
 # Enforce a maximum line length (strict for style consistency)

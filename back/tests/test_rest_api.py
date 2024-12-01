@@ -25,7 +25,7 @@ def _cleanup() -> None:  # pyright: ignore[reportUnusedFunction]
     shutil.rmtree(semantic_drive_root, ignore_errors=True)
 
 
-@pytest.fixture()
+@pytest.fixture
 def store_file_on_semantic_drive() -> str:
     Path(absolute_file_path_on_drive).parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile("./tests/existing_file_in_drive.txt", absolute_file_path_on_drive)
