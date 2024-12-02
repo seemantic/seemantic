@@ -35,7 +35,6 @@ def store_file_on_semantic_drive() -> str:
 app.dependency_overrides[get_settings] = get_settings_override
 
 
-
 def test_upsert_file_on_new_path() -> None:
 
     dest_relative_path = "new_dir/test_upsert_file_on_new_path.txt"
@@ -87,6 +86,7 @@ def test_get_file_snippets(store_file_on_semantic_drive: str) -> None:
     result = response.json()
     assert len(result["files"]) == 1
     assert result["files"][0]["relative_path"] == relative_file_path_on_drive
+
 
 def test_post_query(store_file_on_semantic_drive: str) -> None:
     query = "what are the main components of the transformer architecture"
