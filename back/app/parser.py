@@ -4,24 +4,17 @@ from docling.document_converter import ConversionResult, DocumentConverter  # ty
 from pydantic import BaseModel
 
 
-class Block(BaseModel):
-    content: str
-    level: int  # start with 0 (document title)
-
-
 class Document(BaseModel):
-    blocks: list[Block]
-
-
-def _docling_result_to_doc(_: ConversionResult) -> Document:
-    return Document(blocks=[])
+    markdown_content: str
+    file_path: Path
 
 
 class Parser:
 
-    def parse(self, file_path: Path) -> Document:
-        converter = DocumentConverter()
-        result = converter.convert(file_path)
-        return _docling_result_to_doc(result)
+    converter: DocumentConverter = DocumentConverter()
 
-    # token indexing ?
+    def parse(self, file_path: Path) -> Document:
+        result = self.converter.convert(file_path)
+        docling_doc = result.document
+        md = docling_doc.export_to_markdown()
+        return Document(markdown_content=md, file_path=file_path)
