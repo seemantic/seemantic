@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from docling.document_converter import ConversionResult, DocumentConverter  # type: ignore[StubNotFound]
+from docling.document_converter import DocumentConverter  # type: ignore[StubNotFound]
 from pydantic import BaseModel
 
 
