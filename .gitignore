@@ -162,3 +162,5 @@ cython_debug/
 #.idea/
 
 **/.generated/
+back/infinity/data/
+**/.infinity_cache/
