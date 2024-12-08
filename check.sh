@@ -7,3 +7,5 @@ echo "run pyright..."
 pyright
 echo "run ruff..."
 ruff check . --fix
+echo "run pytest..."
+pytest
