@@ -6,7 +6,7 @@ target-version = "py310"  # Adjust for your Python version
 lint.select = [
     "ALL"
 ]
-lint.ignore = ["D", "TC001"]
+lint.ignore = ["D", "TC001", "FIX002", "TD003"]
 
 
 # Enforce a maximum line length (strict for style consistency)
