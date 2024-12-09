@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from app.biz_service import DepBizService
 from app.model import DocumentSnippet
+from app.search_engine import SearchResult
 
 router: APIRouter = APIRouter(prefix="/api/v1")
 
@@ -54,14 +55,9 @@ async def get_file_snippets(biz_service: DepBizService) -> ApiFileSnippetList:
     return ApiFileSnippetList(files=[ApiFileSnippet(relative_path=snippet.relative_path) for snippet in snippets])
 
 
-class Reference(BaseModel):
-    file_snippet: ApiFileSnippet
-    content: str
-
-
 class QueryResponse(BaseModel):
     answer: str
-    references: list[Reference]
+    search_result: list[SearchResult]
 
 
 class QueryRequest(BaseModel):
@@ -73,4 +69,4 @@ async def create_query(
     _query: QueryRequest,
     _biz_service: DepBizService,
 ) -> QueryResponse:
-    return QueryResponse(answer="", references=[])
+    return QueryResponse(answer="", search_result=[])

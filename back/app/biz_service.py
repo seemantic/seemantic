@@ -1,5 +1,6 @@
 import hashlib
 import shutil
+import uuid
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, BinaryIO
@@ -43,8 +44,11 @@ class BizService:
             for path in self.seemantic_drive_root.rglob("*")
             if path.is_file()
         ]
-
-        return [DocumentSnippet(relative_path=relative_path) for relative_path in file_paths]
+        # TODO (nicolas): add proper uuid based on DB
+        return [
+            DocumentSnippet(relative_path=relative_path, permanent_doc_id=uuid.uuid4(), parsed_doc_id=uuid.uuid4())
+            for relative_path in file_paths
+        ]
 
 
 @lru_cache
