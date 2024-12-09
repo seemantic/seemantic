@@ -6,8 +6,8 @@ from app.model import Document
 
 
 class Passage(BaseModel):
-    start_index_in_doc: int
-    end_index_in_doc: int
+    start_index_in_parsed_doc: int
+    end_index_in_parsed_doc: int
 
 
 class SearchResult(BaseModel):
@@ -19,7 +19,7 @@ class SearchEngine:
 
     def index(self, documents: list[Document]) -> None:
         """
-        add or update the documents with the same permanent_doc_id but a different parsed_doc_id
+        add or update (if same permanent_doc_id but different parsed_doc_sha256)
         """
         raise NotImplementedError
 

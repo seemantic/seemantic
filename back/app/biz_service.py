@@ -46,7 +46,7 @@ class BizService:
         ]
         # TODO (nicolas): add proper uuid based on DB
         return [
-            DocumentSnippet(relative_path=relative_path, permanent_doc_id=uuid.uuid4(), parsed_doc_id=uuid.uuid4())
+            DocumentSnippet(relative_path=relative_path, permanent_doc_id=uuid.uuid4(), parsed_doc_sha256="")
             for relative_path in file_paths
         ]
 
