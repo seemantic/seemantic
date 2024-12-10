@@ -44,7 +44,8 @@ class BizService:
             for path in self.seemantic_drive_root.rglob("*")
             if path.is_file()
         ]
-        # TODO (nicolas): add proper uuid based on DB
+        # TODO (nicolas): this should be based on DB request instead or real-time crawling,
+        #  because it won't work with other sources and rights
         return [
             DocumentSnippet(relative_path=relative_path, permanent_doc_id=uuid.uuid4(), parsed_doc_sha256="")
             for relative_path in file_paths
