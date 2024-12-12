@@ -22,6 +22,9 @@ lancedb==0.16.0
 # parsing
 docling==2.7.0
 
+# minIO
+minio==7.2.12
+
 # dev dependencies
 pytest==8.3.3
 pytest-asyncio==0.24.0
