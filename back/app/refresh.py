@@ -33,9 +33,8 @@
 
 
 from abc import ABC, abstractmethod
-from ast import Not
 from datetime import datetime
-from typing import Iterator
+from typing import Iterator, Literal
 from pydantic import BaseModel, Field
 from io import BytesIO
 import xxhash
@@ -127,14 +126,15 @@ class VectorStore:
     def remove_doc(self, parsed_hash: Hash) -> None:
         raise NotImplementedError()
 
+class DbSourceDocumentUpdate(BaseModel):
+    uri: str
+    raw_hash: Hash
 
 class DbUpdate(BaseModel):
-    add: list[DbSourceDocument] = Field(default_factory=list)
-    update: list[DbSourceDocument] = Field(default_factory=list) # based on uri key
-    crawled_source: list[str] = Field(default_factory=list)
-    add_or_update_raw_to_parsed: dict[Hash, Hash] = Field(default_factory=dict)
-    crawled_raws: list[Hash] = Field(default_factory=list)
-    # raw to parse to remove are
+    crawled: list[str] = Field(default_factory=list)
+    add: list[DbSourceDocumentUpdate] = Field(default_factory=list)
+    update: list[DbSourceDocumentUpdate] = Field(default_factory=list) # based on uri key
+    deleted: list[str] = Field(default_factory=list)
 
 class Db:
 
@@ -147,10 +147,14 @@ class Db:
     def get_raw_if_exists(self, raw_hash: Hash) -> DbRawDocument | None:
         raise NotImplementedError()
     
+    def update_or_create_raw_to_parsed(self, raw_hash: Hash, parsed_hash: Hash) -> None:
+        raise NotImplementedError()
+
     def get_uris(self) -> list[str]:
         raise NotImplementedError()
     
-    
+
+
 
 class SourceRefresher:
 
@@ -160,12 +164,15 @@ class SourceRefresher:
     vectorizer: Vectorizer
     db: Db
 
-    def _reindex(self, doc: CrawledDocument) -> Hash:
-        parsed_doc = self.parser.parse(doc)
-        vectorized = self.vectorizer.vectorize(parsed_doc)
-        parsed_hash = self.parsed_doc_repo.add_if_missing(parsed_doc)
-        self.vector_store.add_or_replace(vectorized)
-        return parsed_hash
+    def _reindex_if_needed(self, raw_hash: Hash, doc: CrawledDocument, force_reindex: bool) -> None:
+        db_raw_doc = self.db.get_raw_if_exists(raw_hash)
+        if force_reindex or not db_raw_doc:
+            parsed_doc = self.parser.parse(doc)
+            vectorized = self.vectorizer.vectorize(parsed_doc)
+            parsed_hash = self.parsed_doc_repo.add_if_missing(parsed_doc)
+            self.vector_store.add_or_replace(vectorized)
+            self.db.update_or_create_raw_to_parsed(raw_hash, parsed_hash)
+
 
 
     def clean_vector_store(self) -> None:
@@ -188,11 +195,19 @@ class SourceRefresher:
         """
         raise NotImplementedError()
 
-    def clean(self)-> None:
+    def clean_index(self)-> None:
         self.clean_raw_doc_table()
         self.clean_vector_store()
         self.clean_parsed_doc_repo()
 
+
+# TODO: comment gérer le cas ou on a un update partiel ? est-ce qu'on veut le gérer ?
+
+
+    def _get_update(self, db_source_doc: DbSourceDocument | None, crawled_raw_hash: Hash) -> str:
+        if not db_source_doc: return "added"
+        if db_source_doc.raw_hash != crawled_raw_hash: return "updated"
+        return "crawled"
 
     def refresh_source(self, source: Source, force_reindex: bool):
         
@@ -202,21 +217,18 @@ class SourceRefresher:
         for crawled_doc in source.crawl():
             crawled_uris.add(crawled_doc.uri)
             raw_hash: Hash = hash_source(crawled_doc)
-            # 1. manage reindex
-            db_raw_doc = self.db.get_raw_if_exists(raw_hash)
-            if force_reindex or not db_raw_doc:
-                parsed_hash = self._reindex(crawled_doc)
-                update.add_or_update_raw_to_parsed[raw_hash] = parsed_hash
+            self._reindex_if_needed(raw_hash=raw_hash, doc=crawled_doc, force_reindex=force_reindex)
+            
+
             # 2. manage db update
             db_source_doc = self.db.get_source_if_exists(crawled_doc.uri)
             if not db_source_doc:
-                update.add.append(DbSourceDocument(uri=crawled_doc.uri, raw_hash=raw_hash))
+                update.add.append(DbSourceDocumentUpdate(uri=crawled_doc.uri, raw_hash=raw_hash))
             elif db_source_doc.raw_hash != raw_hash:
-                update.update.append(DbSourceDocument(uri=crawled_doc.uri, raw_hash=raw_hash))
-        db_uris = self.db.get_uris()
+                update.update.append(DbSourceDocumentUpdate(uri=crawled_doc.uri, raw_hash=raw_hash))
+            else:
+                update.crawled.append(crawled_doc.uri)
+        update.deleted = [uri for uri in self.db.get_uris() if uri not in crawled_uris]
+        self.db.update(update)
         # 3. clean
-        self.clean_raw_doc_table()
-        self.clean_vector_store()
-        self.clean_parsed_doc_repo()
-
-
+        self.clean_index()
