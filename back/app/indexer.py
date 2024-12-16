@@ -44,7 +44,8 @@ import xxhash
 from pydantic import BaseModel
 
 
-class CrawledDocument(BaseModel):
+class OriginDocument(BaseModel):
+    source: str
     uri: str
     content: BytesIO
 
@@ -52,7 +53,7 @@ class CrawledDocument(BaseModel):
 class Source(ABC):
 
     @abstractmethod
-    def crawl(self) -> Iterator[CrawledDocument]: ...
+    def crawl(self) -> Iterator[OriginDocument]: ...
 
 
 class Hash(BaseModel):
@@ -82,9 +83,9 @@ class MinIoSource(Source):
     pass
 
 
-def hash_content(content: BytesIO) -> Hash:
-    content.seek(0)
-    bytes_content = content.read()
+def hash_source(doc: OriginDocument) -> Hash:
+    doc.content.seek(0)
+    bytes_content = doc.content.read()
     raw_hash = xxhash.xxh3_128_hexdigest(bytes_content)
     return Hash(hash=raw_hash)
 
@@ -108,7 +109,7 @@ class ParsedDocRepo:
 
 class Parser:
 
-    def parse(self, source_doc: CrawledDocument) -> ParsedDocument:
+    def parse(self, source_doc: OriginDocument) -> ParsedDocument:
         raise NotImplementedError
 
 
@@ -179,11 +180,11 @@ class Indexer:
     vectorizer: Vectorizer
     db: Db
 
-    def _reindex_if_needed(self, raw_hash: Hash, doc: CrawledDocument, *, force_reindex: bool) -> None:
+    def _reindex_if_needed(self, raw_hash: Hash, doc: OriginDocument, *, force_reindex: bool) -> None:
         if force_reindex or not self.db.get_raw_if_exists(raw_hash):
             self._reindex(raw_hash, doc)
 
-    def _reindex(self, raw_hash: Hash, doc: CrawledDocument) -> None:
+    def _reindex(self, raw_hash: Hash, doc: OriginDocument) -> None:
         parsed_doc = self.parser.parse(doc)
         vectorized = self.vectorizer.vectorize(parsed_doc)
         parsed_hash = self.parsed_doc_repo.upsert(parsed_doc)
@@ -217,13 +218,13 @@ class Indexer:
         self.clean_parsed_doc_repo()
 
     def refresh_source(self, source: Source, *, force_reindex: bool) -> None:
-        crawled_doc: CrawledDocument
+        crawled_doc: OriginDocument
         for crawled_doc in source.crawl():
             self.index(crawled_doc, force_reindex=force_reindex)
         self.clean_index()
 
-    def index(self, source: str, uri: str, content: BytesIO, *, force_reindex: bool = False) -> None:
-        raw_hash: Hash = hash_content(content)
+    def index(self, crawled_doc: OriginDocument, *, force_reindex: bool = False) -> None:
+        raw_hash: Hash = hash_source(crawled_doc)
         self._reindex_if_needed(raw_hash=raw_hash, doc=crawled_doc, force_reindex=force_reindex)
         self.db.upsert(uri=crawled_doc.uri, raw_hash=raw_hash)
 

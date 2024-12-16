@@ -1,4 +1,3 @@
-from ast import Not
 import logging
 import time
 from functools import lru_cache
@@ -45,12 +44,12 @@ class MinioService:
 
                 for event in events:
                     for record in event["Records"]:
-                        key: str = str(record['s3']['object']['key'])
-                        event_name: str = str(record['eventName'])
+                        key: str = str(record["s3"]["object"]["key"])
+                        event_name: str = str(record["eventName"])
                         if event_name == "s3:ObjectCreated:Put":
-                            doc= self._get_document(key)
+                            doc = self._get_document(key)
                             if doc:
-                                raise NotImplementedError()
+                                logging.info(f"Object updated: {key}")
                             else:
                                 logging.warning(f"received update for doc: {key} but it's missing")
                         elif event_name == "s3:ObjectRemoved:Delete":
