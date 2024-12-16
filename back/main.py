@@ -1,8 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 
-from app.local_drive_crawler import lifespan
-from app.rest_api import router
+from app.rest_api import router, lifespan
 
 app = FastAPI(lifespan=lifespan)
 

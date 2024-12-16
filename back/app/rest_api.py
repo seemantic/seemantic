@@ -1,12 +1,20 @@
 from io import BytesIO
+from ssl import get_server_certificate
 
 from fastapi import APIRouter, HTTPException, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.biz_service import DepBizService
-from app.minio_service import DepMinioService
+from app.minio_service import DepMinioService, get_minio_service
 from app.search_engine import SearchResult
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from threading import Thread
+
+from app.minio_service import get_minio_service
+from app.settings import get_settings, DepSettings
+
 
 router: APIRouter = APIRouter(prefix="/api/v1")
 
@@ -69,3 +77,17 @@ async def create_query(
     _biz_service: DepBizService,
 ) -> QueryResponse:
     return QueryResponse(answer="", search_result=[])
+
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    minio_service = get_minio_service(get_settings())
+
+    thread = Thread(target=minio_service.listen_notifications, daemon=True)
+    thread.start()
+    print("Background task started.")
+    try:
+        yield  # Pass control back to FastAPI
+    finally:
+        print("Background task stopping...")
