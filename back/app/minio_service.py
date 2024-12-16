@@ -38,16 +38,22 @@ class MinioService:
                 # Listen to events from MinIO server (e.g., object creation, deletion)
                 events = self._minio_client.listen_bucket_notification(
                     bucket_name=self._bucket_name,
+                    prefix=self._semantic_drive_prefix,
                     events=("s3:ObjectCreated:Put", "s3:ObjectRemoved:Delete"),
                 )
 
                 for event in events:
-                    logging.info(f"Received event: {event}")
-                    # Process the event as needed (e.g., update database, trigger actions)
+                    
+                    for record in event["Records"]:
+                        key: str = str(record['s3']['object']['key'])
+                        event_name: str = str(record['eventName'])
+                        if event_name == "s3:ObjectCreated:Put":
+                            logging.info(f"Object created: {key}")
+                        elif event_name == "s3:ObjectRemoved:Delete":
+                            logging.info(f"Object deleted: {key}")
 
             except Exception as e:  # noqa: BLE001, PERF203
-                logging.info(f"Error: {e}")
-                logging.info("Reconnecting in 5 seconds...")
+                logging.warning(f"Error: {e}, Reconnecting in 5 seconds...")
                 time.sleep(5)  # Wait before reconnecting
 
     def create_or_update_document(self, relative_path: str, file: BytesIO) -> None:
