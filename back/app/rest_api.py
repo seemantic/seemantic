@@ -1,22 +1,20 @@
+import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from io import BytesIO
-from ssl import get_server_certificate
+from threading import Thread
 
-from fastapi import APIRouter, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, FastAPI, HTTPException, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.biz_service import DepBizService
 from app.minio_service import DepMinioService, get_minio_service
 from app.search_engine import SearchResult
-from fastapi import FastAPI
-from contextlib import asynccontextmanager
-from threading import Thread
-
-from app.minio_service import get_minio_service
-from app.settings import get_settings, DepSettings
-
+from app.settings import get_settings
 
 router: APIRouter = APIRouter(prefix="/api/v1")
+logger = logging.getLogger(__name__)
 
 
 @router.get("/")
@@ -79,15 +77,15 @@ async def create_query(
     return QueryResponse(answer="", search_result=[])
 
 
-
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    minio_service = get_minio_service(get_settings())
+async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+    # NB: ignore false positive related to Settings not hashable because it's not frozen at the type level (but it's frozen as config level)
+    minio_service = get_minio_service(get_settings())  # type: ignore[ReportUnknownMember]]
 
     thread = Thread(target=minio_service.listen_notifications, daemon=True)
     thread.start()
-    print("Background task started.")
+    logger.info("Background task started.")
     try:
         yield  # Pass control back to FastAPI
     finally:
-        print("Background task stopping...")
+        logger.info("Background task stopping...")

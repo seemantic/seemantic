@@ -36,41 +36,47 @@
 
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from datetime import datetime
-from typing import Iterator, Literal
-from pydantic import BaseModel, Field
 from io import BytesIO
-import xxhash
 
+import xxhash
+from pydantic import BaseModel
 
 
 class CrawledDocument(BaseModel):
     uri: str
     content: BytesIO
 
+
 class Source(ABC):
-    
+
     @abstractmethod
     def crawl(self) -> Iterator[CrawledDocument]: ...
+
 
 class Hash(BaseModel):
     hash: str
 
+
 class DbSourceDocument(BaseModel):
-    uri: str # key
-    raw_hash: Hash # foreign key to DbRawDocument (None if cannot be parsed ?)
+    uri: str  # key
+    raw_hash: Hash  # foreign key to DbRawDocument (None if cannot be parsed ?)
     last_crawled_at: datetime
     last_updated_at: datetime
 
+
 class DbRawDocument(BaseModel):
-    raw_hash: Hash # key
-    parsed_hash: Hash # foreign key to parsed document in ParsedDocRepo
+    raw_hash: Hash  # key
+    parsed_hash: Hash  # foreign key to parsed document in ParsedDocRepo
     last_crawled_at: datetime
     last_updated_at: datetime
+
 
 class ParsedDocument(BaseModel):
     content: str
     parsed_date: datetime
+
 
 class MinIoSource(Source):
     pass
@@ -79,55 +85,63 @@ class MinIoSource(Source):
 def hash_source(doc: CrawledDocument) -> Hash:
     doc.content.seek(0)
     bytes_content = doc.content.read()
-    hash = xxhash.xxh3_128_hexdigest(bytes_content)
-    return Hash(hash=hash)
+    raw_hash = xxhash.xxh3_128_hexdigest(bytes_content)
+    return Hash(hash=raw_hash)
+
 
 def hash_parsed(doc: ParsedDocument) -> Hash:
-    hash = xxhash.xxh3_128_hexdigest(doc.content)
-    return Hash(hash=hash)
+    parsed_hash = xxhash.xxh3_128_hexdigest(doc.content)
+    return Hash(hash=parsed_hash)
 
 
 class ParsedDocRepo:
 
     def upsert(self, parsed_doc: ParsedDocument) -> Hash:
-        raise NotImplementedError()
-    
+        raise NotImplementedError
+
     def remove_if_present(self, parsed_hash: Hash) -> None:
-        raise NotImplementedError()
-    
+        raise NotImplementedError
+
     def get(self, parsed_hash: Hash) -> ParsedDocument | None:
-        raise NotImplementedError()
+        raise NotImplementedError
+
 
 class Parser:
 
     def parse(self, source_doc: CrawledDocument) -> ParsedDocument:
-        raise NotImplementedError()
+        raise NotImplementedError
+
 
 class Vector(BaseModel):
     pass
+
 
 class VectorizedChunk(BaseModel):
     min_index: int
     max_index: int
     vector: Vector
 
+
 class VectorizedDocument(BaseModel):
     parsed_doc_hash: Hash
     parsed_doc: ParsedDocument
     chunks: list[VectorizedChunk]
 
+
 class Vectorizer:
     def vectorize(self, doc: ParsedDocument) -> VectorizedDocument:
-        raise NotImplementedError()
+        raise NotImplementedError
+
 
 class VectorStore:
 
     def upsert(self, doc: VectorizedDocument) -> None:
         """based on doc.parsed_doc_hash key"""
-        raise NotImplementedError()
-    
+        raise NotImplementedError
+
     def remove_doc(self, parsed_hash: Hash) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
+
 
 class DbSourceDocumentUpsert(BaseModel):
     uri: str
@@ -139,23 +153,23 @@ class Db:
     def upsert(self, uri: str, raw_hash: Hash) -> None:
         # insert or update, change last_raw_change_at id raw_hash changed.
         # always update last_crawled_at
-        raise NotImplementedError()
-    
+        raise NotImplementedError
+
     def delete(self, uri: str) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_source_if_exists(self, uri: str) -> DbSourceDocument | None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_raw_if_exists(self, raw_hash: Hash) -> DbRawDocument | None:
-        raise NotImplementedError()
-    
+        raise NotImplementedError
+
     def upsert_raw_to_parsed(self, raw_hash: Hash, parsed_hash: Hash) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_uris(self) -> list[str]:
-        raise NotImplementedError()
-    
+        raise NotImplementedError
+
 
 class SourceRefresher:
 
@@ -165,7 +179,7 @@ class SourceRefresher:
     vectorizer: Vectorizer
     db: Db
 
-    def _reindex_if_needed(self, raw_hash: Hash, doc: CrawledDocument, force_reindex: bool) -> None:
+    def _reindex_if_needed(self, raw_hash: Hash, doc: CrawledDocument, *, force_reindex: bool) -> None:
         if force_reindex or not self.db.get_raw_if_exists(raw_hash):
             self._reindex(raw_hash, doc)
 
@@ -181,13 +195,13 @@ class SourceRefresher:
         We delete old enough chunks:
         - in case of concurrent refresh (pre-added chunks before commit)
         """
-        raise NotImplementedError()
-    
+        raise NotImplementedError
+
     def clean_parsed_doc_repo(self) -> None:
         """remove parsed_hash not in DB anymore
         as for clean_vector_store we do not remove recently added docs
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def clean_raw_doc_table(self) -> None:
         """remove lines where raw_hash not in source doc DB anymore
@@ -195,26 +209,23 @@ class SourceRefresher:
         - to be resilient to possible issue with crawling
         - to be resilent to move that appears as two seperate events: add + delete
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
-    def clean_index(self)-> None:
+    def clean_index(self) -> None:
         self.clean_raw_doc_table()
         self.clean_vector_store()
         self.clean_parsed_doc_repo()
 
-
-    def refresh_source(self, source: Source, force_reindex: bool):
+    def refresh_source(self, source: Source, *, force_reindex: bool) -> None:
         crawled_doc: CrawledDocument
         for crawled_doc in source.crawl():
             self.on_crawl(crawled_doc, force_reindex=force_reindex)
         self.clean_index()
 
-
-    def on_crawl(self, crawled_doc: CrawledDocument, force_reindex: bool = False) -> None:
+    def on_crawl(self, crawled_doc: CrawledDocument, *, force_reindex: bool = False) -> None:
         raw_hash: Hash = hash_source(crawled_doc)
         self._reindex_if_needed(raw_hash=raw_hash, doc=crawled_doc, force_reindex=force_reindex)
         self.db.upsert(uri=crawled_doc.uri, raw_hash=raw_hash)
 
-    
-    def on_delete(self, uri: str):
+    def on_delete(self, uri: str) -> None:
         self.db.delete(uri)
