@@ -1,3 +1,4 @@
+from ast import Not
 import logging
 import time
 from functools import lru_cache
@@ -43,12 +44,15 @@ class MinioService:
                 )
 
                 for event in events:
-                    
                     for record in event["Records"]:
                         key: str = str(record['s3']['object']['key'])
                         event_name: str = str(record['eventName'])
                         if event_name == "s3:ObjectCreated:Put":
-                            logging.info(f"Object created: {key}")
+                            doc= self._get_document(key)
+                            if doc:
+                                raise NotImplementedError()
+                            else:
+                                logging.warning(f"received update for doc: {key} but it's missing")
                         elif event_name == "s3:ObjectRemoved:Delete":
                             logging.info(f"Object deleted: {key}")
 
@@ -64,13 +68,16 @@ class MinioService:
             len(file.getbuffer()),
         )
 
-    def get_file(self, relative_path: str) -> BytesIO | None:
+    def get_seemantic_drive_document(self, relative_path: str) -> BytesIO | None:
+        return self._get_document(self._get_seemantic_drive_object_name(relative_path))
+
+    def _get_document(self, object_name: str) -> BytesIO | None:
 
         file: BaseHTTPResponse | None = None
         try:
             file = self._minio_client.get_object(
                 self._bucket_name,
-                self._get_seemantic_drive_object_name(relative_path),
+                object_name=object_name,
             )
             file_stream = BytesIO(file.read())
         except S3Error as e:
@@ -84,7 +91,7 @@ class MinioService:
                 file.close()
                 file.release_conn()
 
-    def get_files(self) -> list[str]:
+    def get_seemantic_drive_documents(self) -> list[str]:
         return [
             str(obj.object_name)
             for obj in self._minio_client.list_objects(

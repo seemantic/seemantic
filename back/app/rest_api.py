@@ -46,7 +46,7 @@ async def delete_file(relative_path: str, minio_service: DepMinioService) -> Non
 
 @router.get("/files/{relative_path:path}")
 async def get_file(relative_path: str, minio_service: DepMinioService) -> StreamingResponse:
-    file = minio_service.get_file(relative_path)
+    file = minio_service.get_seemantic_drive_document(relative_path)
     if file:
         return StreamingResponse(file, media_type="application/octet-stream")
 
@@ -55,8 +55,8 @@ async def get_file(relative_path: str, minio_service: DepMinioService) -> Stream
 
 @router.get("/file_snippets")
 async def get_file_snippets(minio_service: DepMinioService) -> ApiFileSnippetList:
-    minio_service.get_files()
-    paths: list[str] = minio_service.get_files()
+    minio_service.get_seemantic_drive_documents()
+    paths: list[str] = minio_service.get_seemantic_drive_documents()
     return ApiFileSnippetList(files=[ApiFileSnippet(relative_path=path) for path in paths])
 
 
