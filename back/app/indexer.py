@@ -82,9 +82,9 @@ class MinIoSource(Source):
     pass
 
 
-def hash_source(doc: CrawledDocument) -> Hash:
-    doc.content.seek(0)
-    bytes_content = doc.content.read()
+def hash_content(content: BytesIO) -> Hash:
+    content.seek(0)
+    bytes_content = content.read()
     raw_hash = xxhash.xxh3_128_hexdigest(bytes_content)
     return Hash(hash=raw_hash)
 
@@ -171,7 +171,7 @@ class Db:
         raise NotImplementedError
 
 
-class SourceRefresher:
+class Indexer:
 
     parser: Parser
     parsed_doc_repo: ParsedDocRepo
@@ -219,11 +219,11 @@ class SourceRefresher:
     def refresh_source(self, source: Source, *, force_reindex: bool) -> None:
         crawled_doc: CrawledDocument
         for crawled_doc in source.crawl():
-            self.on_crawl(crawled_doc, force_reindex=force_reindex)
+            self.index(crawled_doc, force_reindex=force_reindex)
         self.clean_index()
 
-    def on_crawl(self, crawled_doc: CrawledDocument, *, force_reindex: bool = False) -> None:
-        raw_hash: Hash = hash_source(crawled_doc)
+    def index(self, source: str, uri: str, content: BytesIO, *, force_reindex: bool = False) -> None:
+        raw_hash: Hash = hash_content(content)
         self._reindex_if_needed(raw_hash=raw_hash, doc=crawled_doc, force_reindex=force_reindex)
         self.db.upsert(uri=crawled_doc.uri, raw_hash=raw_hash)
 
