@@ -5,6 +5,9 @@
 # we should parse / embbed / index only when necessary
 # if DB containes a parsed_hash, it should always exists in parsed_doc_repo and in search_engine
 # we shouln't hold more than on doc content in memory at a time
+# Move from sources (like MinIO) could appear as two seperate events: add + delete, nad sources might not treat add and update differently.
+# At the end we only have 2 events from sources: upsert (update, add, move) and delete, this should not create re_indexing
+
 
 # 1. crawling a source return a list of (uri)
 # 2. for each uri in crawling result:
@@ -86,7 +89,7 @@ def hash_parsed(doc: ParsedDocument) -> Hash:
 
 class ParsedDocRepo:
 
-    def add_if_missing(self, parsed_doc: ParsedDocument) -> Hash:
+    def upsert(self, parsed_doc: ParsedDocument) -> Hash:
         raise NotImplementedError()
     
     def remove_if_present(self, parsed_hash: Hash) -> None:
@@ -119,26 +122,26 @@ class Vectorizer:
 
 class VectorStore:
 
-    def add_or_replace(self, doc: VectorizedDocument) -> None:
+    def upsert(self, doc: VectorizedDocument) -> None:
         """based on doc.parsed_doc_hash key"""
         raise NotImplementedError()
     
     def remove_doc(self, parsed_hash: Hash) -> None:
         raise NotImplementedError()
 
-class DbSourceDocumentUpdate(BaseModel):
+class DbSourceDocumentUpsert(BaseModel):
     uri: str
     raw_hash: Hash
 
-class DbUpdate(BaseModel):
-    crawled: list[str] = Field(default_factory=list)
-    add: list[DbSourceDocumentUpdate] = Field(default_factory=list)
-    update: list[DbSourceDocumentUpdate] = Field(default_factory=list) # based on uri key
-    deleted: list[str] = Field(default_factory=list)
 
 class Db:
 
-    def update(self, update: DbUpdate) -> None:
+    def upsert(self, uri: str, raw_hash: Hash) -> None:
+        # insert or update, change last_raw_change_at id raw_hash changed.
+        # always update last_crawled_at
+        raise NotImplementedError()
+    
+    def delete(self, uri: str) -> None:
         raise NotImplementedError()
 
     def get_source_if_exists(self, uri: str) -> DbSourceDocument | None:
@@ -147,14 +150,12 @@ class Db:
     def get_raw_if_exists(self, raw_hash: Hash) -> DbRawDocument | None:
         raise NotImplementedError()
     
-    def update_or_create_raw_to_parsed(self, raw_hash: Hash, parsed_hash: Hash) -> None:
+    def upsert_raw_to_parsed(self, raw_hash: Hash, parsed_hash: Hash) -> None:
         raise NotImplementedError()
 
     def get_uris(self) -> list[str]:
         raise NotImplementedError()
     
-
-
 
 class SourceRefresher:
 
@@ -165,15 +166,15 @@ class SourceRefresher:
     db: Db
 
     def _reindex_if_needed(self, raw_hash: Hash, doc: CrawledDocument, force_reindex: bool) -> None:
-        db_raw_doc = self.db.get_raw_if_exists(raw_hash)
-        if force_reindex or not db_raw_doc:
-            parsed_doc = self.parser.parse(doc)
-            vectorized = self.vectorizer.vectorize(parsed_doc)
-            parsed_hash = self.parsed_doc_repo.add_if_missing(parsed_doc)
-            self.vector_store.add_or_replace(vectorized)
-            self.db.update_or_create_raw_to_parsed(raw_hash, parsed_hash)
+        if force_reindex or not self.db.get_raw_if_exists(raw_hash):
+            self._reindex(raw_hash, doc)
 
-
+    def _reindex(self, raw_hash: Hash, doc: CrawledDocument) -> None:
+        parsed_doc = self.parser.parse(doc)
+        vectorized = self.vectorizer.vectorize(parsed_doc)
+        parsed_hash = self.parsed_doc_repo.upsert(parsed_doc)
+        self.vector_store.upsert(vectorized)
+        self.db.upsert_raw_to_parsed(raw_hash, parsed_hash)
 
     def clean_vector_store(self) -> None:
         """remove vector store chunks pointing to parsed_hash not in DB anymore.
@@ -190,8 +191,9 @@ class SourceRefresher:
 
     def clean_raw_doc_table(self) -> None:
         """remove lines where raw_hash not in source doc DB anymore
-        we do not remove recently crawled docs to be resilient to possible
-        issue with crawling
+        we do not remove recently crawled docs
+        - to be resilient to possible issue with crawling
+        - to be resilent to move that appears as two seperate events: add + delete
         """
         raise NotImplementedError()
 
@@ -201,34 +203,18 @@ class SourceRefresher:
         self.clean_parsed_doc_repo()
 
 
-# TODO: comment gérer le cas ou on a un update partiel ? est-ce qu'on veut le gérer ?
-
-
-    def _get_update(self, db_source_doc: DbSourceDocument | None, crawled_raw_hash: Hash) -> str:
-        if not db_source_doc: return "added"
-        if db_source_doc.raw_hash != crawled_raw_hash: return "updated"
-        return "crawled"
-
     def refresh_source(self, source: Source, force_reindex: bool):
-        
         crawled_doc: CrawledDocument
-        update: DbUpdate = DbUpdate()
-        crawled_uris: set[str] = set()
         for crawled_doc in source.crawl():
-            crawled_uris.add(crawled_doc.uri)
-            raw_hash: Hash = hash_source(crawled_doc)
-            self._reindex_if_needed(raw_hash=raw_hash, doc=crawled_doc, force_reindex=force_reindex)
-            
-
-            # 2. manage db update
-            db_source_doc = self.db.get_source_if_exists(crawled_doc.uri)
-            if not db_source_doc:
-                update.add.append(DbSourceDocumentUpdate(uri=crawled_doc.uri, raw_hash=raw_hash))
-            elif db_source_doc.raw_hash != raw_hash:
-                update.update.append(DbSourceDocumentUpdate(uri=crawled_doc.uri, raw_hash=raw_hash))
-            else:
-                update.crawled.append(crawled_doc.uri)
-        update.deleted = [uri for uri in self.db.get_uris() if uri not in crawled_uris]
-        self.db.update(update)
-        # 3. clean
+            self.on_crawl(crawled_doc, force_reindex=force_reindex)
         self.clean_index()
+
+
+    def on_crawl(self, crawled_doc: CrawledDocument, force_reindex: bool = False) -> None:
+        raw_hash: Hash = hash_source(crawled_doc)
+        self._reindex_if_needed(raw_hash=raw_hash, doc=crawled_doc, force_reindex=force_reindex)
+        self.db.upsert(uri=crawled_doc.uri, raw_hash=raw_hash)
+
+    
+    def on_delete(self, uri: str):
+        self.db.delete(uri)
