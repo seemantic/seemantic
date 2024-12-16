@@ -15,6 +15,7 @@ class MinioSettings(BaseModel, frozen=True):
 class Settings(BaseSettings):
     minio: MinioSettings
     seemantic_drive_root: str
+    log_level: str
 
     # frozen=True makes it hashable so it can be used as an argument of other functions decorated with lru_cache
     model_config = SettingsConfigDict(env_file=".env.dev", frozen=True, env_nested_delimiter="__")

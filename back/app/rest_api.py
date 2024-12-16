@@ -79,8 +79,11 @@ async def create_query(
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+
+    settings = get_settings()
+    logging.basicConfig(level=settings.log_level)
     # NB: ignore false positive related to Settings not hashable because it's not frozen at the type level (but it's frozen as config level)
-    minio_service = get_minio_service(get_settings())  # type: ignore[ReportUnknownMember]]
+    minio_service = get_minio_service(settings)  # type: ignore[ReportUnknownMember]]
 
     thread = Thread(target=minio_service.listen_notifications, daemon=True)
     thread.start()
