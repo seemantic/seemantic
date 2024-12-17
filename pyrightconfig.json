@@ -1,6 +1,6 @@
 {
     "typeCheckingMode": "strict",
-    "include": ["back/app", "back/tests"],
+    "include": ["back/app", "back/indexer", "back/tests"],
     "exclude": [
         "**/__pycache__",
         "**/venv",
