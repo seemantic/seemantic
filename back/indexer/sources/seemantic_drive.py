@@ -15,7 +15,7 @@ class SeemanticDriveSource(Source):
     def __init__(self, settings: MinioSettings) -> None:
         self._minio_service = MinioService(settings=settings)
 
-    def all_uris(self) -> list[str]:
+    async def all_uris(self) -> list[str]:
         return self._minio_service.get_all_documents(prefix=self.prefix)
 
     def listen(self) -> AsyncGenerator[DocumentEvent]:
