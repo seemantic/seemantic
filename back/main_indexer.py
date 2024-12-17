@@ -1,4 +1,7 @@
+import asyncio
+
 from indexer.indexer import Indexer
 
 indexer = Indexer()
-indexer.start()
+
+asyncio.run(indexer.start())

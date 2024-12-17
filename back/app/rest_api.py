@@ -1,20 +1,21 @@
 import logging
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
 from io import BytesIO
-from threading import Thread
 
-from fastapi import APIRouter, FastAPI, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, HTTPException, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.biz_service import DepBizService
-from app.minio_service import DepMinioService, get_minio_service
+from app.minio_service import DepMinioService
 from app.search_engine import SearchResult
-from app.settings import get_settings
 
 router: APIRouter = APIRouter(prefix="/api/v1")
 logger = logging.getLogger(__name__)
+seemantic_drive_prefix = "seemantic_drive/"
+
+
+def get_file_path(relative_path: str) -> str:
+    return f"{seemantic_drive_prefix}{relative_path}"
 
 
 @router.get("/")
@@ -34,19 +35,19 @@ class ApiFileSnippetList(BaseModel):
 @router.put("/files/{relative_path:path}", status_code=status.HTTP_201_CREATED)
 async def upsert_file(relative_path: str, file: UploadFile, response: Response, minio_service: DepMinioService) -> None:
     binary = BytesIO(file.file.read())
-    minio_service.create_or_update_document(relative_path=relative_path, file=binary)
+    minio_service.create_or_update_document(key=get_file_path(relative_path), file=binary)
     location = f"/files/{relative_path}"
     response.headers["Location"] = location
 
 
 @router.delete("/files/{relative_path:path}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_file(relative_path: str, minio_service: DepMinioService) -> None:
-    minio_service.delete_document(relative_path)
+    minio_service.delete_document(get_file_path(relative_path))
 
 
 @router.get("/files/{relative_path:path}")
 async def get_file(relative_path: str, minio_service: DepMinioService) -> StreamingResponse:
-    file = minio_service.get_seemantic_drive_document(relative_path)
+    file = minio_service.get_document(get_file_path(relative_path))
     if file:
         return StreamingResponse(file, media_type="application/octet-stream")
 
@@ -55,8 +56,7 @@ async def get_file(relative_path: str, minio_service: DepMinioService) -> Stream
 
 @router.get("/file_snippets")
 async def get_file_snippets(minio_service: DepMinioService) -> ApiFileSnippetList:
-    minio_service.get_seemantic_drive_documents()
-    paths: list[str] = minio_service.get_seemantic_drive_documents()
+    paths: list[str] = minio_service.get_all_documents(prefix=seemantic_drive_prefix)
     return ApiFileSnippetList(files=[ApiFileSnippet(relative_path=path) for path in paths])
 
 
@@ -75,20 +75,3 @@ async def create_query(
     _biz_service: DepBizService,
 ) -> QueryResponse:
     return QueryResponse(answer="", search_result=[])
-
-
-@asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
-
-    settings = get_settings()
-    logging.basicConfig(level=settings.log_level)
-    # NB: ignore false positive related to Settings not hashable because it's not frozen at the type level (but it's frozen as config level)
-    minio_service = get_minio_service(settings)  # type: ignore[ReportUnknownMember]]
-
-    thread = Thread(target=minio_service.listen_notifications, daemon=True)
-    thread.start()
-    logger.info("Background task started.")
-    try:
-        yield  # Pass control back to FastAPI
-    finally:
-        logger.info("Background task stopping...")

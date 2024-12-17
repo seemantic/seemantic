@@ -12,6 +12,10 @@ class DocumentEvent(BaseModel):
 
 
 class Source:
+    """interface adapted to S3 / MinIO source for now"""
 
     @abstractmethod
-    def start(self) -> AsyncGenerator[DocumentEvent]: ...
+    def all_uris(self) -> list[str]: ...
+
+    @abstractmethod
+    def listen(self) -> AsyncGenerator[DocumentEvent]: ...
