@@ -1,14 +1,20 @@
 from abc import abstractmethod
 from collections.abc import AsyncGenerator
-from typing import Literal
+from io import BytesIO
 
 from pydantic import BaseModel
 
 
-class DocumentEvent(BaseModel):
-    event_type: Literal["upsert", "delete"]
+class UpsertEvent(BaseModel, arbitrary_types_allowed=True):
     uri: str
-    content: bytes | None
+    content: BytesIO
+
+
+class DeleteEvent(BaseModel):
+    uri: str
+
+
+DocumentEvent = UpsertEvent | DeleteEvent
 
 
 class Source:

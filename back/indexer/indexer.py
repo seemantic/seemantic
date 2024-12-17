@@ -1,7 +1,8 @@
 import logging
 
+from indexer.sources.seemantic_drive import SeemanticDriveSource
+
 from indexer.settings import get_settings
-from indexer.sources.minio import MinioSource
 
 
 class Indexer:
@@ -10,8 +11,8 @@ class Indexer:
 
         settings = get_settings()
 
-        minio_source = MinioSource(settings=settings.minio)
+        minio_source = SeemanticDriveSource(settings=settings.minio)
 
         async for doc_event in minio_source.listen():
-            logging.debug(doc_event)
+            logging.info(doc_event)
             raise NotImplementedError("start_continuous_indexing")
