@@ -17,7 +17,7 @@ CREATE TABLE seemantic_schema.source_document_entry(
    last_content_update_datetime TIMESTAMPTZ NOT NULL,
    last_crawling_datetime TIMESTAMPTZ NOT NULL,
    creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
-   FOREIGN KEY (raw_content_hash) REFERENCES seemantic_schema.raw_document(raw_content_hash)
+   FOREIGN KEY (raw_content_hash) REFERENCES seemantic_schema.raw_document_entry(raw_content_hash)
 );
 
 

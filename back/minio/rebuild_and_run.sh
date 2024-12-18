@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+
 docker stop seemantic-minio
 docker rm seemantic-minio
 

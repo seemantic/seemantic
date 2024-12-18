@@ -6,7 +6,7 @@ from io import BytesIO
 from pydantic import BaseModel
 
 
-class SourceUpsertEvent(BaseModel, arbitrary_types_allowed=True):
+class SourceUpsertEvent(BaseModel):
     uri: str
 
 
