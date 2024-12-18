@@ -1,7 +1,7 @@
 import asyncio
 
-from indexer.settings import get_settings
 from indexer.indexer import Indexer
+from indexer.settings import get_settings
 
 settings = get_settings()
 indexer = Indexer(settings)

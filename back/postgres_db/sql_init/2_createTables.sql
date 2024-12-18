@@ -3,15 +3,15 @@
 -- creation_datetime, last_modification_datetime: for diagnostics
 
 
-CREATE TABLE seemantic_schema.raw_document(
+CREATE TABLE seemantic_schema.raw_document_entry(
    raw_content_hash CHAR(32) PRIMARY KEY,
    parsed_content_hash CHAR(32) NOT NULL,
-   last_parsed_update_datetime TIMESTAMPTZ NOT NULL,
+   last_parsing_datetime TIMESTAMPTZ NOT NULL,
    creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
-CREATE TABLE seemantic_schema.source_document(
+CREATE TABLE seemantic_schema.source_document_entry(
    source_uri TEXT PRIMARY KEY,
    raw_content_hash CHAR(32) NOT NULL,
    last_content_update_datetime TIMESTAMPTZ NOT NULL,

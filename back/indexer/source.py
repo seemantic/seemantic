@@ -1,20 +1,27 @@
 from abc import abstractmethod
 from collections.abc import AsyncGenerator
+from datetime import datetime
 from io import BytesIO
 
 from pydantic import BaseModel
 
 
-class UpsertEvent(BaseModel, arbitrary_types_allowed=True):
+class SourceUpsertEvent(BaseModel, arbitrary_types_allowed=True):
     uri: str
+
+
+class SourceDeleteEvent(BaseModel):
+    uri: str
+
+
+SourceEvent = SourceUpsertEvent | SourceDeleteEvent
+
+
+class SourceDocument(BaseModel):
+    uri: str
+    raw_content_hash: str
     content: BytesIO
-
-
-class DeleteEvent(BaseModel):
-    uri: str
-
-
-DocumentEvent = UpsertEvent | DeleteEvent
+    crawling_datetime: datetime
 
 
 class Source:
@@ -24,4 +31,7 @@ class Source:
     async def all_uris(self) -> list[str]: ...
 
     @abstractmethod
-    def listen(self) -> AsyncGenerator[DocumentEvent]: ...
+    def listen(self) -> AsyncGenerator[SourceEvent]: ...
+
+    @abstractmethod
+    async def get_document(self, uri: str) -> SourceDocument | None: ...
