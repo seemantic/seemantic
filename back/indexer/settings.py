@@ -2,11 +2,13 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from common.db_service import DbSettings
 from common.minio_service import MinioSettings
 
 
 class Settings(BaseSettings):
     minio: MinioSettings
+    db: DbSettings
     seemantic_drive_root: str
     log_level: str
 

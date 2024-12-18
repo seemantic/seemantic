@@ -17,7 +17,7 @@ class SourceDeleteEvent(BaseModel):
 SourceEvent = SourceUpsertEvent | SourceDeleteEvent
 
 
-class SourceDocument(BaseModel):
+class SourceDocument(BaseModel, arbitrary_types_allowed=True):
     uri: str
     raw_content_hash: str
     content: BytesIO

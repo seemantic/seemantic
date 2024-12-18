@@ -13,6 +13,7 @@ class Indexer:
 
     def __init__(self, settings: Settings) -> None:
         self.source = SeemanticDriveSource(settings=settings.minio)
+        self.db = DbService(settings.db)
 
     async def _reindex_if_needed(self, uri: str) -> None:
 
@@ -37,7 +38,7 @@ class Indexer:
             )
             await self.db.upsert_source_document(
                 source_document=SourceDocumentEntry(
-                    uri=uri,
+                    source_uri=uri,
                     raw_content_hash=source_doc.raw_content_hash,
                     last_crawling_datetime=source_doc.crawling_datetime,
                     last_content_update_datetime=source_doc.crawling_datetime,
@@ -64,7 +65,7 @@ class Indexer:
 
         # Delete documents not in source anymore
         uris_in_db = await self.db.select_all_source_documents()
-        deleted_uris = {uri.uri for uri in uris_in_db} - set(uris_in_source)
+        deleted_uris = {uri.source_uri for uri in uris_in_db} - set(uris_in_source)
         await self.db.delete_source_documents(list(deleted_uris))
 
         async for doc_event in self.source.listen():
