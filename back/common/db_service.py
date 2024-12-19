@@ -102,6 +102,13 @@ class DbService:
                 )
                 for db_doc in db_docs.scalars()
             ]
+        
+    async def get_source_document(self, source_uri: str) -> SourceDocumentEntry | None:
+        async with self.session_factory() as session, session.begin():
+            db_doc = await session.execute(
+                select(DbSourceDocumentEntry).where(DbSourceDocumentEntry.source_uri == source_uri),
+            )
+            return db_doc.scalar()
 
     async def get_raw_if_exists(self, raw_content_hash: str) -> RawDocumentEntry | None:
         async with self.session_factory() as session, session.begin():
