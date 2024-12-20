@@ -11,7 +11,7 @@ CREATE TABLE seemantic_schema.indexed_document_entry(
    last_indexing_datetime TIMESTAMPTZ NOT NULL,
    last_successful_indexing_parsed_content_hash CHAR(32),
    last_successful_indexing_datetime TIMESTAMPTZ,
-   creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+   creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -25,11 +25,11 @@ CREATE TABLE seemantic_schema.source_document_entry(
    last_crawling_datetime TIMESTAMPTZ NOT NULL, -- updated when we check if content has changed
    last_content_update_datetime TIMESTAMPTZ NOT NULL, -- updated when last_crawling_raw_content_hash changes
    last_indexing_datetime TIMESTAMPTZ, -- updated when last_indexing_raw_content_hash changes
-   last_sucessful_indexing_datetime TIMESTAMPTZ -- updated when last_successful_indexing_raw_content_hash changes
+   last_sucessful_indexing_datetime TIMESTAMPTZ, -- updated when last_successful_indexing_raw_content_hash changes
    creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
 
-   FOREIGN KEY (last_indexing_raw_content_hash) REFERENCES seemantic_schema.raw_document_entry(raw_content_hash)
-   FOREIGN KEY (last_successful_indexing_raw_content_hash) REFERENCES seemantic_schema.raw_document_entry(raw_content_hash)
+   FOREIGN KEY (last_indexing_raw_content_hash) REFERENCES seemantic_schema.indexed_document_entry(raw_content_hash),
+   FOREIGN KEY (last_successful_indexing_raw_content_hash) REFERENCES seemantic_schema.indexed_document_entry(raw_content_hash)
 );
 
 /* 
@@ -46,3 +46,6 @@ when the document is crawled again:
 C: force reindex
 when we reindex, it's always an existing indexed_document_entry, go back to 3
  */
+
+
+ 
