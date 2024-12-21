@@ -4,48 +4,69 @@
 -- index name pattern: <prefix>_<table_name>_<column_name>_<index_type>
 
 
+CREATE TABLE seemantic_schema.source_document(
+   id UUID PRIMARY KEY,
+   source_uri TEXT NOT NULL UNIQUE,
+   creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
 
-CREATE TABLE seemantic_schema.indexed_document_entry(
-   raw_content_hash CHAR(32) PRIMARY KEY,
-   last_indexing_status TEXT NOT NULL,
-   last_indexing_datetime TIMESTAMPTZ NOT NULL,
-   last_successful_indexing_parsed_content_hash CHAR(32),
-   last_successful_indexing_datetime TIMESTAMPTZ,
+CREATE TABLE seemantic_schema.raw_document(
+   id UUID PRIMARY KEY,
+   raw_content_hash CHAR(32) NOT NULL UNIQUE,
    creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
-CREATE TABLE seemantic_schema.source_document_entry(
-   source_uri TEXT PRIMARY KEY,
-
-   last_crawling_raw_content_hash CHAR(32) NOT NULL, -- set after crawling changing content
-   last_indexing_raw_content_hash CHAR(32), -- set after indexing
-   last_successful_indexing_raw_content_hash CHAR(32), -- set after successful indexing
-
-   last_crawling_datetime TIMESTAMPTZ NOT NULL, -- updated when we check if content has changed
-   last_content_update_datetime TIMESTAMPTZ NOT NULL, -- updated when last_crawling_raw_content_hash changes
-   last_indexing_datetime TIMESTAMPTZ, -- updated when last_indexing_raw_content_hash changes
-   last_sucessful_indexing_datetime TIMESTAMPTZ, -- updated when last_successful_indexing_raw_content_hash changes
-   creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
-
-   FOREIGN KEY (last_indexing_raw_content_hash) REFERENCES seemantic_schema.indexed_document_entry(raw_content_hash),
-   FOREIGN KEY (last_successful_indexing_raw_content_hash) REFERENCES seemantic_schema.indexed_document_entry(raw_content_hash)
+CREATE TABLE seemantic_schema.source_document_version(
+   id UUID PRIMARY KEY,
+   source_document_id UUID NOT NULL,
+   raw_document_id UUID NOT NULL,
+   FOREIGN KEY (source_document_id) REFERENCES seemantic_schema.source_document(id) ON DELETE CASCADE,
+   FOREIGN KEY (raw_document_id) REFERENCES seemantic_schema.raw_document(id),
+   UNIQUE (source_document_id, raw_document_id),
+   last_crawling_datetime TIMESTAMPTZ NOT NULL,
+   creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-/* 
-A: new document
-1) a document is crawled: source_document_entry is created or updated with last_crawling_raw_content_hash
-2) if no indexed_document_entry with raw_content_hash == last_crawling_raw_content_hash andlast_indexing_status == "success" exists, we index it
-3) once indexing is finished (failed or success),
-   - we update or create indexed_document_entry
-   - we update source_document_entry having this last_crawling_raw_content_hash with last_indexing_raw_content_hash and eventually last_successful_indexing_raw_content_hash
-B: new crawling
-when the document is crawled again:
-   - if content did not change, we update last_crawling_datetime
-   - if content changed, we go back to 1
-C: force reindex
-when we reindex, it's always an existing indexed_document_entry, go back to 3
- */
+
+CREATE TABLE seemantic_schema.indexed_document(
+   id UUID PRIMARY KEY,
+   raw_document_id UUID NOT NULL,
+   creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+   indexing_status TEXT NOT NULL,
+   parsed_content_hash CHAR(32),
+   FOREIGN KEY (raw_document_id) REFERENCES seemantic_schema.raw_document(id) ON DELETE CASCADE
+);
+
+/*
+A) crawling:
+A.a) source update: create source / raw and source_version
+1) a document (uri/hash) is crawled
+2) if uri does not exists, we create a source_document
+3) if raw_document with this raw_content_hash does not exists, we create it
+4) we check if a source_document_version exists with same uri same hash
+- if yes, last_crawling_datetime is updated
+- if no, we create a new source_document_version
+
+A.b) indexing. input: raw_document
+2) if there is no indexed_document, we create it with "pending" status
+3) we do the actual indexing
+4) if it's OK we update the version with "success"/parsing_hash, else "error"
+
+B) file explorer: source_document + status
+1) select all source_document, join with last source_document_version + raw_document + last indexed_document
+
+C) click on document
+C.a) open source
+C.b) open parsed: from source_document_version for a given source_document, find the latest sucessful indexed_document
+
+C) search
+indexed_document -> raw_document -> source_document_version -> source_document. exclude those with a more recent version with an indexed version
+NB: can be done by clean during indexing.
+
+D) delete
+simple delete
 
 
- 
+*/
+
