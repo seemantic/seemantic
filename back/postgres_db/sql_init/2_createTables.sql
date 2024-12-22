@@ -7,15 +7,17 @@
 CREATE TABLE seemantic_schema.source_document(
    id UUID PRIMARY KEY,
    source_uri TEXT NOT NULL UNIQUE,
-   creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
+   creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+   current_version_id UUID NOT NULL,
+   current_indexed_version_id UUID
 );
 
 CREATE TABLE seemantic_schema.raw_document(
    id UUID PRIMARY KEY,
    raw_content_hash CHAR(32) NOT NULL UNIQUE,
-   creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
+   creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+   current_indexed_document_id UUID
 );
-
 
 CREATE TABLE seemantic_schema.source_document_version(
    id UUID PRIMARY KEY,
@@ -37,6 +39,22 @@ CREATE TABLE seemantic_schema.indexed_document(
    parsed_content_hash CHAR(32),
    FOREIGN KEY (raw_document_id) REFERENCES seemantic_schema.raw_document(id) ON DELETE CASCADE
 );
+
+ALTER TABLE seemantic_schema.raw_document
+ADD CONSTRAINT fk_seemantic_schema_raw_document_current_indexed_document_id
+FOREIGN KEY (current_indexed_document_id)
+REFERENCES seemantic_schema.indexed_document(id) DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE seemantic_schema.source_document
+ADD CONSTRAINT fk_seemantic_schema_source_document_current_version_id
+FOREIGN KEY (current_version_id)
+REFERENCES seemantic_schema.source_document_version(id) DEFERRABLE INITIALLY DEFERRED;
+
+ALTER TABLE seemantic_schema.source_document
+ADD CONSTRAINT fk_seemantic_schema_source_document_current_indexed_version_id
+FOREIGN KEY (current_indexed_version_id)
+REFERENCES seemantic_schema.source_document_version(id) DEFERRABLE INITIALLY DEFERRED;
+
 
 /*
 A) crawling:
