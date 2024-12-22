@@ -53,7 +53,6 @@ class IndexedDocument(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     raw_document_id: Mapped[UUID] = mapped_column(ForeignKey("raw_document.id"), nullable=False)
-    creation_datetime: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     indexing_status: Mapped[str] = mapped_column(
         nullable=False,
     )  # Could also use Enum(IndexingStatusEnum) for stricter validation
@@ -86,7 +85,7 @@ class DbService:
         uri: str,
         raw_content_hash: str,
         last_crawling_datetime: datetime,
-    ) -> tuple[SourceDocument, RawDocument, SourceDocumentVersion]:
+    ) -> UUID:
         """create source_document if it doesn't exist, raw_document if it doesn't exist, and source_document_version if it doesn't exist.
         if source_document_version exists, update source_document_version.last_crawling_datetime. Set source_document.current_version_id to source_document_version.id
         return source_document, raw_document, and source_document_version
@@ -146,9 +145,35 @@ class DbService:
             # Update the current_version_id of the SourceDocument
             source_document.current_version_id = source_document_version.id
 
+            raw_id = raw_document.id
             await session.commit()
+            return raw_id
 
-            return source_document, raw_document, source_document_version
+
+    async def create_indexed_document(self, raw_document_id: UUID, parsed_content_hash: str) -> IndexedDocument:
+        indexed_document_id = uuid4()
+        async with self.session_factory() as session, session.begin():
+            indexed_document = IndexedDocument(id=indexed_document_id, raw_document_id=raw_document_id, parsed_content_hash=parsed_content_hash, indexing_status="success")
+            session.add(indexed_document)
+
+            # Update the current_indexed_document_id of the RawDocument
+            raw_document = await session.execute(select(RawDocument).where(RawDocument.id == raw_document_id))
+            raw_document = raw_document.scalar_one()
+            raw_document.current_indexed_document_id = indexed_document_id
+
+            # Update the current_indexed_version_id of the SourceDocument
+            source_docs = await session.execute(
+                select(SourceDocument)
+                .join(SourceDocumentVersion, SourceDocument.current_version_id == SourceDocumentVersion.id)
+                .where(SourceDocumentVersion.raw_document_id == raw_document_id)
+            )
+            source_docs = source_docs.scalars()
+            for source_doc in source_docs:
+                source_doc.current_indexed_version_id = source_doc.current_version_id
+
+            await session.commit()
+        return indexed_document
+
 
     async def get_source_documents_impacted_by_raw_document(self, raw_document_id: UUID) -> list[SourceDocument]:
         async with self.session_factory() as session, session.begin():

@@ -59,12 +59,12 @@ REFERENCES seemantic_schema.source_document_version(id) DEFERRABLE INITIALLY DEF
 /*
 A) crawling:
 A.a) source update: create source / raw and source_version
-1) a document (uri/hash) is crawled
-2) if uri does not exists, we create a source_document
-3) if raw_document with this raw_content_hash does not exists, we create it
-4) we check if a source_document_version exists with same uri same hash
-- if yes, last_crawling_datetime is updated
-- if no, we create a new source_document_version
+1) a document (uri/hash) is crawled. In a transaction:
+    - if uri does not exists, we create a source_document
+    - if raw_document with this raw_content_hash does not exists, we create it
+    - we check if a source_document_version exists with same uri same hash
+      - if yes, last_crawling_datetime is updated
+      - if no, we create a new source_document_version
 
 A.b) indexing. input: raw_document
 2) if there is no indexed_document, we create it with "pending" status
