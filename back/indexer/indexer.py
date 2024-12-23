@@ -29,9 +29,13 @@ class Indexer:
             return
         
         raw_id = await self.db.upsert_source_document(uri, source_doc.raw_content_hash, source_doc.crawling_datetime)
-        
+        # Do indexation
         result = await self.db.create_indexed_document(raw_id, xxh3_128_hexdigest(source_doc.raw_content_hash))
         print(result)
+
+        # get from parsed
+        all_tuples = await self.db.get_source_documents_from_parsed_hashes([str(result.parsed_content_hash)])
+        print(all_tuples)
 
     async def start(self) -> None:
 
