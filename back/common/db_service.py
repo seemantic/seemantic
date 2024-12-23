@@ -1,11 +1,13 @@
 from datetime import datetime
+from re import S
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
 from sqlalchemy import TIMESTAMP, ForeignKey, MetaData, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import Mapped, declarative_base, mapped_column, joinedload
+from sqlalchemy.orm import Mapped, declarative_base, mapped_column, aliased
 from typing import Tuple
+
 
 class DbSettings(BaseModel, frozen=True):
     username: str
@@ -119,6 +121,12 @@ def to_indexed(table_obj: TableIndexedDocument) -> IndexedDocument:
         indexing_status=table_obj.indexing_status,
         parsed_content_hash=table_obj.parsed_content_hash
     )
+
+class DocumentView(BaseModel):
+    source: SourceDocument
+    current_version: Tuple[SourceDocumentVersion, RawDocument]
+    indexed_version: Tuple[SourceDocumentVersion, RawDocument, IndexedDocument] | None
+
 
 class DbService:
 
@@ -251,4 +259,81 @@ class DbService:
             await session.commit()
             return indexed
 
+    async def get_all_source_documents(self) -> list[DocumentView]:
+        """Return all source documents, for each the current version, and if it exists the current indexed version"""
+        async with self.session_factory() as session, session.begin():
 
+            current_version_alias = aliased(TableSourceDocumentVersion)
+            indexed_version_alias = aliased(TableSourceDocumentVersion)
+
+            current_raw_alias = aliased(TableRawDocument)
+            indexed_raw_alias = aliased(TableRawDocument)
+
+
+            # Query to fetch all source documents and join with current version and current indexed version if available
+            result = await session.execute(
+                select(
+                    TableSourceDocument,
+                    current_version_alias,
+                    current_raw_alias,
+                    indexed_version_alias,
+                    indexed_raw_alias,
+                    TableIndexedDocument
+                )
+                .join(
+                    current_version_alias,
+                    TableSourceDocument.current_version_id == current_version_alias.id
+                )
+                .join(
+                    current_raw_alias,
+                    current_version_alias.raw_document_id == current_raw_alias.id
+                )
+                .outerjoin(
+                    indexed_version_alias,
+                    TableSourceDocument.current_indexed_version_id == indexed_version_alias.id
+                )
+                .outerjoin(
+                    indexed_raw_alias,
+                    indexed_version_alias.raw_document_id == indexed_raw_alias.id
+                )
+                .outerjoin(
+                    TableIndexedDocument,
+                    indexed_raw_alias.current_indexed_document_id == TableIndexedDocument.id
+                )
+            )
+
+            document_views: list[DocumentView] = []
+            for (
+                source_doc,
+                current_version,
+                current_raw,
+                indexed_version,
+                indexed_raw,
+                indexed
+            ) in result.all():
+                # Convert table objects to Pydantic models
+                source = to_source(source_doc)
+                current_version_model = to_version(current_version)
+                current_raw_model = to_raw(current_raw)
+
+                if indexed_version:
+                    indexed_version_model = to_version(indexed_version)
+                    indexed_raw_model = to_raw(indexed_raw)
+                    indexed_model = to_indexed(indexed)
+
+                    document_views.append(
+                    DocumentView(
+                        source=source,
+                        current_version=(current_version_model, current_raw_model),
+                        indexed_version=(indexed_version_model, indexed_raw_model, indexed_model)
+                    ))
+
+                else:
+                   document_views.append(
+                    DocumentView(
+                        source=source,
+                        current_version=(current_version_model, current_raw_model),
+                        indexed_version=None
+                    ))
+
+            return document_views
