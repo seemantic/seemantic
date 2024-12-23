@@ -1,5 +1,6 @@
 
 import logging
+from textwrap import indent
 from pydantic import BaseModel
 from xxhash import xxh3_128_hexdigest
 from indexer.settings import Settings
@@ -34,8 +35,13 @@ class Indexer:
         print(result)
 
         # get from parsed
-        all_tuples = await self.db.get_source_documents_from_parsed_hashes([str(result.parsed_content_hash)])
-        print(all_tuples)
+        #all_tuples = await self.db.get_source_documents_from_parsed_hashes([str(result.parsed_content_hash)])
+    
+        # print(all_tuples)
+
+        all_docs = await self.db.get_all_source_documents()
+
+        print(all_docs[0].model_dump_json(indent=4))
 
     async def start(self) -> None:
 
