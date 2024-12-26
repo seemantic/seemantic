@@ -1,9 +1,9 @@
 from datetime import datetime
-from re import S
 from uuid import UUID, uuid4
 
+from httpx import delete
 from pydantic import BaseModel
-from sqlalchemy import TIMESTAMP, ForeignKey, MetaData, select
+from sqlalchemy import TIMESTAMP, ForeignKey, MetaData, select, delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column, aliased
 from typing import Tuple
@@ -134,6 +134,14 @@ class DbService:
         url = f"postgresql+asyncpg://{settings.username}:{settings.password}@{settings.host}:{settings.port}/{settings.database}"
         engine = create_async_engine(url, echo=True)
         self.session_factory = async_sessionmaker(engine, class_=AsyncSession)
+
+    async def delete_source_documents(self, uris: list[str]) -> None:
+        async with self.session_factory() as session, session.begin():
+            await session.execute(
+                delete(TableSourceDocument)
+                .where(TableSourceDocument.source_uri.in_(uris))
+            )
+            await session.commit()
 
     async def get_source_documents_from_parsed_hashes(
         self,
