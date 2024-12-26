@@ -1,3 +1,4 @@
+from io import BytesIO
 from pathlib import Path
 
 from indexer.parser import Document, Parser
@@ -20,7 +21,10 @@ def check_content(doc: Document, expected_content: str) -> None:
 
 def parse(file_path: str) -> Document:
     parser = Parser()
-    return parser.parse(Path(f"./tests/parsing_dataset/{file_path}"))
+
+    doc_bytes = Path(f"./tests/parsing_dataset/{file_path}").read_bytes()
+    bytesio = BytesIO(doc_bytes)
+    return parser.parse(bytesio)
 
 
 def test_parser_research_pdf() -> None:

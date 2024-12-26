@@ -7,4 +7,3 @@ settings = get_settings()
 indexer = Indexer(settings)
 
 asyncio.run(indexer.start())
-    

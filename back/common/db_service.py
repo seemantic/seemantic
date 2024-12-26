@@ -1,12 +1,10 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from httpx import delete
 from pydantic import BaseModel
-from sqlalchemy import TIMESTAMP, ForeignKey, MetaData, select, delete
+from sqlalchemy import TIMESTAMP, ForeignKey, MetaData, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import Mapped, declarative_base, mapped_column, aliased
-from typing import Tuple
+from sqlalchemy.orm import Mapped, aliased, declarative_base, mapped_column
 
 
 class DbSettings(BaseModel, frozen=True):
@@ -47,7 +45,6 @@ class TableSourceDocumentVersion(Base):
     source_document_id: Mapped[UUID] = mapped_column(ForeignKey("source_document.id"), nullable=False)
     raw_document_id: Mapped[UUID] = mapped_column(ForeignKey("raw_document.id"), nullable=False)
     last_crawling_datetime: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
-
 
 
 class TableIndexedDocument(Base):
@@ -93,7 +90,7 @@ def to_source(table_obj: TableSourceDocument) -> SourceDocument:
         id=table_obj.id,
         source_uri=table_obj.source_uri,
         current_version_id=table_obj.current_version_id,
-        current_indexed_version_id=table_obj.current_indexed_version_id
+        current_indexed_version_id=table_obj.current_indexed_version_id,
     )
 
 
@@ -101,7 +98,7 @@ def to_raw(table_obj: TableRawDocument) -> RawDocument:
     return RawDocument(
         id=table_obj.id,
         raw_content_hash=table_obj.raw_content_hash,
-        current_indexed_document_id=table_obj.current_indexed_document_id
+        current_indexed_document_id=table_obj.current_indexed_document_id,
     )
 
 
@@ -110,7 +107,7 @@ def to_version(table_obj: TableSourceDocumentVersion) -> SourceDocumentVersion:
         id=table_obj.id,
         source_document_id=table_obj.source_document_id,
         raw_document_id=table_obj.raw_document_id,
-        last_crawling_datetime=table_obj.last_crawling_datetime
+        last_crawling_datetime=table_obj.last_crawling_datetime,
     )
 
 
@@ -119,13 +116,14 @@ def to_indexed(table_obj: TableIndexedDocument) -> IndexedDocument:
         id=table_obj.id,
         raw_document_id=table_obj.raw_document_id,
         indexing_status=table_obj.indexing_status,
-        parsed_content_hash=table_obj.parsed_content_hash
+        parsed_content_hash=table_obj.parsed_content_hash,
     )
+
 
 class DocumentView(BaseModel):
     source: SourceDocument
-    current_version: Tuple[SourceDocumentVersion, RawDocument]
-    indexed_version: Tuple[SourceDocumentVersion, RawDocument, IndexedDocument] | None
+    current_version: tuple[SourceDocumentVersion, RawDocument]
+    indexed_version: tuple[SourceDocumentVersion, RawDocument, IndexedDocument] | None
 
 
 class DbService:
@@ -137,40 +135,31 @@ class DbService:
 
     async def delete_source_documents(self, uris: list[str]) -> None:
         async with self.session_factory() as session, session.begin():
-            await session.execute(
-                delete(TableSourceDocument)
-                .where(TableSourceDocument.source_uri.in_(uris))
-            )
+            await session.execute(delete(TableSourceDocument).where(TableSourceDocument.source_uri.in_(uris)))
             await session.commit()
 
     async def get_source_documents_from_parsed_hashes(
         self,
         parsed_content_hashes: list[str],
-    ) -> list[Tuple[SourceDocument, SourceDocumentVersion, RawDocument, IndexedDocument]]:
+    ) -> list[tuple[SourceDocument, SourceDocumentVersion, RawDocument, IndexedDocument]]:
         async with self.session_factory() as session, session.begin():
             result = await session.execute(
-                select(
-                TableSourceDocument,
-                TableSourceDocumentVersion,
-                TableRawDocument,
-                TableIndexedDocument
+                select(TableSourceDocument, TableSourceDocumentVersion, TableRawDocument, TableIndexedDocument)
+                .join(
+                    TableSourceDocumentVersion,
+                    TableSourceDocument.current_indexed_version_id == TableSourceDocumentVersion.id,
                 )
-                .join(TableSourceDocumentVersion, TableSourceDocument.current_indexed_version_id == TableSourceDocumentVersion.id)
                 .join(TableRawDocument, TableSourceDocumentVersion.raw_document_id == TableRawDocument.id)
                 .join(TableIndexedDocument, TableRawDocument.current_indexed_document_id == TableIndexedDocument.id)
-                .where(TableIndexedDocument.parsed_content_hash.in_(parsed_content_hashes))
+                .where(TableIndexedDocument.parsed_content_hash.in_(parsed_content_hashes)),
             )
 
             db_tuples = result.all()
             plain_objs = [
-                (to_source(doc[0]),
-                 to_version(doc[1]),
-                 to_raw(doc[2]),
-                 to_indexed(doc[3]))
-                for doc in db_tuples]
+                (to_source(doc[0]), to_version(doc[1]), to_raw(doc[2]), to_indexed(doc[3])) for doc in db_tuples
+            ]
 
             return plain_objs
-
 
     async def upsert_source_document(
         self,
@@ -185,7 +174,9 @@ class DbService:
         version_id = uuid4()
         async with self.session_factory() as session, session.begin():
             # Check if the source_document exists
-            source_document = await session.execute(select(TableSourceDocument).where(TableSourceDocument.source_uri == uri))
+            source_document = await session.execute(
+                select(TableSourceDocument).where(TableSourceDocument.source_uri == uri),
+            )
             source_document = source_document.scalar()
             if not source_document:
                 # Create new SourceDocument
@@ -241,11 +232,15 @@ class DbService:
             await session.commit()
             return raw_id
 
-
     async def create_indexed_document(self, raw_document_id: UUID, parsed_content_hash: str) -> IndexedDocument:
         indexed_document_id = uuid4()
         async with self.session_factory() as session, session.begin():
-            indexed_document = TableIndexedDocument(id=indexed_document_id, raw_document_id=raw_document_id, parsed_content_hash=parsed_content_hash, indexing_status="success")
+            indexed_document = TableIndexedDocument(
+                id=indexed_document_id,
+                raw_document_id=raw_document_id,
+                parsed_content_hash=parsed_content_hash,
+                indexing_status="success",
+            )
             session.add(indexed_document)
 
             # Update the current_indexed_document_id of the RawDocument
@@ -256,8 +251,11 @@ class DbService:
             # Update the current_indexed_version_id of the SourceDocument
             source_docs = await session.execute(
                 select(TableSourceDocument)
-                .join(TableSourceDocumentVersion, TableSourceDocument.current_version_id == TableSourceDocumentVersion.id)
-                .where(TableSourceDocumentVersion.raw_document_id == raw_document_id)
+                .join(
+                    TableSourceDocumentVersion,
+                    TableSourceDocument.current_version_id == TableSourceDocumentVersion.id,
+                )
+                .where(TableSourceDocumentVersion.raw_document_id == raw_document_id),
             )
             source_docs = source_docs.scalars()
             for source_doc in source_docs:
@@ -277,7 +275,6 @@ class DbService:
             current_raw_alias = aliased(TableRawDocument)
             indexed_raw_alias = aliased(TableRawDocument)
 
-
             # Query to fetch all source documents and join with current version and current indexed version if available
             result = await session.execute(
                 select(
@@ -286,39 +283,23 @@ class DbService:
                     current_raw_alias,
                     indexed_version_alias,
                     indexed_raw_alias,
-                    TableIndexedDocument
+                    TableIndexedDocument,
                 )
-                .join(
-                    current_version_alias,
-                    TableSourceDocument.current_version_id == current_version_alias.id
-                )
-                .join(
-                    current_raw_alias,
-                    current_version_alias.raw_document_id == current_raw_alias.id
-                )
+                .join(current_version_alias, TableSourceDocument.current_version_id == current_version_alias.id)
+                .join(current_raw_alias, current_version_alias.raw_document_id == current_raw_alias.id)
                 .outerjoin(
                     indexed_version_alias,
-                    TableSourceDocument.current_indexed_version_id == indexed_version_alias.id
+                    TableSourceDocument.current_indexed_version_id == indexed_version_alias.id,
                 )
-                .outerjoin(
-                    indexed_raw_alias,
-                    indexed_version_alias.raw_document_id == indexed_raw_alias.id
-                )
+                .outerjoin(indexed_raw_alias, indexed_version_alias.raw_document_id == indexed_raw_alias.id)
                 .outerjoin(
                     TableIndexedDocument,
-                    indexed_raw_alias.current_indexed_document_id == TableIndexedDocument.id
-                )
+                    indexed_raw_alias.current_indexed_document_id == TableIndexedDocument.id,
+                ),
             )
 
             document_views: list[DocumentView] = []
-            for (
-                source_doc,
-                current_version,
-                current_raw,
-                indexed_version,
-                indexed_raw,
-                indexed
-            ) in result.all():
+            for source_doc, current_version, current_raw, indexed_version, indexed_raw, indexed in result.all():
                 # Convert table objects to Pydantic models
                 source = to_source(source_doc)
                 current_version_model = to_version(current_version)
@@ -330,18 +311,20 @@ class DbService:
                     indexed_model = to_indexed(indexed)
 
                     document_views.append(
-                    DocumentView(
-                        source=source,
-                        current_version=(current_version_model, current_raw_model),
-                        indexed_version=(indexed_version_model, indexed_raw_model, indexed_model)
-                    ))
+                        DocumentView(
+                            source=source,
+                            current_version=(current_version_model, current_raw_model),
+                            indexed_version=(indexed_version_model, indexed_raw_model, indexed_model),
+                        ),
+                    )
 
                 else:
-                   document_views.append(
-                    DocumentView(
-                        source=source,
-                        current_version=(current_version_model, current_raw_model),
-                        indexed_version=None
-                    ))
+                    document_views.append(
+                        DocumentView(
+                            source=source,
+                            current_version=(current_version_model, current_raw_model),
+                            indexed_version=None,
+                        ),
+                    )
 
             return document_views

@@ -1,11 +1,13 @@
-
 import logging
+
 from pydantic import BaseModel
 from xxhash import xxh3_128_hexdigest
+
+from common.db_service import DbService
 from indexer.settings import Settings
 from indexer.source import Source, SourceDeleteEvent, SourceUpsertEvent
 from indexer.sources.seemantic_drive import SeemanticDriveSource
-from common.db_service import DbService
+
 
 class RawDocIndexationResult(BaseModel):
     raw_content_hash: str
@@ -20,23 +22,15 @@ class Indexer:
         self.source = SeemanticDriveSource(settings=settings.minio)
         self.db = DbService(settings.db)
 
-
-
     async def _reindex_and_store(self, uri: str) -> None:
         source_doc = await self.source.get_document(uri)
         if source_doc is None:
             logging.warning(f"Document {uri} not found in source")
             return
-        
+
         raw_id = await self.db.upsert_source_document(uri, source_doc.raw_content_hash, source_doc.crawling_datetime)
         # Do indexation
-        result = await self.db.create_indexed_document(raw_id, xxh3_128_hexdigest(source_doc.raw_content_hash))
-        print(result)
-
-        # get from parsed
-        all_tuples = await self.db.get_source_documents_from_parsed_hashes([str(result.parsed_content_hash)])
-    
-        print(all_tuples)
+        _ = await self.db.create_indexed_document(raw_id, xxh3_128_hexdigest(source_doc.raw_content_hash))
 
     async def start(self) -> None:
 
@@ -54,7 +48,6 @@ class Indexer:
         async for doc_event in self.source.listen():
             if isinstance(doc_event, SourceDeleteEvent):
                 await self.db.delete_source_documents([doc_event.uri])
-                pass
             else:
                 assert isinstance(doc_event, SourceUpsertEvent)
                 await self._reindex_and_store(doc_event.uri)
