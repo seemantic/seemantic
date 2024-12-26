@@ -1,4 +1,4 @@
-from app.chunker import Chunker
+from indexer.chunker import Chunker
 
 
 def test_chunk() -> None:

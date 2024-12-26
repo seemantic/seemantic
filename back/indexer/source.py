@@ -2,6 +2,7 @@ from abc import abstractmethod
 from collections.abc import AsyncGenerator
 from datetime import datetime
 from io import BytesIO
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -17,11 +18,15 @@ class SourceDeleteEvent(BaseModel):
 SourceEvent = SourceUpsertEvent | SourceDeleteEvent
 
 
+FileType = Literal["pdf", "docx", "md"]
+
+
 class SourceDocument(BaseModel, arbitrary_types_allowed=True):
     uri: str
     raw_content_hash: str
     content: BytesIO
     crawling_datetime: datetime
+    filetype: str
 
 
 class Source:

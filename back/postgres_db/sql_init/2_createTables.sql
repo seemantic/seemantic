@@ -67,9 +67,8 @@ A.a) source update: create source / raw and source_version
       - if no, we create a new source_document_version
 
 A.b) indexing. input: raw_document
-2) if there is no indexed_document, we create it with "pending" status
-3) we do the actual indexing
-4) if it's OK we update the version with "success"/parsing_hash, else "error"
+1) we do the actual indexing
+2) if it's OK we update the version with "success"/parsing_hash, else "error"
 
 B) file explorer: source_document + status
 1) select all source_document, join with last source_document_version + raw_document + last indexed_document
@@ -84,7 +83,5 @@ NB: can be done by clean during indexing.
 
 D) delete
 simple delete
-
-
 */
 

@@ -51,5 +51,6 @@ class SeemanticDriveSource(Source):
                 raw_content_hash=hash_file_content(content),
                 content=content,
                 crawling_datetime=datetime.now(tz=dt.timezone.utc),
+                filetype="pdf",  # TODO(NICO): Here
             )
         return None

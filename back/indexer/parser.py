@@ -1,6 +1,7 @@
+from io import BytesIO
 from pathlib import Path
 
-from docling.document_converter import DocumentConverter  # type: ignore[StubNotFound]
+from docling.document_converter import DocumentConverter, DocumentStream  # type: ignore[StubNotFound]
 from pydantic import BaseModel
 
 
@@ -17,7 +18,11 @@ class Parser:
 
     converter: DocumentConverter = DocumentConverter()
 
-    def parse(self, file_path: Path) -> Document:
+    def parse(self, file_content: BytesIO) -> Document:
+
+        document_stream = DocumentStream(name="test", stream=file_content)
+        self.converter.convert(document_stream)
+
         result = self.converter.convert(file_path)
         docling_doc = result.document
         md = docling_doc.export_to_markdown()

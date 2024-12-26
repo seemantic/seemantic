@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.parser import Document, Parser
+from indexer.parser import Document, Parser
 
 # working document formats:
 # -pdf
