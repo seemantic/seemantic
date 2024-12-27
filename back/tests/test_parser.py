@@ -1,6 +1,7 @@
 from io import BytesIO
 from pathlib import Path
 
+from common.document import SupportedFileType
 from indexer.parser import Document, Parser
 
 # working document formats:
@@ -19,24 +20,24 @@ def check_content(doc: Document, expected_content: str) -> None:
     assert expected_content in doc.markdown_content
 
 
-def parse(file_path: str) -> Document:
+def parse(filetype: SupportedFileType, file_path: str) -> Document:
     parser = Parser()
-
-    doc_bytes = Path(f"./tests/parsing_dataset/{file_path}").read_bytes()
+    path = Path(f"./tests/parsing_dataset/{file_path}")
+    doc_bytes = path.read_bytes()
     bytesio = BytesIO(doc_bytes)
-    return parser.parse(bytesio)
+    return parser.parse(filetype, bytesio)
 
 
 def test_parser_research_pdf() -> None:
-    doc = parse("pdf/attention_is_all_you_need.pdf")
+    doc = parse("pdf", "pdf/attention_is_all_you_need.pdf")
     check_content(doc, "## Attention Is All You Need")
 
 
 def test_parser_docx() -> None:
-    doc = parse("docx/file-sample_100kB.docx")
+    doc = parse("docx", "docx/file-sample_100kB.docx")
     check_content(doc, "# Lorem ipsum")
 
 
 def test_parser_md() -> None:
-    doc = parse("md/attention_is_all_you_need.md")
+    doc = parse("md", "md/attention_is_all_you_need.md")
     check_content(doc, "## Attention Is All You Need")
