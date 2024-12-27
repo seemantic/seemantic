@@ -3,11 +3,14 @@ import logging
 from pydantic import BaseModel
 from xxhash import xxh3_128_hexdigest
 
+from indexer.chunker import Chunker
 from common.db_service import DbService
 from indexer.settings import Settings
 from indexer.source import Source, SourceDeleteEvent, SourceUpsertEvent
 from indexer.sources.seemantic_drive import SeemanticDriveSource
-
+from uuid import UUID
+from indexer.source import SourceDocument
+from indexer.parser import Parser
 
 class RawDocIndexationResult(BaseModel):
     raw_content_hash: str
@@ -17,10 +20,17 @@ class Indexer:
 
     source: Source
     db: DbService
+    parser: Parser = Parser()
+    chunker: Chunker = Chunker()
 
     def __init__(self, settings: Settings) -> None:
         self.source = SeemanticDriveSource(settings=settings.minio)
         self.db = DbService(settings.db)
+
+    async def index(self, source_doc: SourceDocument, raw_id: UUID) -> str:
+        parsed = self.parser.parse(source_doc.filetype, source_doc.content)
+        chunks =self.chunker.chunk(parsed)
+        pass
 
     async def _reindex_and_store(self, uri: str) -> None:
         source_doc = await self.source.get_document(uri)
@@ -30,7 +40,8 @@ class Indexer:
 
         raw_id = await self.db.upsert_source_document(uri, source_doc.raw_content_hash, source_doc.crawling_datetime)
         # Do indexation
-        _ = await self.db.create_indexed_document(raw_id, xxh3_128_hexdigest(source_doc.raw_content_hash))
+        parsed_doc = await self.index(source_doc, raw_id)
+        _ = await self.db.create_indexed_document(raw_id, xxh3_128_hexdigest(parsed_doc))
 
     async def start(self) -> None:
 
