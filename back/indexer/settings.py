@@ -11,9 +11,14 @@ class Settings(BaseSettings):
     db: DbSettings
     seemantic_drive_root: str
     log_level: str
+    jina_token: str
 
     # frozen=True makes it hashable so it can be used as an argument of other functions decorated with lru_cache
-    model_config = SettingsConfigDict(env_file=".env.indexer.dev", frozen=True, env_nested_delimiter="__")
+    model_config = SettingsConfigDict(
+        env_file=".env.indexer.dev",
+        frozen=True,
+        env_nested_delimiter="__",
+        secrets_dir=".ignored/secrets",)
 
 
 @lru_cache

@@ -3,7 +3,7 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from io import BytesIO
 
-from back.common.document import SupportedFileType
+from common.document import SupportedFileType
 from pydantic import BaseModel
 
 
