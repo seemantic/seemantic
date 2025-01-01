@@ -1,16 +1,16 @@
 import logging
+from uuid import UUID
 
 from pydantic import BaseModel
 from xxhash import xxh3_128_hexdigest
 
-from indexer.chunker import Chunker
 from common.db_service import DbService
-from indexer.settings import Settings
-from indexer.source import Source, SourceDeleteEvent, SourceUpsertEvent
-from indexer.sources.seemantic_drive import SeemanticDriveSource
-from uuid import UUID
-from indexer.source import SourceDocument
+from indexer.chunker import Chunker
 from indexer.parser import Parser
+from indexer.settings import Settings
+from indexer.source import Source, SourceDeleteEvent, SourceDocument, SourceUpsertEvent
+from indexer.sources.seemantic_drive import SeemanticDriveSource
+
 
 class RawDocIndexationResult(BaseModel):
     raw_content_hash: str
@@ -27,10 +27,11 @@ class Indexer:
         self.source = SeemanticDriveSource(settings=settings.minio)
         self.db = DbService(settings.db)
 
-    async def index(self, source_doc: SourceDocument, raw_id: UUID) -> str:
+    async def index(self, source_doc: SourceDocument, _raw_id: UUID) -> str:
         parsed = self.parser.parse(source_doc.filetype, source_doc.content)
-        chunks =self.chunker.chunk(parsed)
-        pass
+        _ = self.chunker.chunk(parsed.markdown_content)
+
+        raise NotImplementedError
 
     async def _reindex_and_store(self, uri: str) -> None:
         source_doc = await self.source.get_document(uri)

@@ -3,8 +3,9 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from io import BytesIO
 
-from common.document import SupportedFileType
 from pydantic import BaseModel
+
+from common.document import SupportedFileType
 
 
 class SourceUpsertEvent(BaseModel):

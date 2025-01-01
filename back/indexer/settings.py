@@ -18,7 +18,8 @@ class Settings(BaseSettings):
         env_file=".env.indexer.dev",
         frozen=True,
         env_nested_delimiter="__",
-        secrets_dir=".ignored/secrets",)
+        secrets_dir=".ignored/secrets",
+    )
 
 
 @lru_cache

@@ -4,6 +4,9 @@ fastapi[standard]==0.115.5
 python-multipart==0.0.17
 uvicorn[standard]==0.32.1
 
+# external apis
+httpx==0.28.1
+
 # db
 sqlalchemy[asyncio]==2.0.36
 asyncpg==0.30.0
