@@ -15,6 +15,23 @@ class Chunker:
 
     max_size: Final[int] = 64
 
+    def _chunk_with_size(self, md_content: str, start_index: int, end_index: int) -> list[Chunk]:
+
+        size = end_index - start_index
+        nb_chunks = math.ceil(size / self.max_size)
+        chunks: list[Chunk] = []
+        for i_chunk in range(nb_chunks):
+            chunk_start_index = start_index + i_chunk * self.max_size
+            chunk_end_index = min(end_index, start_index + (i_chunk + 1) * self.max_size)
+            chunk_content = md_content[chunk_start_index:chunk_end_index]
+            chunk = Chunk(
+                content=chunk_content,
+                start_index_in_doc=chunk_start_index,
+                end_index_in_doc=chunk_end_index,
+            )
+            chunks.append(chunk)
+        return chunks
+
     def chunk(self, md_content: str) -> list[Chunk]:
         """
         Split md_content into a list of Chunk objects, where each chunk starts
@@ -34,31 +51,15 @@ class Chunker:
         # Find all headers and their positions
         matches = list(header_pattern.finditer(md_content))
 
-        # Iterate through headers to create chunks
+        before_first_header = md_content[: matches[0].start()] if len(matches) > 0 else md_content
+        chunks = self._chunk_with_size(before_first_header, 0, len(before_first_header))
+
         for i_match, match in enumerate(matches):
             start_index = match.start()
             end_index = matches[i_match + 1].start() if i_match + 1 < len(matches) else len(md_content)
 
-            size = end_index - start_index
-            nb_chunks = math.ceil(size / self.max_size)
-            for i_chunk in range(nb_chunks):
-                chunk_start_index = start_index + i_chunk * self.max_size
-                chunk_end_index = start_index + (i_chunk + 1) * self.max_size
-                chunk_end_index = min(chunk_end_index, end_index)
-                chunk_content = md_content[chunk_start_index:chunk_end_index]
-                chunk = Chunk(
-                    content=chunk_content,
-                    start_index_in_doc=chunk_start_index,
-                    end_index_in_doc=chunk_end_index,
-                )
+            match_chunks = self._chunk_with_size(md_content, start_index, end_index)
+            for chunk in match_chunks:
                 chunks.append(chunk)
-        # Add the first chunk if it doesn't start with a header
-        # here manage split also Nico
-        if len(chunks) > 0 and chunks[0].start_index_in_doc != 0:
-            first_chunk_content = Chunk(
-                content=md_content[: chunks[0].start_index_in_doc],
-                start_index_in_doc=0,
-                end_index_in_doc=chunks[0].start_index_in_doc,
-            )
-            chunks.insert(0, first_chunk_content)
+
         return chunks

@@ -30,8 +30,16 @@ content line 2
         assert md[chunk.start_index_in_doc : chunk.end_index_in_doc] == chunk.content
     assert chunks[0].content == "\n\n    content before\n\n"
 
-
-def test_chunk_with_section_too_long() -> None:
+def test_chunk_with_section_too_long_before() -> None:
     content = ("1234567890azertyuoip" * 50)[: (64 * 3 + 1)]
     chunks = Chunker().chunk(content)
     assert len(chunks) == 4
+    rebuilt = "".join([chunk.content for chunk in chunks])
+    assert rebuilt == content
+
+def test_chunk_with_section_too_long() -> None:
+    content = "## title \n\n ## title2 \n\n" + ("1234567890azertyuoip" * 50)[: (64 * 3 + 1)]
+    chunks = Chunker().chunk(content)
+    assert len(chunks) == 4
+    rebuilt = "".join([chunk.content for chunk in chunks])
+    assert rebuilt == content
