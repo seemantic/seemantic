@@ -33,3 +33,23 @@ class EmbeddingService:
         json = response.json()
         embeddings = [embedding["embedding"] for embedding in json["data"]]
         return embeddings
+
+    async def embed_query(self, query: str) -> list[float]:
+        data = {
+            "model": "jina-embeddings-v3",
+            "task": "retrieval.query",
+            "late_chunking": False,
+            "dimensions": 1024,
+            "embedding_type": "float",
+            "input": [query],
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(self._url, headers=self._headers, json=data)
+
+        if response.status_code != HTTPStatus.OK:
+            message = f"Error embedding query: {response.status_code} - {response.text}"
+            raise ValueError(message)
+        json = response.json()
+        embedding = json["data"][0]["embedding"]
+        return embedding
