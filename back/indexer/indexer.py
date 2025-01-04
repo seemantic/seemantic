@@ -2,7 +2,7 @@ import logging
 from typing import cast
 from uuid import UUID
 
-from back.common.document import ParsableFileType, is_parsable
+from common.document import ParsableFileType, is_parsable
 from pydantic import BaseModel
 from xxhash import xxh3_128_hexdigest
 

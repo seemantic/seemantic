@@ -19,7 +19,7 @@ class Parser:
         if filetype == "md":
             return Document(markdown_content=file_content.read().decode("utf-8"))
         if filetype in ("docx", "pdf"):
-            document_stream = DocumentStream(name="test", stream=file_content)
+            document_stream = DocumentStream(name=f"dummy_stream_name.{filetype}", stream=file_content)
             result = self._converter.convert(document_stream)
             docling_doc = result.document
             md = docling_doc.export_to_markdown()
