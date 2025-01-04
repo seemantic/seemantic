@@ -3,7 +3,7 @@ from io import BytesIO
 from docling.document_converter import DocumentConverter, DocumentStream  # type: ignore[StubNotFound]
 from pydantic import BaseModel
 
-from common.document import SupportedFileType
+from common.document import ParsableFileType
 
 
 class Document(BaseModel):
@@ -14,7 +14,7 @@ class Parser:
 
     _converter: DocumentConverter = DocumentConverter()
 
-    def parse(self, filetype: SupportedFileType, file_content: BytesIO) -> Document:
+    def parse(self, filetype: ParsableFileType, file_content: BytesIO) -> Document:
 
         if filetype == "md":
             return Document(markdown_content=file_content.read().decode("utf-8"))

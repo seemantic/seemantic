@@ -1,10 +1,13 @@
 import logging
+from typing import cast
 from uuid import UUID
 
+from back.common.document import ParsableFileType, is_parsable
 from pydantic import BaseModel
 from xxhash import xxh3_128_hexdigest
 
 from common.db_service import DbService
+from common.embedding_service import EmbeddingService
 from indexer.chunker import Chunker
 from indexer.parser import Parser
 from indexer.settings import Settings
@@ -22,14 +25,18 @@ class Indexer:
     db: DbService
     parser: Parser = Parser()
     chunker: Chunker = Chunker()
+    embedder: EmbeddingService
 
     def __init__(self, settings: Settings) -> None:
         self.source = SeemanticDriveSource(settings=settings.minio)
         self.db = DbService(settings.db)
+        self.embedder = EmbeddingService(token=settings.jina_token)
 
     async def index(self, source_doc: SourceDocument, _raw_id: UUID) -> str:
-        parsed = self.parser.parse(source_doc.filetype, source_doc.content)
-        _ = self.chunker.chunk(parsed.markdown_content)
+        filetype = cast(ParsableFileType, source_doc.filetype)
+        parsed = self.parser.parse(filetype, source_doc.content)
+        chunks = self.chunker.chunk(parsed.markdown_content)
+        _ = await self.embedder.embed_passage([chunk.content for chunk in chunks])
 
         raise NotImplementedError
 
@@ -37,6 +44,9 @@ class Indexer:
         source_doc = await self.source.get_document(uri)
         if source_doc is None:
             logging.warning(f"Document {uri} not found in source")
+            return
+        if not is_parsable(source_doc.filetype):
+            logging.warning(f"Unsupported file type {source_doc.filetype}")
             return
 
         raw_id = await self.db.upsert_source_document(uri, source_doc.raw_content_hash, source_doc.crawling_datetime)

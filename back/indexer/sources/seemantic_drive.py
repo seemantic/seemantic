@@ -3,6 +3,8 @@ import datetime as dt
 from collections.abc import AsyncGenerator
 from datetime import datetime
 
+import filetype  # type: ignore[StubNotFound]
+
 from common.minio_service import MinioService
 from common.utils import hash_file_content
 from indexer.settings import MinioSettings
@@ -45,12 +47,15 @@ class SeemanticDriveSource(Source):
 
     async def get_document(self, uri: str) -> SourceDocument | None:
         content = self._minio_service.get_document(object_name=self._with_prefix(uri))
+
         if content:
+            kind: str | None = filetype.guess_extension(content.read(1024))  # type: ignore[Attribute]
+            # check that kind is a supported file type
             return SourceDocument(
                 uri=uri,
                 raw_content_hash=hash_file_content(content),
                 content=content,
                 crawling_datetime=datetime.now(tz=dt.timezone.utc),
-                filetype="pdf",  # TODO(NICO): Here
+                filetype=kind,
             )
         return None

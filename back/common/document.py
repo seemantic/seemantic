@@ -1,3 +1,7 @@
-from typing import Literal
+from typing import Literal, get_args
 
-SupportedFileType = Literal["pdf", "docx", "md"]
+ParsableFileType = Literal["pdf", "docx", "md"]
+
+
+def is_parsable(filetype: str | None) -> bool:
+    return filetype is not None and filetype in get_args(ParsableFileType)

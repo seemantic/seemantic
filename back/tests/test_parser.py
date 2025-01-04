@@ -1,7 +1,7 @@
 from io import BytesIO
 from pathlib import Path
 
-from common.document import SupportedFileType
+from common.document import ParsableFileType
 from indexer.parser import Document, Parser
 
 # working document formats:
@@ -20,7 +20,7 @@ def check_content(doc: Document, expected_content: str) -> None:
     assert expected_content in doc.markdown_content
 
 
-def parse(filetype: SupportedFileType, file_path: str) -> Document:
+def parse(filetype: ParsableFileType, file_path: str) -> Document:
     parser = Parser()
     path = Path(f"./tests/parsing_dataset/{file_path}")
     doc_bytes = path.read_bytes()

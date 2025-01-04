@@ -5,8 +5,6 @@ from io import BytesIO
 
 from pydantic import BaseModel
 
-from common.document import SupportedFileType
-
 
 class SourceUpsertEvent(BaseModel):
     uri: str
@@ -24,7 +22,7 @@ class SourceDocument(BaseModel, arbitrary_types_allowed=True):
     raw_content_hash: str
     content: BytesIO
     crawling_datetime: datetime
-    filetype: SupportedFileType
+    filetype: str | None
 
 
 class Source:
