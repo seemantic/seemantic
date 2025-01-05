@@ -50,6 +50,7 @@ class SeemanticDriveSource(Source):
 
         if content:
             kind: str | None = filetype.guess_extension(content.read(1024))  # type: ignore[Attribute]
+            content.seek(0)
             # check that kind is a supported file type
             return SourceDocument(
                 uri=uri,

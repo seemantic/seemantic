@@ -15,7 +15,7 @@ class Parser:
     _converter: DocumentConverter = DocumentConverter()
 
     def parse(self, filetype: ParsableFileType, file_content: BytesIO) -> Document:
-
+        file_content.seek(0)
         if filetype == "md":
             return Document(markdown_content=file_content.read().decode("utf-8"))
         if filetype in ("docx", "pdf"):
