@@ -2,11 +2,11 @@ import logging
 from typing import cast
 from uuid import UUID
 
-from common.document import ParsableFileType, is_parsable
 from pydantic import BaseModel
 from xxhash import xxh3_128_hexdigest
 
 from common.db_service import DbService
+from common.document import ParsableFileType, is_parsable
 from common.embedding_service import EmbeddingService
 from indexer.chunker import Chunker
 from indexer.parser import Parser
@@ -35,8 +35,8 @@ class Indexer:
     async def index(self, source_doc: SourceDocument, _raw_id: UUID) -> str:
         filetype = cast(ParsableFileType, source_doc.filetype)
         parsed = self.parser.parse(filetype, source_doc.content)
-        chunks = self.chunker.chunk(parsed.markdown_content)
-        _ = await self.embedder.embed_passage([chunk.content for chunk in chunks])
+        chunks = self.chunker.chunk(parsed)
+        _ = await self.embedder.embed_document(parsed, chunks)
 
         raise NotImplementedError
 

@@ -1,3 +1,4 @@
+from common.document import ParsedDocument
 from indexer.chunker import Chunker
 
 
@@ -19,29 +20,28 @@ content
 content line 2
 
 """
-
-    chunks = Chunker().chunk(md)
+    parsed = ParsedDocument(markdown_content=md)
+    chunks = Chunker().chunk(parsed)
     assert len(chunks) == 4
     # we can rebuild the original document from the chunks
-    rebuitlt = "".join([chunk.content for chunk in chunks])
+    rebuitlt = "".join([parsed[chunk] for chunk in chunks])
     assert rebuitlt == md
-    # indexes are corrects
-    for chunk in chunks:
-        assert md[chunk.start_index_in_doc : chunk.end_index_in_doc] == chunk.content
-    assert chunks[0].content == "\n\n    content before\n\n"
+    assert parsed[chunks[0]] == "\n\n    content before\n\n"
 
 
 def test_chunk_with_section_too_long_before() -> None:
     content = ("1234567890azertyuoip" * 50)[: (64 * 3 + 1)]
-    chunks = Chunker().chunk(content)
+    parsed = ParsedDocument(markdown_content=content)
+    chunks = Chunker().chunk(parsed)
     assert len(chunks) == 4
-    rebuilt = "".join([chunk.content for chunk in chunks])
+    rebuilt = "".join([parsed[chunk] for chunk in chunks])
     assert rebuilt == content
 
 
 def test_chunk_with_section_too_long() -> None:
     content = "## title \n\n ## title2 \n\n" + ("1234567890azertyuoip" * 50)[: (64 * 3 + 1)]
-    chunks = Chunker().chunk(content)
+    parsed = ParsedDocument(markdown_content=content)
+    chunks = Chunker().chunk(parsed)
     assert len(chunks) == 4
-    rebuilt = "".join([chunk.content for chunk in chunks])
+    rebuilt = "".join([parsed[chunk] for chunk in chunks])
     assert rebuilt == content

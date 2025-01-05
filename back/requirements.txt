@@ -20,7 +20,7 @@ python-dotenv==1.0.1
 watchfiles==0.24.0
 
 # vector store
-lancedb==0.16.0
+lancedb==0.17.0
 
 # parsing
 docling==2.7.0

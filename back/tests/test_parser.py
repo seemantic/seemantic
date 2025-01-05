@@ -1,8 +1,8 @@
 from io import BytesIO
 from pathlib import Path
 
-from common.document import ParsableFileType
-from indexer.parser import Document, Parser
+from common.document import ParsableFileType, ParsedDocument
+from indexer.parser import Parser
 
 # working document formats:
 # -pdf
@@ -16,11 +16,11 @@ from indexer.parser import Document, Parser
 # doc/docx file examples from https://file-examples.com/index.php/sample-documents-download/sample-doc-download/
 
 
-def check_content(doc: Document, expected_content: str) -> None:
+def check_content(doc: ParsedDocument, expected_content: str) -> None:
     assert expected_content in doc.markdown_content
 
 
-def parse(filetype: ParsableFileType, file_path: str) -> Document:
+def parse(filetype: ParsableFileType, file_path: str) -> ParsedDocument:
     parser = Parser()
     path = Path(f"./tests/parsing_dataset/{file_path}")
     doc_bytes = path.read_bytes()
