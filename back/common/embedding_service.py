@@ -14,20 +14,14 @@ class EmbeddingService:
     def __init__(self, token: str) -> None:
         self._headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
 
-    async def embed_document(self, document: ParsedDocument, chunks: list[Chunk]) -> list[list[float]]:
-        """
-        embed contiguous passages from a single document
-        Nb: for now the number of tokens is limited to 8192 tokens ot it will crash.
-        """
-        chunk_contents = [document[chunk] for chunk in chunks]
-
+    async def _embed(self, task: str, content: list[str], *, late_chunking: bool) -> list[list[float]]:
         data = {
             "model": "jina-embeddings-v3",
-            "task": "retrieval.passage",
-            "late_chunking": True,
+            "task": task,
+            "late_chunking": late_chunking,
             "dimensions": 1024,
             "embedding_type": "float",
-            "input": chunk_contents,
+            "input": content,
         }
 
         async with httpx.AsyncClient() as client:
@@ -40,22 +34,18 @@ class EmbeddingService:
         embeddings = [embedding["embedding"] for embedding in json["data"]]
         return embeddings
 
+    async def embed_document(self, document: ParsedDocument, chunks: list[Chunk]) -> list[list[float]]:
+        """
+        embed contiguous passages from a single document
+        Nb: for now the number of tokens is limited to 8192 tokens ot it will crash.
+        """
+        chunk_contents = [document[chunk] for chunk in chunks]
+
+        embeddings = await self._embed("retrieval.passage", chunk_contents, late_chunking=True)
+        return embeddings
+
     async def embed_query(self, query: str) -> list[float]:
-        data = {
-            "model": "jina-embeddings-v3",
-            "task": "retrieval.query",
-            "late_chunking": False,
-            "dimensions": 1024,
-            "embedding_type": "float",
-            "input": [query],
-        }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(self._url, headers=self._headers, json=data)
-
-        if response.status_code != HTTPStatus.OK:
-            message = f"Error embedding query: {response.status_code} - {response.text}"
-            raise ValueError(message)
-        json = response.json()
-        embedding = json["data"][0]["embedding"]
+        embeddings = await self._embed("retrieval.query", [query], late_chunking=False)
+        embedding = embeddings[0]
         return embedding
