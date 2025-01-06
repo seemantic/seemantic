@@ -3,10 +3,9 @@ from typing import cast
 from uuid import UUID
 
 from pydantic import BaseModel
-from xxhash import xxh3_128_hexdigest
 
 from common.db_service import DbService
-from common.document import ParsableFileType, is_parsable
+from common.document import ParsableFileType, ParsedDocument, is_parsable
 from common.embedding_service import EmbeddingService
 from indexer.chunker import Chunker
 from indexer.parser import Parser
@@ -32,7 +31,7 @@ class Indexer:
         self.db = DbService(settings.db)
         self.embedder = EmbeddingService(token=settings.jina_token)
 
-    async def index(self, source_doc: SourceDocument, _raw_id: UUID) -> str:
+    async def index(self, source_doc: SourceDocument, _raw_id: UUID) -> ParsedDocument:
         filetype = cast(ParsableFileType, source_doc.filetype)
         parsed = self.parser.parse(filetype, source_doc.content)
         chunks = self.chunker.chunk(parsed)
@@ -52,7 +51,7 @@ class Indexer:
         raw_id = await self.db.upsert_source_document(uri, source_doc.raw_content_hash, source_doc.crawling_datetime)
         # Do indexation
         parsed_doc = await self.index(source_doc, raw_id)
-        _ = await self.db.create_indexed_document(raw_id, xxh3_128_hexdigest(parsed_doc))
+        _ = await self.db.create_indexed_document(raw_id, parsed_doc.compute_hash())
 
     async def start(self) -> None:
 
