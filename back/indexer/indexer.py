@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from common.vector_db import VectorDB
 from common.db_service import DbService
 from common.document import ParsableFileType, ParsedDocument, is_parsable
 from common.embedding_service import EmbeddingService
@@ -25,8 +26,10 @@ class Indexer:
     parser: Parser = Parser()
     chunker: Chunker = Chunker()
     embedder: EmbeddingService
+    vector_db: VectorDB
 
     def __init__(self, settings: Settings) -> None:
+        self.vector_db = VectorDB(settings.minio)
         self.source = SeemanticDriveSource(settings=settings.minio)
         self.db = DbService(settings.db)
         self.embedder = EmbeddingService(token=settings.jina_token)
