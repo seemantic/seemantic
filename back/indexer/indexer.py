@@ -34,6 +34,9 @@ class Indexer:
         self.db = DbService(settings.db)
         self.embedder = EmbeddingService(token=settings.jina_token)
 
+    async def init(self) -> None:
+        await self.vector_db.connect()
+
     async def index(self, source_doc: SourceDocument, _raw_id: UUID) -> ParsedDocument:
         filetype = cast(ParsableFileType, source_doc.filetype)
         parsed = self.parser.parse(filetype, source_doc.content)
@@ -57,6 +60,8 @@ class Indexer:
         _ = await self.db.create_indexed_document(raw_id, parsed_doc.compute_hash())
 
     async def start(self) -> None:
+
+        await self.init()
 
         uris_in_source = await self.source.all_uris()
         for uri in uris_in_source:

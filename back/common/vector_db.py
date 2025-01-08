@@ -21,20 +21,31 @@ class VectorDB:
 # Set the envvars AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY with your MinIO credential
 # Call lancedb.connect("s3://minio_bucket_name")
 
-
+    _settings: MinioSettings
+    _db: lancedb.AsyncConnection
 
     def __init__(self, settings: MinioSettings) -> None:
+        self._settings = settings
 
-        self.db = lancedb.connect(
-            "s3://seemantic_vector_db",
+    async def connect(self) -> None:
+        self._db = await lancedb.connect_async(
+            "s3://seemantic/lancedb",
             storage_options={
-        "aws_access_key_id": settings.access_key,
-        "aws_secret_access_key": settings.secret_key,
-        "aws_endpoint": settings.endpoint
-    })
+        "aws_access_key_id": self._settings.access_key,
+        "aws_secret_access_key": self._settings.secret_key,
+        "aws_endpoint": "http://localhost:9000",
+        "allow_http": "True"})
         
-    def query(self, vector: list[float]) -> list[DocumentResult]:
-        raise NotImplementedError
+        data = [
+    {"vector": [3.1, 4.1], "item": "foo", "price": 10.0},
+    {"vector": [5.9, 26.5], "item": "bar", "price": 20.0},]
 
-    def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
-        raise NotImplementedError
+        async_tbl = await self._db.create_table("my_table_async", data=data)
+        
+    async def query(self, vector: list[float]) -> list[DocumentResult]:
+        raise NotImplementedError()
+
+    async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
+        raise NotImplementedError()
+
+
