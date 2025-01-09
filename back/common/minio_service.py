@@ -14,6 +14,8 @@ class MinioSettings(BaseModel, frozen=True):
     endpoint: str
     access_key: str
     secret_key: str
+    use_tls: bool
+    bucket: str
 
 
 class MinioEvent(BaseModel, frozen=True):
@@ -24,15 +26,17 @@ class MinioEvent(BaseModel, frozen=True):
 class MinioService:
 
     _minio_client: Minio
-    _bucket_name = "seemantic"
+    _bucket_name: str
 
     def __init__(self, settings: MinioSettings) -> None:
         self._minio_client = Minio(
             settings.endpoint,
             access_key=settings.access_key,
             secret_key=settings.secret_key,
-            secure=False,
+            secure=settings.use_tls,
         )
+
+        self._bucket_name = settings.bucket
 
         if not self._minio_client.bucket_exists(self._bucket_name):
             self._minio_client.make_bucket(self._bucket_name)

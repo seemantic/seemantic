@@ -42,7 +42,10 @@ class EmbeddingService:
         chunk_contents = [document[chunk] for chunk in chunks]
 
         embeddings = await self._embed("retrieval.passage", chunk_contents, late_chunking=True)
-        return [EmbeddedChunk(chunk=chunk, embedding=embedding) for chunk, embedding in zip(chunks, embeddings, strict=False)]
+        return [
+            EmbeddedChunk(chunk=chunk, embedding=embedding)
+            for chunk, embedding in zip(chunks, embeddings, strict=False)
+        ]
 
     async def embed_query(self, query: str) -> Embedding:
 
