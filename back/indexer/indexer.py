@@ -4,10 +4,10 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from common.vector_db import VectorDB
 from common.db_service import DbService
 from common.document import ParsableFileType, ParsedDocument, is_parsable
 from common.embedding_service import EmbeddingService
+from common.vector_db import VectorDB
 from indexer.chunker import Chunker
 from indexer.parser import Parser
 from indexer.settings import Settings

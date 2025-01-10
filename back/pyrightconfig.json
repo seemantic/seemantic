@@ -1,0 +1,13 @@
+{
+    "typeCheckingMode": "strict",
+    "include": ["."],
+    "exclude": [
+        "**/__pycache__",
+        "**/venv",
+        "**/.generated",
+        "**/postgres_db",
+        "**/.ignored",
+        "**/.ruff_cache",
+        "**/pytest_cache",
+      ]
+  }

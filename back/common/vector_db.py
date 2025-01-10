@@ -1,9 +1,10 @@
-import lancedb
-from lancedb import AsyncConnection
-from lancedb.pydantic import Vector, LanceModel
+import lancedb  # pyright: ignore[reportMissingTypeStubs]
+from lancedb import AsyncConnection  # pyright: ignore[reportMissingTypeStubs]
+from lancedb.pydantic import LanceModel, Vector  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 from pydantic import BaseModel
-from common.minio_service import MinioSettings
+
 from common.document import Chunk, EmbeddedChunk, ParsedDocument
+from common.minio_service import MinioSettings
 
 
 class ChunkResult(BaseModel):
@@ -18,7 +19,7 @@ class DocumentResult(BaseModel):
 
 class Content(LanceModel):
     movie_id: int
-    vector: Vector(128)
+    vector: Vector(128)  # type: ignore[FixedSizeListMixin]
     genres: str
     title: str
     imdb_id: int
@@ -42,19 +43,23 @@ class VectorDB:
 
     async def connect(self) -> None:
         self._db = await lancedb.connect_async(
-            f"s3://{self._settings.bucket}/lancedb",  # duplication from minio TODO
+            f"s3://{self._settings.bucket}/lancedb",
             storage_options={
                 "aws_access_key_id": self._settings.access_key,
                 "aws_secret_access_key": self._settings.secret_key,
                 "aws_endpoint": f"http://{self._settings.endpoint}",  # maybe this should ref minio service instead of config directly ?
                 "allow_http": f"{not self._settings.use_tls}",
             },
-        )  # todo make it configurable
+        )
 
-        async_tbl = await self._db.create_table("my_table_async", exist_ok=True, schema=Content)
+        _ = await self._db.create_table(  # pyright: ignore[reportUnknownMemberType]
+            "my_table_async",
+            exist_ok=True,
+            schema=Content,
+        )
 
     async def query(self, vector: list[float]) -> list[DocumentResult]:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
