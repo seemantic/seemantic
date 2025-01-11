@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Final
+from typing import Final, Any
 
 import httpx
 
@@ -15,7 +15,7 @@ class EmbeddingService:
         self._headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
 
     async def _embed(self, task: str, content: list[str], *, late_chunking: bool) -> list[Embedding]:
-        data = {
+        data: dict[str, Any] = {
             "model": "jina-embeddings-v3",
             "task": task,
             "late_chunking": late_chunking,
@@ -52,3 +52,5 @@ class EmbeddingService:
         embeddings = await self._embed("retrieval.query", [query], late_chunking=False)
         embedding = embeddings[0]
         return embedding
+
+
