@@ -42,12 +42,13 @@ class VectorDB:
         self._settings = settings
 
     async def connect(self) -> None:
+        protocol = "https" if self._settings.use_tls else "http"
         self._db = await lancedb.connect_async(
             f"s3://{self._settings.bucket}/lancedb",
             storage_options={
                 "aws_access_key_id": self._settings.access_key,
                 "aws_secret_access_key": self._settings.secret_key,
-                "aws_endpoint": f"http://{self._settings.endpoint}",  # maybe this should ref minio service instead of config directly ?
+                "aws_endpoint": f"{protocol}://{self._settings.endpoint}",  # maybe this should ref minio service instead of config directly ?
                 "allow_http": f"{not self._settings.use_tls}",
             },
         )
