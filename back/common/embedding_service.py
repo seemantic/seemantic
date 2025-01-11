@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Final, Any
+from typing import Any, Final
 
 import httpx
 
@@ -52,5 +52,3 @@ class EmbeddingService:
         embeddings = await self._embed("retrieval.query", [query], late_chunking=False)
         embedding = embeddings[0]
         return embedding
-
-

@@ -69,7 +69,5 @@ class QueryRequest(BaseModel):
 
 
 @router.post("/queries")
-async def create_query(
-    _query: QueryRequest
-) -> QueryResponse:
+async def create_query(_query: QueryRequest) -> QueryResponse:
     return QueryResponse(answer="", search_result=[])

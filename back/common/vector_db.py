@@ -1,6 +1,7 @@
-import lancedb  # pyright: ignore[reportMissingTypeStubs]
-from lancedb import AsyncConnection  # pyright: ignore[reportMissingTypeStubs]
-from lancedb.pydantic import LanceModel, Vector  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
+# pyright: strict, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+import lancedb
+import pyarrow as pa
+from lancedb import AsyncConnection
 from pydantic import BaseModel
 
 from common.document import Chunk, EmbeddedChunk, ParsedDocument
@@ -17,23 +18,26 @@ class DocumentResult(BaseModel):
     chunk_results: list[ChunkResult]
 
 
-class Content(LanceModel):
-    movie_id: int
-    vector: Vector(128)  # type: ignore[FixedSizeListMixin]
-    genres: str
-    title: str
-    imdb_id: int
+parsed_doc_table_schema = pa.schema(
+    [
+        ("parsed_doc_hash", pa.string()),
+        ("str_content", pa.string()),
+    ],
+)
 
-    @property
-    def imdb_url(self) -> str:
-        return f"https://www.imdb.com/title/tt{self.imdb_id}"
-
+embedding_dim = 1024
+chunk_table_schema = pa.schema(
+    [
+        ("embedding", pa.list_(pa.float16(), embedding_dim)),
+        ("parsed_doc_hash", pa.string()),
+        ("start_index_in_doc", pa.int64()),
+        ("end_index_in_doc", pa.int64()),
+    ],
+)
+parsed_doc_table_version = "v1"
+chunk_table_version = "v1"
 
 class VectorDB:
-
-    # Set the envvar AWS_ENDPOINT to the URL of your MinIO API
-    # Set the envvars AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY with your MinIO credential
-    # Call lancedb.connect("s3://minio_bucket_name")
 
     _settings: MinioSettings
     _db: AsyncConnection
@@ -53,10 +57,21 @@ class VectorDB:
             },
         )
 
-        _ = await self._db.create_table(  # pyright: ignore[reportUnknownMemberType]
-            "my_table_async",
+        _ = await self._db.create_table(
+            f"parsed_doc_{parsed_doc_table_version}",
             exist_ok=True,
-            schema=Content,
+            schema=parsed_doc_table_schema,
+            enable_v2_manifest_paths=True,
+            
+            mode="overwrite" # For now as we test, this should be removed after
+        )
+
+        _ = await self._db.create_table(
+            f"chunk_{chunk_table_version}",
+            exist_ok=True,
+            schema=chunk_table_schema,
+            enable_v2_manifest_paths=True,
+            mode="overwrite" # For now as we test, this should be removed after
         )
 
     async def query(self, vector: list[float]) -> list[DocumentResult]:
