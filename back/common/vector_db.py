@@ -46,9 +46,9 @@ class VectorDB:
         self._db = await lancedb.connect_async(
             f"s3://{self._settings.bucket}/lancedb",
             storage_options={
-                "aws_access_key_id": self._settings.access_key,
-                "aws_secret_access_key": self._settings.secret_key,
-                "aws_endpoint": f"{protocol}://{self._settings.endpoint}",  # maybe this should ref minio service instead of config directly ?
+                "access_key_id": self._settings.access_key,
+                "secret_access_key": self._settings.secret_key,
+                "endpoint": f"{protocol}://{self._settings.endpoint}",
                 "allow_http": f"{not self._settings.use_tls}",
             },
         )
