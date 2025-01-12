@@ -41,8 +41,8 @@ class Indexer:
         filetype = cast(ParsableFileType, source_doc.filetype)
         parsed = self.parser.parse(filetype, source_doc.content)
         chunks = self.chunker.chunk(parsed)
-        _ = await self.embedder.embed_document(parsed, chunks)
-
+        embedded_chunks = await self.embedder.embed_document(parsed, chunks)
+        await self.vector_db.index(parsed, embedded_chunks)
         raise NotImplementedError
 
     async def _reindex_and_store(self, uri: str) -> None:
