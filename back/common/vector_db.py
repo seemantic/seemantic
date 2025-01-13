@@ -1,4 +1,5 @@
 # pyright: strict, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+from ast import Not
 import lancedb
 import pyarrow as pa
 from lancedb import AsyncConnection
@@ -28,7 +29,7 @@ parsed_doc_table_schema = pa.schema(
 embedding_dim = 1024
 chunk_table_schema = pa.schema(
     [
-        ("embedding", pa.list_(pa.float16(), embedding_dim)),
+        (lancedb.common.VECTOR_COLUMN_NAME, pa.list_(pa.float16(), embedding_dim)),
         ("parsed_doc_hash", pa.string()),
         ("start_index_in_doc", pa.int64()),
         ("end_index_in_doc", pa.int64()),
@@ -81,16 +82,43 @@ class VectorDB:
         )
 
     async def query(self, vector: list[float]) -> list[DocumentResult]:
+
+        result: pa.Table = await self._chunk_table.query().nearest_to(vector).to_arrow()
+        parsed_doc_hashes: set[str] = set(result["parsed_doc_hash"].to_pylist())
+
+        print(parsed_doc_hashes)
+        raise NotImplementedError()
+        return [
+            DocumentResult(
+                parsed_document=None,
+                chunk_results=[
+                    ChunkResult(
+                        chunk=Chunk(
+                            start_index_in_doc=row["start_index_in_doc"],
+                            end_index_in_doc=row["end_index_in_doc"],
+                        ),
+                        score=row["score"],
+                    )
+                    for row in result.to_pylist()
+                ],
+            )
+        ]
+
+
         raise NotImplementedError
 
     async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
-        data = [document.compute_hash(), document.markdown_content]
-        await self._parsed_doc_table.add(data)
+        doc_hash: str = document.compute_hash()
+        hash_array = pa.array([doc_hash])
+        content_array = pa.array([document.markdown_content])
+        doc_table = pa.Table.from_arrays([hash_array, content_array], schema=parsed_doc_table_schema)
+        await self._parsed_doc_table.add(doc_table)
 
-        data = [[
-            chunk.embedding.embedding,
-            document.compute_hash(),
-            chunk.chunk.start_index_in_doc,
-            chunk.chunk.end_index_in_doc,
-        ] for chunk in chunks]
-        await self._chunk_table.add(data)
+        embedding_array = pa.array([c.embedding.embedding for c in chunks])
+        hash_array: pa.StringArray = pa.array([doc_hash]*len(chunks))
+        start_index_array = pa.array([c.chunk.start_index_in_doc for c in chunks])
+        end_index_array = pa.array([c.chunk.end_index_in_doc for c in chunks])
+        chunk_table = pa.Table.from_arrays([embedding_array, hash_array, start_index_array, end_index_array], schema=chunk_table_schema) 
+
+        await self._chunk_table.add(chunk_table)
+        # indexing is not necessary up to 100k rows. cf. https://lancedb.github.io/lancedb/ann_indexes/#when-is-it-necessary-to-create-an-ann-vector-index
