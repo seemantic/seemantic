@@ -1,5 +1,4 @@
 # pyright: strict, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
-from ast import Not
 import lancedb
 import pyarrow as pa
 from lancedb import AsyncConnection
@@ -48,6 +47,7 @@ class VectorDB:
     _db: AsyncConnection
     _parsed_doc_table: lancedb.AsyncTable
     _chunk_table: lancedb.AsyncTable
+    nb_chunks_to_retrieve = 10
 
     def __init__(self, settings: MinioSettings) -> None:
         self._settings = settings
@@ -83,29 +83,32 @@ class VectorDB:
 
     async def query(self, vector: list[float]) -> list[DocumentResult]:
 
-        result: pa.Table = await self._chunk_table.query().nearest_to(vector).to_arrow()
-        parsed_doc_hashes: set[str] = set(result["parsed_doc_hash"].to_pylist())
+        chunk_results: pa.Table = await self._chunk_table.query().nearest_to(vector).limit(self.nb_chunks_to_retrieve).to_arrow()
+        parsed_doc_hashes: set[str] = set(chunk_results["parsed_doc_hash"].to_pylist())
+        sql_in_str = ",".join([f"'{hash}'" for hash in parsed_doc_hashes])
 
-        print(parsed_doc_hashes)
-        raise NotImplementedError()
+        parsed_docs = await self._parsed_doc_table.query().where(f"parsed_doc_hash IN ({sql_in_str})").to_arrow()
+
+        hash_to_content: dict[str, str] = dict(zip(parsed_docs["parsed_doc_hash"].to_pylist(), parsed_docs["str_content"].to_pylist()))
+
+        hash_to_chunks: dict[str, list[ChunkResult]] = {hash: [] for hash in parsed_doc_hashes}
+        for chunk_row in chunk_results.to_pylist():
+            hash_to_chunks[chunk_row["parsed_doc_hash"]].append(
+                ChunkResult(chunk=Chunk(
+                    start_index_in_doc=chunk_row["start_index_in_doc"],
+                    end_index_in_doc=chunk_row["end_index_in_doc"],
+                ), score=77)
+        )
+            
         return [
             DocumentResult(
-                parsed_document=None,
-                chunk_results=[
-                    ChunkResult(
-                        chunk=Chunk(
-                            start_index_in_doc=row["start_index_in_doc"],
-                            end_index_in_doc=row["end_index_in_doc"],
-                        ),
-                        score=row["score"],
-                    )
-                    for row in result.to_pylist()
-                ],
+                parsed_document=ParsedDocument(
+                    markdown_content=hash_to_content[hash],
+                ),
+                chunk_results=chunks,
             )
+            for hash, chunks in hash_to_chunks.items()
         ]
-
-
-        raise NotImplementedError
 
     async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
         doc_hash: str = document.compute_hash()
