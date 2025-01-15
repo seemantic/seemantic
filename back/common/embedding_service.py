@@ -1,9 +1,12 @@
 from http import HTTPStatus
-from typing import Any, Final
+from typing import Any, Final, Literal, TypeAlias
 
 import httpx
 
 from common.document import Chunk, EmbeddedChunk, Embedding, ParsedDocument
+
+
+DistanceMetric: TypeAlias = Literal["L2", "cosine", "dot"]
 
 
 class EmbeddingService:
@@ -52,3 +55,6 @@ class EmbeddingService:
         embeddings = await self._embed("retrieval.query", [query], late_chunking=False)
         embedding = embeddings[0]
         return embedding
+
+    def distance_metric(self) -> DistanceMetric:
+        return "cosine"

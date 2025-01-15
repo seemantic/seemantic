@@ -29,10 +29,10 @@ class Indexer:
     vector_db: VectorDB
 
     def __init__(self, settings: Settings) -> None:
-        self.vector_db = VectorDB(settings.minio)
+        self.embedder = EmbeddingService(token=settings.jina_token)
+        self.vector_db = VectorDB(settings.minio, self.embedder.distance_metric())
         self.source = SeemanticDriveSource(settings=settings.minio)
         self.db = DbService(settings.db)
-        self.embedder = EmbeddingService(token=settings.jina_token)
 
     async def init(self) -> None:
         await self.vector_db.connect()
@@ -43,7 +43,11 @@ class Indexer:
         chunks = self.chunker.chunk(parsed)
         embedded_chunks = await self.embedder.embed_document(parsed, chunks)
         await self.vector_db.index(parsed, embedded_chunks)
-        raise NotImplementedError
+
+        # TODO: check if the distance metric is correct, and how to retrieve the scores...
+        result = await self.vector_db.query(embedded_chunks[0].embedding.embedding, nb_chunks_to_retrieve=10)
+
+        return parsed
 
     async def _reindex_and_store(self, uri: str) -> None:
         source_doc = await self.source.get_document(uri)
