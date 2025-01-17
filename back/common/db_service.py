@@ -58,35 +58,35 @@ class TableIndexedDocument(Base):
     parsed_content_hash: Mapped[str | None] = mapped_column()
 
 
-class SourceDocument(BaseModel):
+class DbSourceDocument(BaseModel):
     id: UUID
     source_uri: str
     current_version_id: UUID
     current_indexed_version_id: UUID | None
 
 
-class RawDocument(BaseModel):
+class DbRawDocument(BaseModel):
     id: UUID
     raw_content_hash: str
     current_indexed_document_id: UUID | None
 
 
-class SourceDocumentVersion(BaseModel):
+class DbSourceDocumentVersion(BaseModel):
     id: UUID
     source_document_id: UUID
     raw_document_id: UUID
     last_crawling_datetime: datetime
 
 
-class IndexedDocument(BaseModel):
+class DbIndexedDocument(BaseModel):
     id: UUID
     raw_document_id: UUID
     indexing_status: str
     parsed_content_hash: str | None
 
 
-def to_source(table_obj: TableSourceDocument) -> SourceDocument:
-    return SourceDocument(
+def to_source(table_obj: TableSourceDocument) -> DbSourceDocument:
+    return DbSourceDocument(
         id=table_obj.id,
         source_uri=table_obj.source_uri,
         current_version_id=table_obj.current_version_id,
@@ -94,16 +94,16 @@ def to_source(table_obj: TableSourceDocument) -> SourceDocument:
     )
 
 
-def to_raw(table_obj: TableRawDocument) -> RawDocument:
-    return RawDocument(
+def to_raw(table_obj: TableRawDocument) -> DbRawDocument:
+    return DbRawDocument(
         id=table_obj.id,
         raw_content_hash=table_obj.raw_content_hash,
         current_indexed_document_id=table_obj.current_indexed_document_id,
     )
 
 
-def to_version(table_obj: TableSourceDocumentVersion) -> SourceDocumentVersion:
-    return SourceDocumentVersion(
+def to_version(table_obj: TableSourceDocumentVersion) -> DbSourceDocumentVersion:
+    return DbSourceDocumentVersion(
         id=table_obj.id,
         source_document_id=table_obj.source_document_id,
         raw_document_id=table_obj.raw_document_id,
@@ -111,8 +111,8 @@ def to_version(table_obj: TableSourceDocumentVersion) -> SourceDocumentVersion:
     )
 
 
-def to_indexed(table_obj: TableIndexedDocument) -> IndexedDocument:
-    return IndexedDocument(
+def to_indexed(table_obj: TableIndexedDocument) -> DbIndexedDocument:
+    return DbIndexedDocument(
         id=table_obj.id,
         raw_document_id=table_obj.raw_document_id,
         indexing_status=table_obj.indexing_status,
@@ -121,9 +121,9 @@ def to_indexed(table_obj: TableIndexedDocument) -> IndexedDocument:
 
 
 class DocumentView(BaseModel):
-    source: SourceDocument
-    current_version: tuple[SourceDocumentVersion, RawDocument]
-    indexed_version: tuple[SourceDocumentVersion, RawDocument, IndexedDocument] | None
+    source: DbSourceDocument
+    current_version: tuple[DbSourceDocumentVersion, DbRawDocument]
+    indexed_version: tuple[DbSourceDocumentVersion, DbRawDocument, DbIndexedDocument] | None
 
 
 class DbService:
@@ -141,7 +141,7 @@ class DbService:
     async def get_source_documents_from_parsed_hashes(
         self,
         parsed_content_hashes: list[str],
-    ) -> list[tuple[SourceDocument, SourceDocumentVersion, RawDocument, IndexedDocument]]:
+    ) -> list[tuple[DbSourceDocument, DbSourceDocumentVersion, DbRawDocument, DbIndexedDocument]]:
         async with self.session_factory() as session, session.begin():
             result = await session.execute(
                 select(TableSourceDocument, TableSourceDocumentVersion, TableRawDocument, TableIndexedDocument)
@@ -232,7 +232,7 @@ class DbService:
             await session.commit()
             return raw_id
 
-    async def create_indexed_document(self, raw_document_id: UUID, parsed_content_hash: str) -> IndexedDocument:
+    async def create_indexed_document(self, raw_document_id: UUID, parsed_content_hash: str) -> DbIndexedDocument:
         indexed_document_id = uuid4()
         async with self.session_factory() as session, session.begin():
             indexed_document = TableIndexedDocument(
