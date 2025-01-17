@@ -5,7 +5,6 @@ import httpx
 
 from common.document import Chunk, EmbeddedChunk, Embedding, ParsedDocument
 
-
 DistanceMetric: TypeAlias = Literal["L2", "cosine", "dot"]
 
 

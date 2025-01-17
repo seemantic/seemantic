@@ -25,10 +25,12 @@ class EmbeddedChunk(BaseModel):
 
 
 class ParsedDocument(BaseModel):
+    hash: str
     markdown_content: str
-
-    def compute_hash(self) -> str:
-        return xxh128_hexdigest(self.markdown_content)
 
     def __getitem__(self, chunk: Chunk) -> str:
         return self.markdown_content[chunk.start_index_in_doc : chunk.end_index_in_doc]
+
+
+def compute_hash(content: str) -> str:
+    return xxh128_hexdigest(content)

@@ -43,10 +43,6 @@ class Indexer:
         chunks = self.chunker.chunk(parsed)
         embedded_chunks = await self.embedder.embed_document(parsed, chunks)
         await self.vector_db.index(parsed, embedded_chunks)
-
-        # TODO: check if the distance metric is correct, and how to retrieve the scores...
-        result = await self.vector_db.query(embedded_chunks[0].embedding.embedding, nb_chunks_to_retrieve=10)
-
         return parsed
 
     async def _reindex_and_store(self, uri: str) -> None:
@@ -61,7 +57,7 @@ class Indexer:
         raw_id = await self.db.upsert_source_document(uri, source_doc.raw_content_hash, source_doc.crawling_datetime)
         # Do indexation
         parsed_doc = await self.index(source_doc, raw_id)
-        _ = await self.db.create_indexed_document(raw_id, parsed_doc.compute_hash())
+        _ = await self.db.create_indexed_document(raw_id, parsed_doc.hash)
 
     async def start(self) -> None:
 

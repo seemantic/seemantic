@@ -20,7 +20,7 @@ content
 content line 2
 
 """
-    parsed = ParsedDocument(markdown_content=md)
+    parsed = ParsedDocument(markdown_content=md, hash="")
     chunks = Chunker().chunk(parsed)
     assert len(chunks) == 4
     # we can rebuild the original document from the chunks
@@ -31,7 +31,7 @@ content line 2
 
 def test_chunk_with_section_too_long_before() -> None:
     content = ("1234567890azertyuoip" * 50)[: (64 * 3 + 1)]
-    parsed = ParsedDocument(markdown_content=content)
+    parsed = ParsedDocument(markdown_content=content, hash="")
     chunks = Chunker().chunk(parsed)
     assert len(chunks) == 4
     rebuilt = "".join([parsed[chunk] for chunk in chunks])
@@ -40,7 +40,7 @@ def test_chunk_with_section_too_long_before() -> None:
 
 def test_chunk_with_section_too_long() -> None:
     content = "## title \n\n ## title2 \n\n" + ("1234567890azertyuoip" * 50)[: (64 * 3 + 1)]
-    parsed = ParsedDocument(markdown_content=content)
+    parsed = ParsedDocument(markdown_content=content, hash="")
     chunks = Chunker().chunk(parsed)
     assert len(chunks) == 4
     rebuilt = "".join([parsed[chunk] for chunk in chunks])
