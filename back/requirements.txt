@@ -21,9 +21,10 @@ watchfiles==0.24.0
 
 # vector store
 lancedb==0.17.0
+pyarrow-stubs==17.14
 
 # parsing
-docling==2.7.0
+docling==2.15.1
 
 # minIO
 minio==7.2.12
