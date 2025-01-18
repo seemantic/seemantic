@@ -51,6 +51,7 @@ class Indexer:
             logging.warning(f"Document {uri} not found in source")
             return
         if not is_parsable(source_doc.filetype):
+            # manage not parsable so it's still displayed in the UI ?
             logging.warning(f"Unsupported file type {source_doc.filetype}")
             return
 
