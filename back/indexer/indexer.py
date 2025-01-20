@@ -34,7 +34,7 @@ class Indexer:
         self.source = SeemanticDriveSource(settings=settings.minio)
         self.db = DbService(settings.db)
 
-    async def init(self) -> None:
+    async def _init(self) -> None:
         await self.vector_db.connect()
 
     async def index(self, source_doc: SourceDocument, _raw_id: UUID) -> ParsedDocument:
@@ -62,7 +62,7 @@ class Indexer:
 
     async def start(self) -> None:
 
-        await self.init()
+        await self._init()
 
         uris_in_source = await self.source.all_uris()
         for uri in uris_in_source:
