@@ -5,6 +5,8 @@ from xxhash import xxh128_hexdigest
 
 ParsableFileType = Literal["pdf", "docx", "md"]
 
+IndexingStatus = Literal["parsing_error", "success"]
+
 
 def is_parsable(filetype: str | None) -> bool:
     return filetype is not None and filetype in get_args(ParsableFileType)

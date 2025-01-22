@@ -70,7 +70,7 @@ class Indexer:
 
         # Delete documents not in source anymore
         db_docs = await self.db.get_all_source_documents()
-        uris_in_db = {doc.source.source_uri for doc in db_docs}
+        uris_in_db = {doc.source_document_uri for doc in db_docs}
 
         deleted_uris = uris_in_db - set(uris_in_source)
         await self.db.delete_source_documents(list(deleted_uris))

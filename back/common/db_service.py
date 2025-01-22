@@ -1,8 +1,8 @@
 from datetime import datetime
+from common.document import IndexingStatus
 from uuid import UUID, uuid4
-
 from pydantic import BaseModel
-from sqlalchemy import TIMESTAMP, ForeignKey, MetaData, delete, select
+from sqlalchemy import TIMESTAMP, ForeignKey, MetaData, String, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, aliased, declarative_base, mapped_column
 
@@ -52,7 +52,8 @@ class TableIndexedDocument(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     raw_document_id: Mapped[UUID] = mapped_column(ForeignKey("raw_document.id"), nullable=False)
-    indexing_status: Mapped[str] = mapped_column(
+    indexing_status: Mapped[IndexingStatus] = mapped_column(
+        String,
         nullable=False,
     )  # Could also use Enum(IndexingStatusEnum) for stricter validation
     parsed_content_hash: Mapped[str | None] = mapped_column()
@@ -77,12 +78,31 @@ class DbSourceDocumentVersion(BaseModel):
     raw_document_id: UUID
     last_crawling_datetime: datetime
 
-
 class DbIndexedDocument(BaseModel):
     id: UUID
     raw_document_id: UUID
-    indexing_status: str
+    indexing_status: IndexingStatus
     parsed_content_hash: str | None
+
+
+class DocumentVersionView(BaseModel):
+    id: UUID
+    last_crawling_datetime: datetime
+    raw_document_hash: str
+    raw_document_id: UUID
+
+class DocumentVersionWithIndexView(BaseModel):
+    document_version:DocumentVersionView
+    indexing_status: IndexingStatus
+    parsed_content_hash: str | None
+
+
+class DocumentView(BaseModel):
+    source_document_id: UUID
+    source_document_uri: str
+    current_version: DocumentVersionView
+    indexed_version: DocumentVersionWithIndexView | None
+
 
 
 def to_source(table_obj: TableSourceDocument) -> DbSourceDocument:
@@ -120,10 +140,7 @@ def to_indexed(table_obj: TableIndexedDocument) -> DbIndexedDocument:
     )
 
 
-class DocumentView(BaseModel):
-    source: DbSourceDocument
-    current_version: tuple[DbSourceDocumentVersion, DbRawDocument]
-    indexed_version: tuple[DbSourceDocumentVersion, DbRawDocument, DbIndexedDocument] | None
+
 
 
 class DbService:
@@ -265,6 +282,14 @@ class DbService:
             await session.commit()
             return indexed
 
+
+    def _to_document_version(self, db_source_document_version: DbSourceDocumentVersion, db_raw_document: DbRawDocument) -> DocumentVersionView:
+        return DocumentVersionView(
+            id=db_source_document_version.id,
+            last_crawling_datetime=db_source_document_version.last_crawling_datetime,
+            raw_document_hash=db_raw_document.raw_content_hash,
+            raw_document_id=db_raw_document.id)
+
     async def get_all_source_documents(self) -> list[DocumentView]:
         """Return all source documents, for each the current version, and if it exists the current indexed version"""
         async with self.session_factory() as session, session.begin():
@@ -305,26 +330,23 @@ class DbService:
                 current_version_model = to_version(current_version)
                 current_raw_model = to_raw(current_raw)
 
+                indexed_document_version: DocumentVersionWithIndexView | None = None
                 if indexed_version:
                     indexed_version_model = to_version(indexed_version)
                     indexed_raw_model = to_raw(indexed_raw)
                     indexed_model = to_indexed(indexed)
+                    indexed_document_version=DocumentVersionWithIndexView(
+                        document_version=self._to_document_version(indexed_version_model, indexed_raw_model),
+                        indexing_status=indexed_model.indexing_status,
+                        parsed_content_hash=indexed_model.parsed_content_hash)
 
-                    document_views.append(
-                        DocumentView(
-                            source=source,
-                            current_version=(current_version_model, current_raw_model),
-                            indexed_version=(indexed_version_model, indexed_raw_model, indexed_model),
-                        ),
-                    )
+                document_view = DocumentView(
+                    source_document_id=source.id,
+                    source_document_uri=source.source_uri,
+                    current_version=self._to_document_version(current_version_model, current_raw_model),
+                    indexed_version=indexed_document_version)
+                    
 
-                else:
-                    document_views.append(
-                        DocumentView(
-                            source=source,
-                            current_version=(current_version_model, current_raw_model),
-                            indexed_version=None,
-                        ),
-                    )
+                document_views.append(document_view)
 
             return document_views
