@@ -1,8 +1,11 @@
+from csv import Error
 from datetime import datetime
-from common.document import IndexingStatus
+from typing import Literal
+
+from common.document import ErrorIndexingStatus, IndexingStatus
 from uuid import UUID, uuid4
 from pydantic import BaseModel
-from sqlalchemy import TIMESTAMP, ForeignKey, MetaData, String, delete, select
+from sqlalchemy import TIMESTAMP, ForeignKey, MetaData, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, aliased, declarative_base, mapped_column
 
@@ -29,6 +32,7 @@ class TableSourceDocument(Base):
         nullable=True,
     )
 
+DbIndexingStatus = Literal["waiting", "in_progress", "success", "error"]
 
 class TableRawDocument(Base):
     __tablename__ = "raw_document"
@@ -36,6 +40,8 @@ class TableRawDocument(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True)
     raw_content_hash: Mapped[str] = mapped_column(nullable=False, unique=True)
     current_indexed_document_id: Mapped[UUID | None] = mapped_column(ForeignKey("indexed_document.id"), nullable=True)
+    last_indexing_process_status: Mapped[DbIndexingStatus] = mapped_column(nullable=False)
+    last_indexing_error_message: Mapped[str | None] = mapped_column(nullable=True)
 
 
 class TableSourceDocumentVersion(Base):
@@ -52,11 +58,7 @@ class TableIndexedDocument(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     raw_document_id: Mapped[UUID] = mapped_column(ForeignKey("raw_document.id"), nullable=False)
-    indexing_status: Mapped[IndexingStatus] = mapped_column(
-        String,
-        nullable=False,
-    )  # Could also use Enum(IndexingStatusEnum) for stricter validation
-    parsed_content_hash: Mapped[str | None] = mapped_column()
+    parsed_content_hash: Mapped[str] = mapped_column(nullable=False)
 
 
 class DbSourceDocument(BaseModel):
@@ -78,11 +80,11 @@ class DbSourceDocumentVersion(BaseModel):
     raw_document_id: UUID
     last_crawling_datetime: datetime
 
+
 class DbIndexedDocument(BaseModel):
     id: UUID
     raw_document_id: UUID
-    indexing_status: IndexingStatus
-    parsed_content_hash: str | None
+    parsed_content_hash: str
 
 
 class DocumentVersionView(BaseModel):
@@ -90,11 +92,11 @@ class DocumentVersionView(BaseModel):
     last_crawling_datetime: datetime
     raw_document_hash: str
     raw_document_id: UUID
+    indexing_status: IndexingStatus
 
 class DocumentVersionWithIndexView(BaseModel):
-    document_version:DocumentVersionView
-    indexing_status: IndexingStatus
-    parsed_content_hash: str | None
+    document_version: DocumentVersionView
+    parsed_content_hash: str
 
 
 class DocumentView(BaseModel):
@@ -102,7 +104,6 @@ class DocumentView(BaseModel):
     source_document_uri: str
     current_version: DocumentVersionView
     indexed_version: DocumentVersionWithIndexView | None
-
 
 
 def to_source(table_obj: TableSourceDocument) -> DbSourceDocument:
@@ -119,7 +120,11 @@ def to_raw(table_obj: TableRawDocument) -> DbRawDocument:
         id=table_obj.id,
         raw_content_hash=table_obj.raw_content_hash,
         current_indexed_document_id=table_obj.current_indexed_document_id,
+        indexing_status=table_obj.indexing_status if table_obj.indexing_status != "error" else ErrorIndexingStatus(error="parsing_error"),
+
     )
+
+TODO NICO I'm HERE REFACTO WIP
 
 
 def to_version(table_obj: TableSourceDocumentVersion) -> DbSourceDocumentVersion:
@@ -127,7 +132,7 @@ def to_version(table_obj: TableSourceDocumentVersion) -> DbSourceDocumentVersion
         id=table_obj.id,
         source_document_id=table_obj.source_document_id,
         raw_document_id=table_obj.raw_document_id,
-        last_crawling_datetime=table_obj.last_crawling_datetime,
+        last_crawling_datetime=table_obj.last_crawling_datetime
     )
 
 
@@ -135,12 +140,8 @@ def to_indexed(table_obj: TableIndexedDocument) -> DbIndexedDocument:
     return DbIndexedDocument(
         id=table_obj.id,
         raw_document_id=table_obj.raw_document_id,
-        indexing_status=table_obj.indexing_status,
         parsed_content_hash=table_obj.parsed_content_hash,
     )
-
-
-
 
 
 class DbService:
@@ -282,13 +283,15 @@ class DbService:
             await session.commit()
             return indexed
 
-
-    def _to_document_version(self, db_source_document_version: DbSourceDocumentVersion, db_raw_document: DbRawDocument) -> DocumentVersionView:
+    def _to_document_version(
+        self, db_source_document_version: DbSourceDocumentVersion, db_raw_document: DbRawDocument
+    ) -> DocumentVersionView:
         return DocumentVersionView(
             id=db_source_document_version.id,
             last_crawling_datetime=db_source_document_version.last_crawling_datetime,
             raw_document_hash=db_raw_document.raw_content_hash,
-            raw_document_id=db_raw_document.id)
+            raw_document_id=db_raw_document.id,
+        )
 
     async def get_all_source_documents(self) -> list[DocumentView]:
         """Return all source documents, for each the current version, and if it exists the current indexed version"""
@@ -335,17 +338,18 @@ class DbService:
                     indexed_version_model = to_version(indexed_version)
                     indexed_raw_model = to_raw(indexed_raw)
                     indexed_model = to_indexed(indexed)
-                    indexed_document_version=DocumentVersionWithIndexView(
+                    indexed_document_version = DocumentVersionWithIndexView(
                         document_version=self._to_document_version(indexed_version_model, indexed_raw_model),
                         indexing_status=indexed_model.indexing_status,
-                        parsed_content_hash=indexed_model.parsed_content_hash)
+                        parsed_content_hash=indexed_model.parsed_content_hash,
+                    )
 
                 document_view = DocumentView(
                     source_document_id=source.id,
                     source_document_uri=source.source_uri,
                     current_version=self._to_document_version(current_version_model, current_raw_model),
-                    indexed_version=indexed_document_version)
-                    
+                    indexed_version=indexed_document_version,
+                )
 
                 document_views.append(document_view)
 
