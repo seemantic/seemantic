@@ -1,12 +1,15 @@
 import logging
 from io import BytesIO
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.minio_service import DepMinioService
+from app.app_services import DepDbService, DepMinioService
 from app.search_engine import SearchResult
+from common.db_service import DocumentView
+from common.document import IndexingStatus
 
 router: APIRouter = APIRouter(prefix="/api/v1")
 logger = logging.getLogger(__name__)
@@ -20,14 +23,6 @@ def get_file_path(relative_path: str) -> str:
 @router.get("/")
 async def root() -> str:
     return "seemantic API says hello!"
-
-
-class ApiFileSnippet(BaseModel):
-    relative_path: str
-
-
-class ApiFileSnippetList(BaseModel):
-    files: list[ApiFileSnippet]
 
 
 # relative_path:path is a fastApi "path converter" to capture a path parameter with "/" inside 'relative_path'
@@ -53,10 +48,35 @@ async def get_file(relative_path: str, minio_service: DepMinioService) -> Stream
     raise HTTPException(status_code=404, detail=f"File {relative_path} not found")
 
 
-@router.get("/file_snippets")
-async def get_file_snippets(minio_service: DepMinioService) -> ApiFileSnippetList:
-    paths: list[str] = minio_service.get_all_documents(prefix=seemantic_drive_prefix)
-    return ApiFileSnippetList(files=[ApiFileSnippet(relative_path=path) for path in paths])
+class ApiDocumentSnippet(BaseModel):
+    id: UUID
+    source_uri: str  # relative path within source
+    raw_content_hash: str
+    indexing_status: IndexingStatus
+    parsed_content_hash: str | None
+
+
+class ApiExplorer(BaseModel):
+    documents: list[ApiDocumentSnippet]
+
+
+def _to_api_doc(db_doc: DocumentView) -> ApiDocumentSnippet:
+
+    return ApiDocumentSnippet(
+        id=db_doc.source_document_id,
+        source_uri=db_doc.source_document_uri,
+        indexing_status=db_doc.current_version.indexing_status,
+        raw_content_hash=db_doc.current_version.raw_document_hash,
+        parsed_content_hash=db_doc.indexed_version.parsed_content_hash if db_doc.indexed_version else None,
+    )
+
+
+@router.get("/explorer")
+async def get_explorer(db_service: DepDbService) -> ApiExplorer:
+    db_docs = await db_service.get_all_source_documents()
+
+    api_docs = [_to_api_doc(doc) for doc in db_docs]
+    return ApiExplorer(documents=api_docs)
 
 
 class QueryResponse(BaseModel):

@@ -1,12 +1,13 @@
 from datetime import datetime
 from typing import Literal, cast
-
-from common.document import ErrorIndexingStatus, IndexingStatus
 from uuid import UUID, uuid4
+
 from pydantic import BaseModel
 from sqlalchemy import TIMESTAMP, ForeignKey, MetaData, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, aliased, declarative_base, mapped_column
+
+from common.document import ErrorIndexingStatus, IndexingStatus
 
 
 class DbSettings(BaseModel, frozen=True):
@@ -286,7 +287,9 @@ class DbService:
             return indexed
 
     def _to_document_version(
-        self, db_source_document_version: DbSourceDocumentVersion, db_raw_document: DbRawDocument
+        self,
+        db_source_document_version: DbSourceDocumentVersion,
+        db_raw_document: DbRawDocument,
     ) -> DocumentVersionView:
 
         indexing_status: IndexingStatus

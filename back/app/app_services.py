@@ -15,6 +15,7 @@ def get_minio_service(settings: DepSettings) -> MinioService:
 
 DepMinioService = Annotated[MinioService, Depends(get_minio_service)]
 
+
 @lru_cache
 def get_db_service(settings: DepSettings) -> DbService:
     return DbService(settings=settings.db)
