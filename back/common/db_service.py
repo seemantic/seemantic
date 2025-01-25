@@ -1,6 +1,5 @@
-from csv import Error
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 
 from common.document import ErrorIndexingStatus, IndexingStatus
 from uuid import UUID, uuid4
@@ -32,7 +31,9 @@ class TableSourceDocument(Base):
         nullable=True,
     )
 
+
 DbIndexingStatus = Literal["waiting", "in_progress", "success", "error"]
+
 
 class TableRawDocument(Base):
     __tablename__ = "raw_document"
@@ -72,6 +73,8 @@ class DbRawDocument(BaseModel):
     id: UUID
     raw_content_hash: str
     current_indexed_document_id: UUID | None
+    last_indexing_process_status: DbIndexingStatus
+    last_indexing_error_message: str | None
 
 
 class DbSourceDocumentVersion(BaseModel):
@@ -93,6 +96,7 @@ class DocumentVersionView(BaseModel):
     raw_document_hash: str
     raw_document_id: UUID
     indexing_status: IndexingStatus
+
 
 class DocumentVersionWithIndexView(BaseModel):
     document_version: DocumentVersionView
@@ -120,11 +124,9 @@ def to_raw(table_obj: TableRawDocument) -> DbRawDocument:
         id=table_obj.id,
         raw_content_hash=table_obj.raw_content_hash,
         current_indexed_document_id=table_obj.current_indexed_document_id,
-        indexing_status=table_obj.indexing_status if table_obj.indexing_status != "error" else ErrorIndexingStatus(error="parsing_error"),
-
+        last_indexing_process_status=table_obj.last_indexing_process_status,
+        last_indexing_error_message=table_obj.last_indexing_error_message,
     )
-
-TODO NICO I'm HERE REFACTO WIP
 
 
 def to_version(table_obj: TableSourceDocumentVersion) -> DbSourceDocumentVersion:
@@ -132,7 +134,7 @@ def to_version(table_obj: TableSourceDocumentVersion) -> DbSourceDocumentVersion
         id=table_obj.id,
         source_document_id=table_obj.source_document_id,
         raw_document_id=table_obj.raw_document_id,
-        last_crawling_datetime=table_obj.last_crawling_datetime
+        last_crawling_datetime=table_obj.last_crawling_datetime,
     )
 
 
@@ -286,11 +288,19 @@ class DbService:
     def _to_document_version(
         self, db_source_document_version: DbSourceDocumentVersion, db_raw_document: DbRawDocument
     ) -> DocumentVersionView:
+
+        indexing_status: IndexingStatus
+        if db_raw_document.last_indexing_process_status == "error":
+            indexing_status = ErrorIndexingStatus(error=cast(str, db_raw_document.last_indexing_error_message))
+        else:
+            indexing_status = db_raw_document.last_indexing_process_status
+
         return DocumentVersionView(
             id=db_source_document_version.id,
             last_crawling_datetime=db_source_document_version.last_crawling_datetime,
             raw_document_hash=db_raw_document.raw_content_hash,
             raw_document_id=db_raw_document.id,
+            indexing_status=indexing_status,
         )
 
     async def get_all_source_documents(self) -> list[DocumentView]:
@@ -340,7 +350,6 @@ class DbService:
                     indexed_model = to_indexed(indexed)
                     indexed_document_version = DocumentVersionWithIndexView(
                         document_version=self._to_document_version(indexed_version_model, indexed_raw_model),
-                        indexing_status=indexed_model.indexing_status,
                         parsed_content_hash=indexed_model.parsed_content_hash,
                     )
 
