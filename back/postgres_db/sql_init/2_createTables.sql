@@ -8,17 +8,17 @@ CREATE TABLE seemantic_schema.source_document(
    id UUID PRIMARY KEY,
    source_uri TEXT NOT NULL UNIQUE,
    creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
-   current_version_id UUID NOT NULL,
-   current_indexed_version_id UUID
+   current_version_id UUID,
+   current_indexed_version_id UUID,
+   last_indexing_process_status TEXT NOT NULL,
+   last_indexing_error_message TEXT
 );
 
 CREATE TABLE seemantic_schema.raw_document(
    id UUID PRIMARY KEY,
    raw_content_hash CHAR(32) NOT NULL UNIQUE,
    creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
-   current_indexed_document_id UUID,
-   last_indexing_process_status TEXT NOT NULL,
-   last_indexing_error_message TEXT
+   current_indexed_document_id UUID
 );
 
 CREATE TABLE seemantic_schema.source_document_version(

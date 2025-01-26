@@ -21,19 +21,20 @@ class DbSettings(BaseModel, frozen=True):
 Base = declarative_base(metadata=MetaData(schema="seemantic_schema"))
 
 
+DbIndexingStatus = Literal["waiting", "in_progress", "success", "error"]
+
 class TableSourceDocument(Base):
     __tablename__ = "source_document"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     source_uri: Mapped[str] = mapped_column(nullable=False, unique=True)
-    current_version_id: Mapped[UUID] = mapped_column(ForeignKey("source_document_version.id"), nullable=False)
+    current_version_id: Mapped[UUID | None] = mapped_column(ForeignKey("source_document_version.id"), nullable=True)
     current_indexed_version_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("source_document_version.id"),
         nullable=True,
     )
-
-
-DbIndexingStatus = Literal["waiting", "in_progress", "success", "error"]
+    last_indexing_process_status: Mapped[DbIndexingStatus] = mapped_column(nullable=False)
+    last_indexing_error_message: Mapped[str | None] = mapped_column(nullable=True)
 
 
 class TableRawDocument(Base):
@@ -42,8 +43,7 @@ class TableRawDocument(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True)
     raw_content_hash: Mapped[str] = mapped_column(nullable=False, unique=True)
     current_indexed_document_id: Mapped[UUID | None] = mapped_column(ForeignKey("indexed_document.id"), nullable=True)
-    last_indexing_process_status: Mapped[DbIndexingStatus] = mapped_column(nullable=False)
-    last_indexing_error_message: Mapped[str | None] = mapped_column(nullable=True)
+
 
 
 class TableSourceDocumentVersion(Base):
@@ -66,17 +66,15 @@ class TableIndexedDocument(Base):
 class DbSourceDocument(BaseModel):
     id: UUID
     source_uri: str
-    current_version_id: UUID
+    current_version_id: UUID | None
     current_indexed_version_id: UUID | None
-
+    last_indexing_process_status: DbIndexingStatus
+    last_indexing_error_message: str | None
 
 class DbRawDocument(BaseModel):
     id: UUID
     raw_content_hash: str
     current_indexed_document_id: UUID | None
-    last_indexing_process_status: DbIndexingStatus
-    last_indexing_error_message: str | None
-
 
 class DbSourceDocumentVersion(BaseModel):
     id: UUID
@@ -96,7 +94,6 @@ class DocumentVersionView(BaseModel):
     last_crawling_datetime: datetime
     raw_document_hash: str
     raw_document_id: UUID
-    indexing_status: IndexingStatus
 
 
 class DocumentVersionWithIndexView(BaseModel):
@@ -107,8 +104,10 @@ class DocumentVersionWithIndexView(BaseModel):
 class DocumentView(BaseModel):
     source_document_id: UUID
     source_document_uri: str
-    current_version: DocumentVersionView
+    current_version: DocumentVersionView | None
     indexed_version: DocumentVersionWithIndexView | None
+    indexing_status: IndexingStatus
+
 
 
 def to_source(table_obj: TableSourceDocument) -> DbSourceDocument:
@@ -117,6 +116,8 @@ def to_source(table_obj: TableSourceDocument) -> DbSourceDocument:
         source_uri=table_obj.source_uri,
         current_version_id=table_obj.current_version_id,
         current_indexed_version_id=table_obj.current_indexed_version_id,
+        last_indexing_process_status=table_obj.last_indexing_process_status,
+        last_indexing_error_message=table_obj.last_indexing_error_message,
     )
 
 
@@ -125,8 +126,6 @@ def to_raw(table_obj: TableRawDocument) -> DbRawDocument:
         id=table_obj.id,
         raw_content_hash=table_obj.raw_content_hash,
         current_indexed_document_id=table_obj.current_indexed_document_id,
-        last_indexing_process_status=table_obj.last_indexing_process_status,
-        last_indexing_error_message=table_obj.last_indexing_error_message,
     )
 
 
@@ -292,18 +291,11 @@ class DbService:
         db_raw_document: DbRawDocument,
     ) -> DocumentVersionView:
 
-        indexing_status: IndexingStatus
-        if db_raw_document.last_indexing_process_status == "error":
-            indexing_status = ErrorIndexingStatus(error=cast(str, db_raw_document.last_indexing_error_message))
-        else:
-            indexing_status = db_raw_document.last_indexing_process_status
-
         return DocumentVersionView(
             id=db_source_document_version.id,
             last_crawling_datetime=db_source_document_version.last_crawling_datetime,
             raw_document_hash=db_raw_document.raw_content_hash,
-            raw_document_id=db_raw_document.id,
-            indexing_status=indexing_status,
+            raw_document_id=db_raw_document.id
         )
 
     async def get_all_source_documents(self) -> list[DocumentView]:
@@ -356,11 +348,17 @@ class DbService:
                         parsed_content_hash=indexed_model.parsed_content_hash,
                     )
 
+                indexing_status: IndexingStatus
+                if source.last_indexing_process_status == "error":
+                    indexing_status = ErrorIndexingStatus(error=cast(str, source.last_indexing_error_message))
+                else:
+                    indexing_status = source.last_indexing_process_status
                 document_view = DocumentView(
                     source_document_id=source.id,
                     source_document_uri=source.source_uri,
                     current_version=self._to_document_version(current_version_model, current_raw_model),
                     indexed_version=indexed_document_version,
+                    indexing_status=indexing_status
                 )
 
                 document_views.append(document_view)
