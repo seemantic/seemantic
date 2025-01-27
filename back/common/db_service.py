@@ -23,6 +23,7 @@ Base = declarative_base(metadata=MetaData(schema="seemantic_schema"))
 
 DbIndexingStatus = Literal["waiting", "in_progress", "success", "error"]
 
+
 class TableSourceDocument(Base):
     __tablename__ = "source_document"
 
@@ -43,7 +44,6 @@ class TableRawDocument(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True)
     raw_content_hash: Mapped[str] = mapped_column(nullable=False, unique=True)
     current_indexed_document_id: Mapped[UUID | None] = mapped_column(ForeignKey("indexed_document.id"), nullable=True)
-
 
 
 class TableSourceDocumentVersion(Base):
@@ -71,10 +71,12 @@ class DbSourceDocument(BaseModel):
     last_indexing_process_status: DbIndexingStatus
     last_indexing_error_message: str | None
 
+
 class DbRawDocument(BaseModel):
     id: UUID
     raw_content_hash: str
     current_indexed_document_id: UUID | None
+
 
 class DbSourceDocumentVersion(BaseModel):
     id: UUID
@@ -107,7 +109,6 @@ class DocumentView(BaseModel):
     current_version: DocumentVersionView | None
     indexed_version: DocumentVersionWithIndexView | None
     indexing_status: IndexingStatus
-
 
 
 def to_source(table_obj: TableSourceDocument) -> DbSourceDocument:
@@ -295,7 +296,7 @@ class DbService:
             id=db_source_document_version.id,
             last_crawling_datetime=db_source_document_version.last_crawling_datetime,
             raw_document_hash=db_raw_document.raw_content_hash,
-            raw_document_id=db_raw_document.id
+            raw_document_id=db_raw_document.id,
         )
 
     async def get_all_source_documents(self) -> list[DocumentView]:
@@ -358,7 +359,7 @@ class DbService:
                     source_document_uri=source.source_uri,
                     current_version=self._to_document_version(current_version_model, current_raw_model),
                     indexed_version=indexed_document_version,
-                    indexing_status=indexing_status
+                    indexing_status=indexing_status,
                 )
 
                 document_views.append(document_view)

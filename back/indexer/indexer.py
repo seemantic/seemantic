@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from common.db_service import DbService
-from common.document import ParsableFileType, ParsedDocument, is_parsable
+from common.document import IndexingStatus, ParsableFileType, ParsedDocument, is_parsable
 from common.embedding_service import EmbeddingService
 from common.vector_db import VectorDB
 from indexer.chunker import Chunker
@@ -44,6 +44,9 @@ class Indexer:
         embedded_chunks = await self.embedder.embed_document(parsed, chunks)
         await self.vector_db.index(parsed, embedded_chunks)
         return parsed
+
+    async def set_status(self, uri: str, status: IndexingStatus) -> None:
+        pass
 
     async def _reindex_and_store(self, uri: str) -> None:
         source_doc = await self.source.get_document(uri)

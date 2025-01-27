@@ -51,7 +51,7 @@ async def get_file(relative_path: str, minio_service: DepMinioService) -> Stream
 class ApiDocumentSnippet(BaseModel):
     id: UUID
     source_uri: str  # relative path within source
-    raw_content_hash: str
+    raw_content_hash: str | None
     indexing_status: IndexingStatus
     parsed_content_hash: str | None
 
@@ -65,8 +65,8 @@ def _to_api_doc(db_doc: DocumentView) -> ApiDocumentSnippet:
     return ApiDocumentSnippet(
         id=db_doc.source_document_id,
         source_uri=db_doc.source_document_uri,
-        indexing_status=db_doc.current_version.indexing_status,
-        raw_content_hash=db_doc.current_version.raw_document_hash,
+        indexing_status=db_doc.indexing_status,
+        raw_content_hash=db_doc.current_version.raw_document_hash if db_doc.current_version else None,
         parsed_content_hash=db_doc.indexed_version.parsed_content_hash if db_doc.indexed_version else None,
     )
 
