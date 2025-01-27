@@ -2,6 +2,7 @@ import logging
 from typing import cast
 from uuid import UUID
 
+import asyncio
 from pydantic import BaseModel
 
 from common.db_service import DbService
@@ -84,3 +85,32 @@ class Indexer:
             else:
                 assert isinstance(doc_event, SourceUpsertEvent)
                 await self._reindex_and_store(doc_event.uri)
+
+
+    class IndexingTask(BaseModel):
+        uri: str
+
+    _task_queue: asyncio.Queue[IndexingTask] = asyncio.Queue(maxsize=100)
+
+    async def init_source_uri_status_in_db(self, uri: str):
+        pass
+
+    async def start_listening(self):
+        while True:
+            item: Indexer.IndexingTask = await self._task_queue.get()
+            await self._reindex_and_store(item.uri)
+            self._task_queue.task_done()
+
+    async def start_listeting_to_sources(self):
+
+        self.start_listening()
+        async for doc_event in self.source.listen():
+            if isinstance(doc_event, SourceDeleteEvent):
+                await self.db.delete_source_documents([doc_event.uri])
+            else:
+                assert isinstance(doc_event, SourceUpsertEvent)
+                await self.init_source_uri_status_in_db(doc_event.uri)
+                await self._task_queue.put(self.IndexingTask(uri=doc_event.uri))
+                
+
+    
