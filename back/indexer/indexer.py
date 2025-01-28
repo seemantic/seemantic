@@ -1,5 +1,5 @@
 import logging
-from typing import cast
+from typing import Set, cast
 from uuid import UUID
 
 import asyncio
@@ -28,6 +28,8 @@ class Indexer:
     chunker: Chunker = Chunker()
     embedder: EmbeddingService
     vector_db: VectorDB
+    uris_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=10000)
+    uris_in_queue: Set[str] = set()
 
     def __init__(self, settings: Settings) -> None:
         self.embedder = EmbeddingService(token=settings.jina_token)
@@ -37,6 +39,16 @@ class Indexer:
 
     async def _init(self) -> None:
         await self.vector_db.connect()
+        asyncio.create_task(self.process_queue())
+
+    async def process_queue(self):
+        while True:
+            uri = await self.uris_queue.get()
+            self.uris_in_queue.remove(uri)
+            await self._reindex_and_store(uri)
+            self.uris_queue.task_done()
+
+
 
     async def index(self, source_doc: SourceDocument, _raw_id: UUID) -> ParsedDocument:
         filetype = cast(ParsableFileType, source_doc.filetype)
@@ -64,13 +76,22 @@ class Indexer:
         parsed_doc = await self.index(source_doc, raw_id)
         _ = await self.db.create_indexed_document(raw_id, parsed_doc.hash)
 
+
+    async def set_waiting_indexing(self, uris: list[str]):
+        pass
+
+    async def enqueue_uris(self, uris: list[str]) -> None:
+        await self.set_waiting_indexing(uris)
+        for uri in uris:
+            self.uris_in_queue.add(uri) # when uri is added to queue, unique set should already be updated (so it can be removed)
+            self.uris_queue.put_nowait(uri)
+
     async def start(self) -> None:
 
         await self._init()
 
         uris_in_source = await self.source.all_uris()
-        for uri in uris_in_source:
-            await self._reindex_and_store(uri)
+        await self.enqueue_uris(uris_in_source)
 
         # Delete documents not in source anymore
         db_docs = await self.db.get_all_source_documents()
@@ -84,33 +105,14 @@ class Indexer:
                 await self.db.delete_source_documents([doc_event.uri])
             else:
                 assert isinstance(doc_event, SourceUpsertEvent)
+                if doc_event.uri in self.uris_in_queue: # if it's in queue, status is already set to waiting
+                    continue
+                await self.enqueue_uris([doc_event.uri])
                 await self._reindex_and_store(doc_event.uri)
 
 
-    class IndexingTask(BaseModel):
-        uri: str
 
-    _task_queue: asyncio.Queue[IndexingTask] = asyncio.Queue(maxsize=100)
 
-    async def init_source_uri_status_in_db(self, uri: str):
-        pass
 
-    async def start_listening(self):
-        while True:
-            item: Indexer.IndexingTask = await self._task_queue.get()
-            await self._reindex_and_store(item.uri)
-            self._task_queue.task_done()
-
-    async def start_listeting_to_sources(self):
-
-        self.start_listening()
-        async for doc_event in self.source.listen():
-            if isinstance(doc_event, SourceDeleteEvent):
-                await self.db.delete_source_documents([doc_event.uri])
-            else:
-                assert isinstance(doc_event, SourceUpsertEvent)
-                await self.init_source_uri_status_in_db(doc_event.uri)
-                await self._task_queue.put(self.IndexingTask(uri=doc_event.uri))
-                
 
     
