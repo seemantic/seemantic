@@ -259,8 +259,7 @@ class DbService:
             indexed_document = TableIndexedDocument(
                 id=indexed_document_id,
                 raw_document_id=raw_document_id,
-                parsed_content_hash=parsed_content_hash,
-                indexing_status="success",
+                parsed_content_hash=parsed_content_hash
             )
             session.add(indexed_document)
 
