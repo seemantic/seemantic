@@ -11,7 +11,8 @@ CREATE TABLE seemantic_schema.source_document(
    current_version_id UUID,
    current_indexed_version_id UUID,
    last_indexing_process_status TEXT NOT NULL,
-   last_indexing_error_message TEXT
+   last_indexing_error_message TEXT,
+   last_indexing_process_status_update TIMESTAMPTZ
 );
 
 CREATE TABLE seemantic_schema.raw_document(

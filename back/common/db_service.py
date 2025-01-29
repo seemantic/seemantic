@@ -36,6 +36,7 @@ class TableSourceDocument(Base):
     )
     last_indexing_process_status: Mapped[DbIndexingStatus] = mapped_column(nullable=False)
     last_indexing_error_message: Mapped[str | None] = mapped_column(nullable=True)
+    last_indexing_process_status_update: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
 
 
 class TableRawDocument(Base):
@@ -181,6 +182,9 @@ class DbService:
             ]
 
             return plain_objs
+
+
+    async def upsert_source_document()
 
     async def upsert_source_document(
         self,
