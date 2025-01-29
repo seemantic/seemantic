@@ -41,12 +41,11 @@ pas possible de prévénir à l'ingestion car:
 
 ## in DB
 url
-raw_hash: hash available when loaded.
+current_version_raw_hash: hash available when loaded.
+last_indexed_version_raw_hash: set after it is indexed: we know if last version is indexed by comparing this with 'current_version_raw_hash', this field is to map it from VS. we also know if some version is indexed just if this field is not None.
 status: just to display in db
-is_indexed: set once it's set into vector store, to keep file green even as status changes (waiting, loading)
-last_version_is_indexed: when last set raw_hash is in VS (indexing up to date) set to false when raw_hash changed (loaded) but indexing is not finished yet (or failed) 
-last_modification (raw_hash change)
-status (status change)
+last_modification (raw_hash change, just for display)
+status (status change, just for display)
 error_status_message: set when last_status_update is Error.
 
 ## in vector store
@@ -57,10 +56,9 @@ raw_hash-> file_content_parsed, indexing_algo_version
 * file deleted: remove in DB. at regular interval, clean VS from raw_hash not in db anymore
 * file renamed: (add+remove): perform add / remove, indexing will be instantenous because of raw_hash in VS
 * file added: add, then index, the update
-* file content changed, update then index, then update
+* file content changed, update current_version_raw_hash, then index, then update last_indexed_version_raw_hash
 * indexing algo changed (parsing, embedding, indexing): only a VS process -> add vectors / files with a new algo version.
 * indexing service started: recrawl all urls.
 * client ask global status: Download DB
-* client makes a query: query VS for a given algo, load files in DB with this raw_hash, return source docs from DB and parsed docs from VS.
--> HOW TO RETRIEVES FILES THAT HAS BEEN MODIFIED BUT NOT YET REINDEXED ?
-* client click a file: load file from uri in source, load parsed from VS, might not be consistent, we don't care.
+* client makes a query: query VS for a given algo, load files in DB with this last_indexed_version_raw_hash, return source docs from DB and parsed docs from VS.
+* client click a file: load file from uri in source, load parsed from VS using last_indexed_version_raw_hash, might not be consistent, we don't care.
