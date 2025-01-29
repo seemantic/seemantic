@@ -41,6 +41,7 @@ pas possible de prévénir à l'ingestion car:
 
 ## in DB
 url
+source_specific_current_version_hash: hash available without download, like ETag for S3
 current_version_raw_hash: hash available when loaded.
 last_indexed_version_raw_hash: set after it is indexed: we know if last version is indexed by comparing this with 'current_version_raw_hash', this field is to map it from VS. we also know if some version is indexed just if this field is not None.
 status: just to display in db
@@ -62,3 +63,6 @@ raw_hash-> file_content_parsed, indexing_algo_version
 * client ask global status: Download DB
 * client makes a query: query VS for a given algo, load files in DB with this last_indexed_version_raw_hash, return source docs from DB and parsed docs from VS.
 * client click a file: load file from uri in source, load parsed from VS using last_indexed_version_raw_hash, might not be consistent, we don't care.
+
+
+* for fast startup without redownloading everything, we should store sha256 of file ? (available in files metadata)
