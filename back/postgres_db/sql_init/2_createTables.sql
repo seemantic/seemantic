@@ -10,9 +10,9 @@ CREATE TABLE seemantic_schema.document(
    id UUID PRIMARY KEY,
    uri TEXT NOT NULL UNIQUE,
 
-   source_specific_current_version_hash TEXT,
-   current_version_raw_hash CHAR(32) NOT NULL,
-   last_modification TIMESTAMPTZ NOT NULL, -- set on current_version_raw_hash change
+   source_specific_current_version_id TEXT, -- source specific version identifier that can be used to track changes from sources without having to fetch the whole document. it could be a content hash or a version id.
+   current_version_raw_hash CHAR(32),
+   last_modification TIMESTAMPTZ, -- set on current_version_raw_hash change
 
    last_indexed_version_raw_hash CHAR(32),
    last_indexing TIMESTAMPTZ, -- set on last_indexed_version_raw_hash change
