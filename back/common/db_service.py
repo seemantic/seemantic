@@ -33,12 +33,8 @@ class TableDocument(Base):
     uri: Mapped[str] = mapped_column(nullable=False, unique=True)
     
     # version
-    source_specific_current_version_id: Mapped[str | None] = mapped_column(nullable=True)
-    current_version_raw_hash: Mapped[str | None] = mapped_column(nullable=True)
-    last_modification: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
-    
-    # indexing
-    last_indexed_version_raw_hash: Mapped[str | None] = mapped_column(nullable=True)
+    indexed_source_version: Mapped[str | None] = mapped_column(nullable=True)
+    indexed_version_raw_hash: Mapped[str | None] = mapped_column(nullable=True)
     last_indexing: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     
     # status
@@ -50,15 +46,8 @@ class TableDocument(Base):
 
 
 
-class DbDocumentId(BaseModel):
-    uri: str
-
-class DbDocumentVersion(BaseModel):
-    source_specific_id: str | None
-    raw_hash: str
-    last_modification: datetime
-
 class DbDocumentIndexedVersion(BaseModel):
+    source_version: str | None
     raw_hash: str
     last_modification: datetime
 
@@ -70,7 +59,6 @@ class DbDocumentStatus(BaseModel):
 
 class DbDocument(BaseModel):
     uri: str
-    current_version: DbDocumentVersion | None
     indexed_version: DbDocumentIndexedVersion | None
     status: DbDocumentStatus
     
@@ -79,21 +67,14 @@ class DbDocument(BaseModel):
 
 def to_doc(table_obj: TableDocument) -> DbDocument:
 
-    current_version = DbDocumentVersion(
-            source_specific_id=table_obj.source_specific_current_version_id,
-            raw_hash=table_obj.current_version_raw_hash,
-            last_modification=cast(datetime,table_obj.last_modification),
-        ) if table_obj.current_version_raw_hash is not None else None
-    
-
     indexed_version = DbDocumentIndexedVersion(
-            raw_hash=table_obj.last_indexed_version_raw_hash,
+            source_version=table_obj.indexed_source_version,
+            raw_hash=table_obj.indexed_version_raw_hash,
             last_modification=cast(datetime,table_obj.last_indexing),
-        ) if table_obj.last_indexed_version_raw_hash is not None else None
+        ) if table_obj.indexed_version_raw_hash is not None else None
 
     return DbDocument(
         uri=table_obj.uri,
-        current_version=current_version,        
         indexed_version=indexed_version,
         status=DbDocumentStatus(
             status=table_obj.status,
@@ -124,7 +105,7 @@ class DbService:
         async with self.session_factory() as session, session.begin():
             result = await session.execute(
                 select(TableDocument)
-                .where(TableDocument.last_indexed_version_raw_hash.in_(raw_hashes)),
+                .where(TableDocument.indexed_version_raw_hash.in_(raw_hashes)),
             )
 
             table_rows = result.all()
