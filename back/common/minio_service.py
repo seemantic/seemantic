@@ -21,15 +21,19 @@ class MinioObject(BaseModel, frozen=True):
     key: str
     etag: str
 
+
 class MinioObjectContent(BaseModel, frozen=True):
     object: MinioObject
     content: BytesIO
 
+
 class PutMinioEvent(BaseModel, frozen=True):
     object: MinioObject
 
+
 class DeleteMinioEvent(BaseModel, frozen=True):
     key: str
+
 
 class MinioService:
 
@@ -90,7 +94,7 @@ class MinioService:
                 self._bucket_name,
                 object_name=object_name,
             )
-            etag = str(file.headers.get('ETag'))
+            etag = str(file.headers.get("ETag"))
             file_stream = BytesIO(file.read())
         except S3Error as e:
             if e.code == "NoSuchKey":
@@ -104,7 +108,7 @@ class MinioService:
                 file.release_conn()
 
     def get_all_documents(self, prefix: str) -> list[MinioObject]:
-        
+
         return [
             MinioObject(key=str(obj.object_name), etag=str(obj.etag))
             for obj in self._minio_client.list_objects(

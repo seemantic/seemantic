@@ -29,7 +29,6 @@ class SourceDocument(BaseModel, arbitrary_types_allowed=True):
     filetype: str | None
 
 
-
 class Source:
     """interface adapted to S3 / MinIO source for now"""
 

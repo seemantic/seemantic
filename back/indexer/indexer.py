@@ -5,9 +5,10 @@ from typing import Set, cast
 from uuid import UUID
 
 import asyncio
+from pyarrow import Table
 from pydantic import BaseModel
 
-from common.db_service import DbService
+from common.db_service import DbService, TableDocumentStatusEnum
 from common.document import IndexingStatus, ParsableFileType, ParsedDocument, is_parsable
 from common.embedding_service import EmbeddingService
 from common.vector_db import VectorDB
@@ -50,8 +51,6 @@ class Indexer:
             await self._reindex_and_store(uri)
             self.uris_queue.task_done()
 
-
-
     async def index(self, source_doc: SourceDocument, _raw_id: UUID) -> ParsedDocument:
         filetype = cast(ParsableFileType, source_doc.filetype)
         parsed = self.parser.parse(filetype, source_doc.content)
@@ -78,17 +77,15 @@ class Indexer:
         parsed_doc = await self.index(source_doc, raw_id)
         _ = await self.db.create_indexed_document(raw_id, parsed_doc.hash)
 
-
     async def set_waiting_indexing(self, uris: list[str]):
         pass
 
     async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
-        await self.set_waiting_indexing(uris)
         for uri in uris:
-            self.uris_in_queue.add(uri) # when uri is added to queue, unique set should already be updated (so it can be removed)
+            self.uris_in_queue.add(
+                uri
+            )  # when uri is added to queue, unique set should already be updated (so it can be removed)
             self.uris_queue.put_nowait(uri)
-
-
 
     async def start(self) -> None:
 
@@ -107,37 +104,22 @@ class Indexer:
             db_doc = uri_to_db.get(uri, None)
             if db_doc is None:
                 docs_to_create.append(doc_ref)
-            elif db_doc.indexed_version is None or db_doc.indexed_version.source_version is None or doc_ref.source_version_id is None or db_doc.indexed_version.source_version != doc_ref.source_version_id:
+            elif (
+                db_doc.indexed_version is None
+                or db_doc.indexed_version.source_version is None
+                or doc_ref.source_version_id is None
+                or db_doc.indexed_version.source_version != doc_ref.source_version_id
+            ):
                 # doc might have changed
                 docs_to_index.append(doc_ref)
             else:
                 # doc did not change since last successful indexing
                 continue
 
+        await self.db.create_documents([doc.uri for doc in docs_to_create])
+        await self.db.update_documents_status([doc.uri for doc in docs_to_index], TableDocumentStatusEnum.PENDING, None)
 
-        await self.enqueue_doc_refs(source_doc_refs)
-
-        # Delete documents not in source anymore
-        db_docs = await self.db.get_all_source_documents()
-        uris_in_db = {doc.source_document_uri for doc in db_docs}
-
-        deleted_uris = uris_in_db - set(uris_in_source)
-        await self.db.delete_source_documents(list(deleted_uris))
-
-        async for doc_event in self.source.listen():
-            if isinstance(doc_event, SourceDeleteEvent):
-                await self.db.delete_source_documents([doc_event.uri])
-            else:
-                assert isinstance(doc_event, SourceUpsertEvent)
-                if doc_event.uri in self.uris_in_queue: # if it's in queue, status is already set to waiting
-                    continue
-                await self.enqueue_doc_refs([doc_event.uri])
-                await self._reindex_and_store(doc_event.uri)
-
-
-
-def needs_indexing(self, source_doc: SourceDocument, indexed_doc: IndexedDocument | None) -> bool:
-    return 
+        await self.enqueue_doc_refs(docs_to_index + docs_to_create)
 
 
 # on each source_ref received:

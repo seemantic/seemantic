@@ -6,7 +6,14 @@ from datetime import datetime
 import filetype  # type: ignore[StubNotFound]
 from common.minio_service import MinioService, DeleteMinioEvent
 from indexer.settings import MinioSettings
-from indexer.source import Source, SourceDeleteEvent, SourceDocument, SourceEvent, SourceUpsertEvent, SourceDocumentReference
+from indexer.source import (
+    Source,
+    SourceDeleteEvent,
+    SourceDocument,
+    SourceEvent,
+    SourceUpsertEvent,
+    SourceDocumentReference,
+)
 
 
 class SeemanticDriveSource(Source):
@@ -38,7 +45,11 @@ class SeemanticDriveSource(Source):
                 if isinstance(event, DeleteMinioEvent):
                     yield SourceDeleteEvent(uri=self._without_prefix(event.key))
                 else:
-                    yield SourceUpsertEvent(doc_ref=SourceDocumentReference(uri=self._without_prefix(event.object.key), source_version_id=event.object.etag))
+                    yield SourceUpsertEvent(
+                        doc_ref=SourceDocumentReference(
+                            uri=self._without_prefix(event.object.key), source_version_id=event.object.etag
+                        )
+                    )
 
         return generator()
 
