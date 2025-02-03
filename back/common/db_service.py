@@ -123,6 +123,8 @@ class DbService:
             await session.commit()
 
     async def update_documents_status(self, uris: list[str], status: TableDocumentStatusEnum, error_status_message: str | None) -> None:
+        if status == TableDocumentStatusEnum.INDEXING_SUCCESS:
+            raise ValueError("Use update_documents_indexed_version function instead")
         now = datetime.now(tz=dt.timezone.utc)
         async with self.session_factory() as session, session.begin():
             await session.execute(
@@ -133,8 +135,42 @@ class DbService:
                     last_status_change=now,
                     error_status_message=error_status_message
                 )
-        )
-        await session.commit()
+            )
+            await session.commit()
+
+    async def update_documents_indexed_version(self, uri_to_indexed_version: dict[str, DbDocumentIndexedVersion]) -> None:
+        uri_to_id = await self.get_id(list(uri_to_indexed_version.keys()))
+        async with self.session_factory() as session, session.begin():
+            await session.execute(
+                update(TableDocument),
+                [
+                    TableDocument(
+                        id=uri_to_id[uri],
+                        uri=uri,
+                        status=TableDocumentStatusEnum.INDEXING_SUCCESS,
+                        last_status_change=indexed_version.last_modification,
+                        error_status_message=None,
+                        indexed_source_version=indexed_version.source_version,
+                        indexed_version_raw_hash=indexed_version.raw_hash,
+                        last_indexing=indexed_version.last_modification,
+                    )
+                    for uri, indexed_version in uri_to_indexed_version.items()
+                ])
+            
+            await session.commit()
+
+
+    async def get_id(self, uris: list[str]) -> dict[str, UUID]:
+        async with self.session_factory() as session, session.begin():
+            result = await session.execute(
+                select(TableDocument.id, TableDocument.uri).where(TableDocument.uri.in_(uris)),
+            )
+            table_rows = result.all()
+            return {row[1]: row[0] for row in table_rows}
+
+
+
+
 
 
     async def get_documents_from_indexed_raw_hashes(
