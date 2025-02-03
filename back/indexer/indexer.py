@@ -7,8 +7,9 @@ from uuid import UUID
 import asyncio
 from pyarrow import Table
 from pydantic import BaseModel
+from regex import D
 
-from common.db_service import DbService, TableDocumentStatusEnum
+from common.db_service import DbDocument, DbService, TableDocumentStatusEnum
 from common.document import IndexingStatus, ParsableFileType, ParsedDocument, is_parsable
 from common.embedding_service import EmbeddingService
 from common.vector_db import VectorDB
@@ -81,27 +82,19 @@ class Indexer:
         pass
 
     async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
-        for uri in uris:
-            self.uris_in_queue.add(
-                uri
-            )  # when uri is added to queue, unique set should already be updated (so it can be removed)
-            self.uris_queue.put_nowait(uri)
+        for ref in refs:
+            self.uris_in_queue.add(ref.uri)  # when uri is added to queue, unique set should already be updated (so it can be removed)
+            self.uris_queue.put_nowait(ref.uri)
 
-    async def start(self) -> None:
 
-        await self._init()
-
-        source_doc_refs = await self.source.all_doc_refs()
-        db_docs = await self.db.get_all_documents()
-        uri_to_db = {doc.uri: doc for doc in db_docs}
-
+    async def manage_upserts(self, refs: list[SourceDocumentReference], uri_to_db_docs: dict[str, DbDocument]):
         docs_to_index: list[SourceDocumentReference] = []
         docs_to_create: list[SourceDocumentReference] = []
-        for doc_ref in source_doc_refs:
+        for doc_ref in refs:
             uri = doc_ref.uri
             if uri in self.uris_in_queue:
                 continue
-            db_doc = uri_to_db.get(uri, None)
+            db_doc = uri_to_db_docs.get(uri, None)
             if db_doc is None:
                 docs_to_create.append(doc_ref)
             elif (
@@ -120,6 +113,30 @@ class Indexer:
         await self.db.update_documents_status([doc.uri for doc in docs_to_index], TableDocumentStatusEnum.PENDING, None)
 
         await self.enqueue_doc_refs(docs_to_index + docs_to_create)
+
+    async def manage_deletes(self, uris: list[str]) -> None:
+        pass
+
+
+    async def start(self) -> None:
+
+        await self._init()
+
+        source_doc_refs = await self.source.all_doc_refs()
+        db_docs = await self.db.get_all_documents()
+        uri_to_db = {doc.uri: doc for doc in db_docs}
+
+        await self.manage_upserts(source_doc_refs, uri_to_db)
+        await self.manage_deletes(todo_delete)
+
+        # TODO: delete old documents
+
+        async for event in self.source.listen():
+            if isinstance(event, SourceUpsertEvent):
+                uri_to_db = await self.db.get_documents([event.doc_ref.uri])
+                await self.manage_upserts([event.doc_ref], uri_to_db)
+            elif isinstance(event, SourceDeleteEvent): # type: ignore
+                await self.manage_deletes([event.uri])
 
 
 # on each source_ref received:

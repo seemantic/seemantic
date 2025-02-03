@@ -161,3 +161,14 @@ class DbService:
             plain_objs = [to_doc(row[0]) for row in table_rows]
 
             return plain_objs
+
+    async def get_documents(self, uris: list[str]) -> dict[str, DbDocument]:
+        async with self.session_factory() as session, session.begin():
+            result = await session.execute(
+                select(TableDocument).where(TableDocument.uri.in_(uris)),
+            )
+
+            table_rows = result.all()
+            plain_objs = {row[0].uri: to_doc(row[0]) for row in table_rows}
+
+            return plain_objs
