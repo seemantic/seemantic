@@ -21,15 +21,19 @@ class DocumentResult(BaseModel):
     chunk_results: list[ChunkResult]
 
 
-row_parsed_doc_hash = "parsed_doc_hash"
+row_parsed_content_hash = "parsed_content_hash"
 row_str_content = "str_content"
+row_raw_doc_hash = "raw_doc_hash"
+
 row_start_index_in_doc = "start_index_in_doc"
 row_end_index_in_doc = "end_index_in_doc"
+row_model = "model"
 
 parsed_doc_table_schema = pa.schema(
     [
-        (row_parsed_doc_hash, pa.string()),
+        (row_parsed_content_hash, pa.string()),
         (row_str_content, pa.string()),
+        (row_raw_doc_hash, pa.string()),
     ],
 )
 
@@ -37,9 +41,10 @@ embedding_dim = 1024
 chunk_table_schema = pa.schema(
     [
         (lancedb.common.VECTOR_COLUMN_NAME, pa.list_(pa.float16(), embedding_dim)),
-        (row_parsed_doc_hash, pa.string()),
+        (row_parsed_content_hash, pa.string()),
         (row_start_index_in_doc, pa.int64()),
         (row_end_index_in_doc, pa.int64()),
+        (row_model, pa.string()),
     ],
 )
 parsed_doc_table_version = "v1"
@@ -90,13 +95,14 @@ class VectorDB:
             mode="overwrite",  # For now as we test, this should be removed after
         )
 
-    async def query(self, vector: list[float], nb_chunks_to_retrieve: int) -> list[DocumentResult]:
+    async def query(self, vector: list[float], nb_chunks_to_retrieve: int, model: str) -> list[DocumentResult]:
 
         chunk_results: pa.Table = (
             await self._chunk_table.query()
             .nearest_to(vector)
             .distance_type(self.distance_metric)
             .column(lancedb.common.VECTOR_COLUMN_NAME)
+            .where(f"{row_model} = '{model}'") # TODO TEST
             .limit(nb_chunks_to_retrieve)
             .to_arrow()
         )
@@ -129,7 +135,7 @@ class VectorDB:
             DocumentResult(
                 parsed_document=ParsedDocument(
                     markdown_content=hash_to_content[parsed_doc_hash],
-                    hash=parsed_doc_hash,
+                    raw_hash=parsed_doc_hash,
                 ),
                 chunk_results=chunks,
             )
@@ -137,19 +143,19 @@ class VectorDB:
         ]
 
     async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
-        hash_array = pa.array([document.hash])
+        hash_array = pa.array([document.raw_hash])
         content_array = pa.array([document.markdown_content])
         doc_table = pa.Table.from_arrays([hash_array, content_array], schema=parsed_doc_table_schema)
         await self._parsed_doc_table.merge_insert(
             row_parsed_doc_hash,
         ).when_not_matched_insert_all().when_not_matched_by_source_delete(
-            f"{row_parsed_doc_hash} = '{document.hash}'",
+            f"{row_parsed_doc_hash} = '{document.raw_hash}'",
         ).execute(
             doc_table,
         )
 
         embedding_array = pa.array([c.embedding.embedding for c in chunks])
-        hash_array: pa.StringArray = pa.array([document.hash] * len(chunks))
+        hash_array: pa.StringArray = pa.array([document.raw_hash] * len(chunks))
         start_index_array = pa.array([c.chunk.start_index_in_doc for c in chunks])
         end_index_array = pa.array([c.chunk.end_index_in_doc for c in chunks])
         chunk_table = pa.Table.from_arrays(
@@ -160,7 +166,7 @@ class VectorDB:
         await self._chunk_table.merge_insert(
             row_parsed_doc_hash,
         ).when_not_matched_insert_all().when_not_matched_by_source_delete(
-            f"{row_parsed_doc_hash} = '{document.hash}'",
+            f"{row_parsed_doc_hash} = '{document.raw_hash}'",
         ).execute(
             chunk_table,
         )
