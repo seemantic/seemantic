@@ -6,7 +6,7 @@ import pyarrow as pa
 from lancedb import AsyncConnection
 from pydantic import BaseModel
 
-from common.document import Chunk, EmbeddedChunk, ParsedDocument
+from common.document import Chunk, EmbeddedChunk, ParsedDocument, compute_hash
 from common.embedding_service import DistanceMetric
 from common.minio_service import MinioSettings
 
@@ -143,30 +143,32 @@ class VectorDB:
         return results
 
     async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
-        hash_array = pa.array([document.raw_hash])
+        raw_hash_array = pa.array([document.raw_hash])
         content_array = pa.array([document.markdown_content])
-        doc_table = pa.Table.from_arrays([hash_array, content_array], schema=parsed_doc_table_schema)
+        parsed_content_hash = compute_hash(document.markdown_content)
+        parsed_content_hash_array = pa.array([parsed_content_hash])
+        doc_table = pa.Table.from_arrays([parsed_content_hash_array, content_array, raw_hash_array], schema=parsed_doc_table_schema)
         await self._parsed_doc_table.merge_insert(
             row_parsed_content_hash,
         ).when_not_matched_insert_all().when_not_matched_by_source_delete(
-            f"{row_parsed_doc_hash} = '{document.raw_hash}'",
+            f"{row_parsed_content_hash} = '{parsed_content_hash}'",
         ).execute(
             doc_table,
         )
 
         embedding_array = pa.array([c.embedding.embedding for c in chunks])
-        hash_array: pa.StringArray = pa.array([document.raw_hash] * len(chunks))
+        parsed_content_hash_array_chunk_table: pa.StringArray = pa.array([parsed_content_hash] * len(chunks))
         start_index_array = pa.array([c.chunk.start_index_in_doc for c in chunks])
         end_index_array = pa.array([c.chunk.end_index_in_doc for c in chunks])
         chunk_table = pa.Table.from_arrays(
-            [embedding_array, hash_array, start_index_array, end_index_array],
+            [embedding_array, parsed_content_hash_array_chunk_table, start_index_array, end_index_array],
             schema=chunk_table_schema,
         )
 
         await self._chunk_table.merge_insert(
-            row_parsed_doc_hash,
+            row_parsed_content_hash,
         ).when_not_matched_insert_all().when_not_matched_by_source_delete(
-            f"{row_parsed_doc_hash} = '{document.raw_hash}'",
+            f"{row_parsed_content_hash} = '{parsed_content_hash}'",
         ).execute(
             chunk_table,
         )
