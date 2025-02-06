@@ -4,15 +4,16 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 
 import filetype  # type: ignore[StubNotFound]
-from common.minio_service import MinioService, DeleteMinioEvent
+
+from common.minio_service import DeleteMinioEvent, MinioService
 from indexer.settings import MinioSettings
 from indexer.source import (
     Source,
     SourceDeleteEvent,
     SourceDocument,
+    SourceDocumentReference,
     SourceEvent,
     SourceUpsertEvent,
-    SourceDocumentReference,
 )
 
 
@@ -47,8 +48,8 @@ class SeemanticDriveSource(Source):
                 else:
                     yield SourceUpsertEvent(
                         doc_ref=SourceDocumentReference(
-                            uri=self._without_prefix(event.object.key), source_version_id=event.object.etag
-                        )
+                            uri=self._without_prefix(event.object.key), source_version_id=event.object.etag,
+                        ),
                     )
 
         return generator()

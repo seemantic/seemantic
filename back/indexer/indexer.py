@@ -1,20 +1,20 @@
-from datetime import datetime
+import asyncio
 import datetime as dt
 import logging
-from typing import Set, cast
+from datetime import datetime
+from typing import cast
 
-import asyncio
 from pydantic import BaseModel
 
-from common.utils import hash_file_content
 from common.db_service import DbDocument, DbDocumentIndexedVersion, DbService, TableDocumentStatusEnum
 from common.document import ParsableFileType, is_parsable
 from common.embedding_service import EmbeddingService
+from common.utils import hash_file_content
 from common.vector_db import VectorDB
 from indexer.chunker import Chunker
 from indexer.parser import Parser
 from indexer.settings import Settings
-from indexer.source import Source, SourceDeleteEvent, SourceDocument, SourceUpsertEvent, SourceDocumentReference
+from indexer.source import Source, SourceDeleteEvent, SourceDocument, SourceDocumentReference, SourceUpsertEvent
 from indexer.sources.seemantic_drive import SeemanticDriveSource
 
 
@@ -31,7 +31,7 @@ class Indexer:
     embedder: EmbeddingService
     vector_db: VectorDB
     uris_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=10000)
-    uris_in_queue: Set[str] = set()
+    uris_in_queue: set[str] = set()
 
     def __init__(self, settings: Settings) -> None:
         self.embedder = EmbeddingService(token=settings.jina_token)
@@ -67,13 +67,13 @@ class Indexer:
         if source_doc is None:
             logging.warning(f"Document {uri} not found in source")
             await self.db.update_documents_status(
-                [uri], TableDocumentStatusEnum.INDEXING_ERROR, "Document not found in source"
+                [uri], TableDocumentStatusEnum.INDEXING_ERROR, "Document not found in source",
             )
         elif not is_parsable(source_doc.filetype):
             # manage not parsable so it's still displayed in the UI ?
             logging.warning(f"Unsupported file type {source_doc.filetype}")
             await self.db.update_documents_status(
-                [uri], TableDocumentStatusEnum.INDEXING_ERROR, f"Unsupported file type {source_doc.filetype}"
+                [uri], TableDocumentStatusEnum.INDEXING_ERROR, f"Unsupported file type {source_doc.filetype}",
             )
         else:
             # Do indexation
@@ -84,14 +84,14 @@ class Indexer:
                         raw_hash=raw_hash,
                         source_version=source_doc.doc_ref.source_version_id,
                         last_modification=datetime.now(tz=dt.timezone.utc),
-                    )
-                }
+                    ),
+                },
             )
 
     async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
         for ref in refs:
             self.uris_in_queue.add(
-                ref.uri
+                ref.uri,
             )  # when uri is added to queue, unique set should already be updated (so it can be removed)
             self.uris_queue.put_nowait(ref.uri)
 
@@ -102,7 +102,7 @@ class Indexer:
             uri = doc_ref.uri
             if uri in self.uris_in_queue:
                 continue
-            db_doc = uri_to_db_docs.get(uri, None)
+            db_doc = uri_to_db_docs.get(uri)
             if db_doc is None:
                 docs_to_create.append(doc_ref)
             elif (

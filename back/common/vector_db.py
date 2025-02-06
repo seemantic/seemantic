@@ -150,7 +150,7 @@ class VectorDB:
         parsed_content_hash = xxh3_128_hexdigest(document.markdown_content)
         parsed_content_hash_array = pa.array([parsed_content_hash])
         doc_table = pa.Table.from_arrays(
-            [parsed_content_hash_array, content_array, raw_hash_array], schema=parsed_doc_table_schema
+            [parsed_content_hash_array, content_array, raw_hash_array], schema=parsed_doc_table_schema,
         )
         await self._parsed_doc_table.merge_insert(
             row_parsed_content_hash,
