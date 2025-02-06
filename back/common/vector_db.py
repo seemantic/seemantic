@@ -123,27 +123,24 @@ class VectorDB:
         results = []
 
         for _, parsed_row in parsed_df.iterrows():
-            parsed_hash = parsed_row[row_parsed_content_hash]
-
-            parsed_doc = ParsedDocument(markdown_content=parsed_row[row_str_content])
+            parsed_hash = cast(str, parsed_row[row_parsed_content_hash])
+            content = cast(str, parsed_row[row_str_content])
+            raw_hash = cast(str, parsed_row[row_raw_doc_hash])
+            parsed_doc = ParsedDocument(markdown_content=content)
 
             # Retrieve chunks efficiently using groupby dictionary
             chunk_results = [
                 ChunkResult(
                     chunk=Chunk(
-                        start_index_in_doc=chunk_row[row_start_index_in_doc],
-                        end_index_in_doc=chunk_row[row_end_index_in_doc],
+                        start_index_in_doc=cast(int, chunk_row[row_start_index_in_doc]),
+                        end_index_in_doc=cast(int, chunk_row[row_end_index_in_doc]),
                     ),
-                    distance=chunk_row["_distance"],  # Placeholder for distance computation
+                    distance=cast(float, chunk_row["_distance"]),  # Placeholder for distance computation
                 )
                 for _, chunk_row in chunk_groups.get_group(parsed_hash).iterrows()
             ]
 
-            results.append(
-                DocumentResult(
-                    raw_hash=parsed_row[row_raw_doc_hash], parsed_document=parsed_doc, chunk_results=chunk_results
-                )
-            )
+            results.append(DocumentResult(raw_hash=raw_hash, parsed_document=parsed_doc, chunk_results=chunk_results))
 
         return results
 

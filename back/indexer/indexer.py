@@ -6,7 +6,7 @@ from typing import Set, cast
 import asyncio
 from pydantic import BaseModel
 
-from back.common.utils import hash_file_content
+from common.utils import hash_file_content
 from common.db_service import DbDocument, DbDocumentIndexedVersion, DbService, TableDocumentStatusEnum
 from common.document import ParsableFileType, is_parsable
 from common.embedding_service import EmbeddingService
