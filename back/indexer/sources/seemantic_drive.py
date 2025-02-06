@@ -48,7 +48,8 @@ class SeemanticDriveSource(Source):
                 else:
                     yield SourceUpsertEvent(
                         doc_ref=SourceDocumentReference(
-                            uri=self._without_prefix(event.object.key), source_version_id=event.object.etag,
+                            uri=self._without_prefix(event.object.key),
+                            source_version_id=event.object.etag,
                         ),
                     )
 
@@ -58,7 +59,7 @@ class SeemanticDriveSource(Source):
         object_content = self._minio_service.get_document(object_name=self._with_prefix(uri))
 
         if object_content:
-            kind: str | None = filetype.guess_extension(content.read(1024))  # type: ignore[Attribute]
+            kind: str | None = filetype.guess_extension(object_content.content.read(1024))  # type: ignore[Attribute]
             object_content.content.seek(0)
             # check that kind is a supported file type
             return SourceDocument(

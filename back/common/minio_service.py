@@ -22,7 +22,7 @@ class MinioObject(BaseModel, frozen=True):
     etag: str
 
 
-class MinioObjectContent(BaseModel, frozen=True):
+class MinioObjectContent(BaseModel, frozen=True, arbitrary_types_allowed=True):
     object: MinioObject
     content: BytesIO
 

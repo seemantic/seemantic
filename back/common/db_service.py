@@ -123,7 +123,10 @@ class DbService:
             await session.commit()
 
     async def update_documents_status(
-        self, uris: list[str], status: TableDocumentStatusEnum, error_status_message: str | None,
+        self,
+        uris: list[str],
+        status: TableDocumentStatusEnum,
+        error_status_message: str | None,
     ) -> None:
         if status == TableDocumentStatusEnum.INDEXING_SUCCESS:
             raise ValueError("Use update_documents_indexed_version function instead")
@@ -137,7 +140,8 @@ class DbService:
             await session.commit()
 
     async def update_documents_indexed_version(
-        self, uri_to_indexed_version: dict[str, DbDocumentIndexedVersion],
+        self,
+        uri_to_indexed_version: dict[str, DbDocumentIndexedVersion],
     ) -> None:
         uri_to_id = await self.get_id(list(uri_to_indexed_version.keys()))
         async with self.session_factory() as session, session.begin():

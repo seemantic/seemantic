@@ -30,20 +30,23 @@ class Indexer:
     chunker: Chunker = Chunker()
     embedder: EmbeddingService
     vector_db: VectorDB
-    uris_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=10000)
-    uris_in_queue: set[str] = set()
+    uris_queue: asyncio.Queue[str]
+    uris_in_queue: set[str]
+    background_task_process_queue: asyncio.Task[None]  # so it's not garbage collected, cf. RUF006
 
     def __init__(self, settings: Settings) -> None:
         self.embedder = EmbeddingService(token=settings.jina_token)
         self.vector_db = VectorDB(settings.minio, self.embedder.distance_metric())
         self.source = SeemanticDriveSource(settings=settings.minio)
         self.db = DbService(settings.db)
+        self.uris_queue = asyncio.Queue(maxsize=10000)
+        self.uris_in_queue = set()
 
     async def _init(self) -> None:
         await self.vector_db.connect()
-        asyncio.create_task(self.process_queue())
+        self.background_task_process_queue = asyncio.create_task(self.process_queue())
 
-    async def process_queue(self):
+    async def process_queue(self) -> None:
         while True:
             uri = await self.uris_queue.get()
             self.uris_in_queue.remove(uri)  # uri can be re-added to queue as soon as processing starts
@@ -59,21 +62,23 @@ class Indexer:
         await self.vector_db.index(raw_hash, parsed, embedded_chunks)
         return raw_hash
 
-    # TODO manage indexing in VS
-
     async def _reindex_and_store(self, uri: str) -> None:
         await self.db.update_documents_status([uri], TableDocumentStatusEnum.INDEXING, None)
         source_doc = await self.source.get_document(uri)
         if source_doc is None:
             logging.warning(f"Document {uri} not found in source")
             await self.db.update_documents_status(
-                [uri], TableDocumentStatusEnum.INDEXING_ERROR, "Document not found in source",
+                [uri],
+                TableDocumentStatusEnum.INDEXING_ERROR,
+                "Document not found in source",
             )
         elif not is_parsable(source_doc.filetype):
             # manage not parsable so it's still displayed in the UI ?
             logging.warning(f"Unsupported file type {source_doc.filetype}")
             await self.db.update_documents_status(
-                [uri], TableDocumentStatusEnum.INDEXING_ERROR, f"Unsupported file type {source_doc.filetype}",
+                [uri],
+                TableDocumentStatusEnum.INDEXING_ERROR,
+                f"Unsupported file type {source_doc.filetype}",
             )
         else:
             # Do indexation
@@ -95,7 +100,7 @@ class Indexer:
             )  # when uri is added to queue, unique set should already be updated (so it can be removed)
             self.uris_queue.put_nowait(ref.uri)
 
-    async def manage_upserts(self, refs: list[SourceDocumentReference], uri_to_db_docs: dict[str, DbDocument]):
+    async def manage_upserts(self, refs: list[SourceDocumentReference], uri_to_db_docs: dict[str, DbDocument]) -> None:
         docs_to_index: list[SourceDocumentReference] = []
         docs_to_create: list[SourceDocumentReference] = []
         for doc_ref in refs:
@@ -139,7 +144,8 @@ class Indexer:
             if isinstance(event, SourceUpsertEvent):
                 uri_to_db = await self.db.get_documents([event.doc_ref.uri])
                 await self.manage_upserts([event.doc_ref], uri_to_db)
-            elif isinstance(event, SourceDeleteEvent):  # type: ignore
+            else:
+                assert isinstance(event, SourceDeleteEvent)
                 await self.db.delete_documents([event.uri])
 
 
