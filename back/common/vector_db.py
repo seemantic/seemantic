@@ -5,8 +5,9 @@ import lancedb
 import pyarrow as pa
 from lancedb import AsyncConnection
 from pydantic import BaseModel
+from xxhash import xxh3_128_hexdigest
 
-from common.document import Chunk, EmbeddedChunk, ParsedDocument, compute_hash
+from common.document import Chunk, EmbeddedChunk, ParsedDocument
 from common.embedding_service import DistanceMetric
 from common.minio_service import MinioSettings
 
@@ -17,6 +18,7 @@ class ChunkResult(BaseModel):
 
 
 class DocumentResult(BaseModel):
+    raw_hash: str
     parsed_document: ParsedDocument
     chunk_results: list[ChunkResult]
 
@@ -106,48 +108,53 @@ class VectorDB:
         parsed_doc_hashes = cast(set[str], set(chunk_table[row_parsed_content_hash].to_pylist()))
         sql_in_str = ",".join([f"'{parsed_doc_hash}'" for parsed_doc_hash in parsed_doc_hashes])
 
-        parsed_table = await self._parsed_doc_table.query().where(f"{row_parsed_content_hash} IN ({sql_in_str})").to_arrow()
+        parsed_table = (
+            await self._parsed_doc_table.query().where(f"{row_parsed_content_hash} IN ({sql_in_str})").to_arrow()
+        )
 
         # Convert to Pandas for fast groupby operations
         parsed_df = parsed_table.to_pandas()
         chunk_df = chunk_table.to_pandas()
-        
+
         # Group chunks by parsed_content_hash (avoids repeated filtering)
         chunk_groups = chunk_df.groupby(row_parsed_content_hash)
-        
+
         # Build results using dictionary lookups
         results = []
-        
+
         for _, parsed_row in parsed_df.iterrows():
             parsed_hash = parsed_row[row_parsed_content_hash]
-            
-            parsed_doc = ParsedDocument(
-                raw_hash=parsed_row[row_raw_doc_hash],
-                markdown_content=parsed_row[row_str_content]
-            )
+
+            parsed_doc = ParsedDocument(markdown_content=parsed_row[row_str_content])
 
             # Retrieve chunks efficiently using groupby dictionary
             chunk_results = [
                 ChunkResult(
                     chunk=Chunk(
                         start_index_in_doc=chunk_row[row_start_index_in_doc],
-                        end_index_in_doc=chunk_row[row_end_index_in_doc]
+                        end_index_in_doc=chunk_row[row_end_index_in_doc],
                     ),
-                    distance=chunk_row["_distance"]  # Placeholder for distance computation
+                    distance=chunk_row["_distance"],  # Placeholder for distance computation
                 )
                 for _, chunk_row in chunk_groups.get_group(parsed_hash).iterrows()
             ]
 
-            results.append(DocumentResult(parsed_document=parsed_doc, chunk_results=chunk_results))
-        
+            results.append(
+                DocumentResult(
+                    raw_hash=parsed_row[row_raw_doc_hash], parsed_document=parsed_doc, chunk_results=chunk_results
+                )
+            )
+
         return results
 
-    async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
-        raw_hash_array = pa.array([document.raw_hash])
+    async def index(self, raw_hash: str, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
+        raw_hash_array = pa.array([raw_hash])
         content_array = pa.array([document.markdown_content])
-        parsed_content_hash = compute_hash(document.markdown_content)
+        parsed_content_hash = xxh3_128_hexdigest(document.markdown_content)
         parsed_content_hash_array = pa.array([parsed_content_hash])
-        doc_table = pa.Table.from_arrays([parsed_content_hash_array, content_array, raw_hash_array], schema=parsed_doc_table_schema)
+        doc_table = pa.Table.from_arrays(
+            [parsed_content_hash_array, content_array, raw_hash_array], schema=parsed_doc_table_schema
+        )
         await self._parsed_doc_table.merge_insert(
             row_parsed_content_hash,
         ).when_not_matched_insert_all().when_not_matched_by_source_delete(

@@ -6,6 +6,7 @@ from typing import Set, cast
 import asyncio
 from pydantic import BaseModel
 
+from back.common.utils import hash_file_content
 from common.db_service import DbDocument, DbDocumentIndexedVersion, DbService, TableDocumentStatusEnum
 from common.document import ParsableFileType, is_parsable
 from common.embedding_service import EmbeddingService
@@ -45,17 +46,19 @@ class Indexer:
     async def process_queue(self):
         while True:
             uri = await self.uris_queue.get()
-            self.uris_in_queue.remove(uri) # uri can be re-added to queue as soon as processing starts
+            self.uris_in_queue.remove(uri)  # uri can be re-added to queue as soon as processing starts
             await self._reindex_and_store(uri)
             self.uris_queue.task_done()
 
     async def index(self, source_doc: SourceDocument) -> str:
         filetype = cast(ParsableFileType, source_doc.filetype)
+        raw_hash = hash_file_content(source_doc.content)
         parsed = self.parser.parse(filetype, source_doc.content)
         chunks = self.chunker.chunk(parsed)
         embedded_chunks = await self.embedder.embed_document(parsed, chunks)
-        await self.vector_db.index(parsed, embedded_chunks)
-        return parsed
+        await self.vector_db.index(raw_hash, parsed, embedded_chunks)
+        return raw_hash
+
     # TODO manage indexing in VS
 
     async def _reindex_and_store(self, uri: str) -> None:
@@ -63,23 +66,34 @@ class Indexer:
         source_doc = await self.source.get_document(uri)
         if source_doc is None:
             logging.warning(f"Document {uri} not found in source")
-            await self.db.update_documents_status([uri], TableDocumentStatusEnum.INDEXING_ERROR, "Document not found in source")
+            await self.db.update_documents_status(
+                [uri], TableDocumentStatusEnum.INDEXING_ERROR, "Document not found in source"
+            )
         elif not is_parsable(source_doc.filetype):
             # manage not parsable so it's still displayed in the UI ?
             logging.warning(f"Unsupported file type {source_doc.filetype}")
-            await self.db.update_documents_status([uri], TableDocumentStatusEnum.INDEXING_ERROR, f"Unsupported file type {source_doc.filetype}")
+            await self.db.update_documents_status(
+                [uri], TableDocumentStatusEnum.INDEXING_ERROR, f"Unsupported file type {source_doc.filetype}"
+            )
         else:
             # Do indexation
             raw_hash = await self.index(source_doc)
-            await self.db.update_documents_indexed_version({uri: DbDocumentIndexedVersion(raw_hash=raw_hash, source_version=source_doc.doc_ref.source_version_id, last_modification=datetime.now(tz=dt.timezone.utc))})
-
-
+            await self.db.update_documents_indexed_version(
+                {
+                    uri: DbDocumentIndexedVersion(
+                        raw_hash=raw_hash,
+                        source_version=source_doc.doc_ref.source_version_id,
+                        last_modification=datetime.now(tz=dt.timezone.utc),
+                    )
+                }
+            )
 
     async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
         for ref in refs:
-            self.uris_in_queue.add(ref.uri)  # when uri is added to queue, unique set should already be updated (so it can be removed)
+            self.uris_in_queue.add(
+                ref.uri
+            )  # when uri is added to queue, unique set should already be updated (so it can be removed)
             self.uris_queue.put_nowait(ref.uri)
-
 
     async def manage_upserts(self, refs: list[SourceDocumentReference], uri_to_db_docs: dict[str, DbDocument]):
         docs_to_index: list[SourceDocumentReference] = []
@@ -108,7 +122,6 @@ class Indexer:
 
         await self.enqueue_doc_refs(docs_to_index + docs_to_create)
 
-
     async def start(self) -> None:
 
         await self._init()
@@ -126,7 +139,7 @@ class Indexer:
             if isinstance(event, SourceUpsertEvent):
                 uri_to_db = await self.db.get_documents([event.doc_ref.uri])
                 await self.manage_upserts([event.doc_ref], uri_to_db)
-            elif isinstance(event, SourceDeleteEvent): # type: ignore
+            elif isinstance(event, SourceDeleteEvent):  # type: ignore
                 await self.db.delete_documents([event.uri])
 
 

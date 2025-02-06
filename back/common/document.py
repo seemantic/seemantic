@@ -1,7 +1,6 @@
 from typing import Literal, get_args
 
 from pydantic import BaseModel
-from xxhash import xxh128_hexdigest
 
 ParsableFileType = Literal["pdf", "docx", "md"]
 
@@ -25,12 +24,7 @@ class EmbeddedChunk(BaseModel):
 
 
 class ParsedDocument(BaseModel):
-    raw_hash: str
     markdown_content: str
 
     def __getitem__(self, chunk: Chunk) -> str:
         return self.markdown_content[chunk.start_index_in_doc : chunk.end_index_in_doc]
-
-
-def compute_hash(content: str) -> str:
-    return xxh128_hexdigest(content)
