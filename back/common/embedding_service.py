@@ -27,7 +27,7 @@ class EmbeddingService:
         }
 
         async with httpx.AsyncClient() as client:
-            response = await client.post(self._url, headers=self._headers, json=data)
+            response = await client.post(self._url, headers=self._headers, json=data, timeout=60)
 
         if response.status_code != HTTPStatus.OK:
             message = f"Error embedding passage: {response.status_code} - {response.text}"
@@ -45,9 +45,10 @@ class EmbeddingService:
 
         embeddings = await self._embed("retrieval.passage", chunk_contents, late_chunking=True)
         return [
-            EmbeddedChunk(chunk=chunk, embedding=embedding)
-            for chunk, embedding in zip(chunks, embeddings, strict=False)
+            EmbeddedChunk(chunk=chunk, embedding=embedding) for chunk, embedding in zip(chunks, embeddings, strict=True)
         ]
+
+    # TODO(Nico): seems embedding does not return
 
     async def embed_query(self, query: str) -> Embedding:
 

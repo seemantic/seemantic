@@ -67,9 +67,9 @@ class MinioService:
                 for event in events:
                     for record in event["Records"]:
                         key: str = str(record["s3"]["object"]["key"])
-                        etag: str = str(record["s3"]["object"]["eTag"])
                         event_name: str = str(record["eventName"])
                         if event_name == "s3:ObjectCreated:Put":
+                            etag: str = str(record["s3"]["object"]["eTag"])
                             yield PutMinioEvent(object=MinioObject(key=key, etag=etag))
                         elif event_name == "s3:ObjectRemoved:Delete":
                             yield DeleteMinioEvent(key=key)

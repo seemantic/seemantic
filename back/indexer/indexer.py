@@ -22,6 +22,21 @@ class RawDocIndexationResult(BaseModel):
     raw_content_hash: str
 
 
+class IndexingError(Exception):
+    public_error: str
+    internal_error: Exception | None
+
+    def __init__(self, public_error: str, internal_error: Exception | None = None) -> None:
+        super().__init__(public_error)
+        self.public_error = public_error
+        self.internal_error = internal_error
+
+    def __str__(self) -> str:
+        if self.internal_error:
+            return f"{self.public_error} (Internal error: {self.internal_error})"
+        return self.public_error
+
+
 class Indexer:
 
     source: Source
@@ -46,52 +61,54 @@ class Indexer:
         await self.vector_db.connect()
         self.background_task_process_queue = asyncio.create_task(self.process_queue())
 
+    async def _set_indexing_error(self, uri: str, public_error: str, internal_error: Exception | None = None) -> None:
+        logging.warning(f"indexing error for document {uri}: {internal_error or public_error}")
+        await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing_error, public_error)
+
     async def process_queue(self) -> None:
         while True:
             uri = await self.uris_queue.get()
             self.uris_in_queue.remove(uri)  # uri can be re-added to queue as soon as processing starts
-            await self._reindex_and_store(uri)
+            try:
+                await self._reindex_and_store(uri)
+            except IndexingError as e:
+                logging.exception(f"Error indexing {uri}")
+                await self._set_indexing_error(uri, e.public_error)
+            except Exception:
+                logging.exception(f"Error indexing {uri}")
+                await self._set_indexing_error(uri, "Unknown error")
             self.uris_queue.task_done()
 
     async def index(self, source_doc: SourceDocument) -> str:
         filetype = cast(ParsableFileType, source_doc.filetype)
         raw_hash = hash_file_content(source_doc.content)
-        parsed = self.parser.parse(filetype, source_doc.content)
-        chunks = self.chunker.chunk(parsed)
-        embedded_chunks = await self.embedder.embed_document(parsed, chunks)
-        await self.vector_db.index(raw_hash, parsed, embedded_chunks)
+        try:
+            parsed = self.parser.parse(filetype, source_doc.content)
+            chunks = self.chunker.chunk(parsed)
+            embedded_chunks = await self.embedder.embed_document(parsed, chunks)
+            await self.vector_db.index(raw_hash, parsed, embedded_chunks)
+        except Exception as e:
+            raise IndexingError("Indexing error", e) from e
+
         return raw_hash
 
     async def _reindex_and_store(self, uri: str) -> None:
         await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing, None)
         source_doc = await self.source.get_document(uri)
         if source_doc is None:
-            logging.warning(f"Document {uri} not found in source")
-            await self.db.update_documents_status(
-                [uri],
-                TableDocumentStatusEnum.indexing_error,
-                "Document not found in source",
-            )
-        elif not is_parsable(source_doc.filetype):
-            # manage not parsable so it's still displayed in the UI ?
-            logging.warning(f"Unsupported file type {source_doc.filetype}")
-            await self.db.update_documents_status(
-                [uri],
-                TableDocumentStatusEnum.indexing_error,
-                f"Unsupported file type {source_doc.filetype}",
-            )
-        else:
-            # Do indexation
-            raw_hash = await self.index(source_doc)
-            await self.db.update_documents_indexed_version(
-                {
-                    uri: DbDocumentIndexedVersion(
-                        raw_hash=raw_hash,
-                        source_version=source_doc.doc_ref.source_version_id,
-                        last_modification=datetime.now(tz=dt.timezone.utc),
-                    ),
-                },
-            )
+            raise IndexingError(public_error="Document not found in source")
+        if not is_parsable(source_doc.filetype):
+            raise IndexingError(public_error=f"Unsupported file type {source_doc.filetype}")
+        raw_hash = await self.index(source_doc)
+        await self.db.update_documents_indexed_version(
+            {
+                uri: DbDocumentIndexedVersion(
+                    raw_hash=raw_hash,
+                    source_version=source_doc.doc_ref.source_version_id,
+                    last_modification=datetime.now(tz=dt.timezone.utc),
+                ),
+            },
+        )
 
     async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
         for ref in refs:
@@ -122,10 +139,16 @@ class Indexer:
                 # doc did not change since last successful indexing
                 continue
 
-        await self.db.create_documents([doc.uri for doc in docs_to_create])
-        await self.db.update_documents_status([doc.uri for doc in docs_to_index], TableDocumentStatusEnum.pending, None)
-
-        await self.enqueue_doc_refs(docs_to_index + docs_to_create)
+        if docs_to_create:
+            await self.db.create_documents([doc.uri for doc in docs_to_create])
+        if docs_to_index:
+            await self.db.update_documents_status(
+                [doc.uri for doc in docs_to_index],
+                TableDocumentStatusEnum.pending,
+                None,
+            )
+        if docs_to_index or docs_to_create:
+            await self.enqueue_doc_refs(docs_to_index + docs_to_create)
 
     async def start(self) -> None:
 
@@ -138,7 +161,8 @@ class Indexer:
 
         await self.manage_upserts(source_doc_refs, uri_to_db)
         to_delete = set(uri_to_db.keys()) - set(uri_to_doc_refs.keys())
-        await self.db.delete_documents(list(to_delete))
+        if to_delete:
+            await self.db.delete_documents(list(to_delete))
 
         async for event in self.source.listen():
             if isinstance(event, SourceUpsertEvent):

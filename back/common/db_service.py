@@ -43,7 +43,8 @@ class TableDocument(Base):
 
     # status
     status: Mapped[TableDocumentStatusEnum] = mapped_column(
-        Enum(TableDocumentStatusEnum, name="document_status"), nullable=False,
+        Enum(TableDocumentStatusEnum, name="document_status"),
+        nullable=False,
     )
     last_status_change: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     error_status_message: Mapped[str] = mapped_column(nullable=True)
@@ -96,7 +97,7 @@ class DbService:
 
     def __init__(self, settings: DbSettings) -> None:
         url = f"postgresql+asyncpg://{settings.username}:{settings.password}@{settings.host}:{settings.port}/{settings.database}"
-        engine = create_async_engine(url, echo=True)
+        engine = create_async_engine(url, echo=True)  # add connect_args={"timeout": 10} in production ?
         self.session_factory = async_sessionmaker(engine, class_=AsyncSession)
 
     async def delete_documents(self, uris: list[str]) -> None:
