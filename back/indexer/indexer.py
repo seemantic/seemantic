@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from typing import cast
 
+from cv2 import log
 from pydantic import BaseModel
 
 from common.db_service import DbDocument, DbDocumentIndexedVersion, DbService, TableDocumentStatusEnum
@@ -47,7 +48,9 @@ class Indexer:
     vector_db: VectorDB
     uris_queue: asyncio.Queue[str]
     uris_in_queue: set[str]
+    queue_started: asyncio.Event
     background_task_process_queue: asyncio.Task[None]  # so it's not garbage collected, cf. RUF006
+
 
     def __init__(self, settings: Settings) -> None:
         self.embedder = EmbeddingService(token=settings.jina_token)
@@ -56,6 +59,7 @@ class Indexer:
         self.db = DbService(settings.db)
         self.uris_queue = asyncio.Queue(maxsize=10000)
         self.uris_in_queue = set()
+        self.queue_started = asyncio.Event()
 
     async def _init(self) -> None:
         await self.vector_db.connect()
@@ -66,9 +70,12 @@ class Indexer:
         await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing_error, public_error)
 
     async def process_queue(self) -> None:
+        self.queue_started.set()
+        logging.info(f"Indexing queue started")
         while True:
             uri = await self.uris_queue.get()
             self.uris_in_queue.remove(uri)  # uri can be re-added to queue as soon as processing starts
+            logging.info(f"Start indexing: {uri}")
             try:
                 await self._reindex_and_store(uri)
             except IndexingError as e:
@@ -83,10 +90,15 @@ class Indexer:
         filetype = cast(ParsableFileType, source_doc.filetype)
         raw_hash = hash_file_content(source_doc.content)
         try:
+            logging.info(f"Parsing {source_doc.doc_ref.uri}")
             parsed = self.parser.parse(filetype, source_doc.content)
+            logging.info(f"Chunking {source_doc.doc_ref.uri}")
             chunks = self.chunker.chunk(parsed)
+            logging.info(f"Embedding {source_doc.doc_ref.uri}")
             embedded_chunks = await self.embedder.embed_document(parsed, chunks)
+            logging.info(f"Storing {source_doc.doc_ref.uri}")
             await self.vector_db.index(raw_hash, parsed, embedded_chunks)
+            logging.info(f"Indexing completed for {source_doc.doc_ref.uri}")
         except Exception as e:
             raise IndexingError("Indexing error", e) from e
 
@@ -110,7 +122,7 @@ class Indexer:
             },
         )
 
-    async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
+    def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
         for ref in refs:
             self.uris_in_queue.add(
                 ref.uri,
@@ -148,11 +160,14 @@ class Indexer:
                 None,
             )
         if docs_to_index or docs_to_create:
-            await self.enqueue_doc_refs(docs_to_index + docs_to_create)
+            docs_enqueued = docs_to_index + docs_to_create
+            logging.info(f"Enqueuing documents: {docs_enqueued}")
+            self.enqueue_doc_refs(docs_enqueued)
 
     async def start(self) -> None:
-
+        logging.info("Starting indexer")
         await self._init()
+        await self.queue_started.wait() # we should not enqueue before queue is listening
 
         source_doc_refs = await self.source.all_doc_refs()
         uri_to_doc_refs = {doc_ref.uri: doc_ref for doc_ref in source_doc_refs}
@@ -171,6 +186,8 @@ class Indexer:
             else:
                 assert isinstance(event, SourceDeleteEvent)
                 await self.db.delete_documents([event.uri])
+
+        logging.info("Indexer stopped")
 
 
 # on each source_ref received:
