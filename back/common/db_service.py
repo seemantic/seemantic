@@ -5,7 +5,7 @@ from typing import cast
 from uuid import UUID
 
 from pydantic import BaseModel
-from sqlalchemy import TIMESTAMP, MetaData, delete, select, update
+from sqlalchemy import TIMESTAMP, Enum, MetaData, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
 from uuid_utils import uuid7
@@ -22,11 +22,12 @@ class DbSettings(BaseModel, frozen=True):
 Base = declarative_base(metadata=MetaData(schema="seemantic_schema"))
 
 
-class TableDocumentStatusEnum(str, enum.Enum):
-    PENDING = "pending"
-    INDEXING = "indexing"
-    INDEXING_SUCCESS = "indexing_success"
-    INDEXING_ERROR = "indexing_error"
+class TableDocumentStatusEnum(enum.Enum):
+    # nb. for some reason, if i put the enum lable in uppercase, it does not work (it passes 'PENDING' to the db)
+    pending = "pending"
+    indexing = "indexing"
+    indexing_success = "indexing_success"
+    indexing_error = "indexing_error"
 
 
 class TableDocument(Base):
@@ -41,7 +42,9 @@ class TableDocument(Base):
     last_indexing: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
 
     # status
-    status: Mapped[TableDocumentStatusEnum] = mapped_column(nullable=False)
+    status: Mapped[TableDocumentStatusEnum] = mapped_column(
+        Enum(TableDocumentStatusEnum, name="document_status"), nullable=False,
+    )
     last_status_change: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     error_status_message: Mapped[str] = mapped_column(nullable=True)
 
@@ -111,7 +114,7 @@ class DbService:
                     indexed_source_version=None,
                     indexed_version_raw_hash=None,
                     last_indexing=None,
-                    status=TableDocumentStatusEnum.PENDING,
+                    status=TableDocumentStatusEnum.pending,
                     last_status_change=now,
                     error_status_message=None,
                     creation_datetime=now,
@@ -128,7 +131,7 @@ class DbService:
         status: TableDocumentStatusEnum,
         error_status_message: str | None,
     ) -> None:
-        if status == TableDocumentStatusEnum.INDEXING_SUCCESS:
+        if status == TableDocumentStatusEnum.indexing_success:
             raise ValueError("Use update_documents_indexed_version function instead")
         now = datetime.now(tz=dt.timezone.utc)
         async with self.session_factory() as session, session.begin():
@@ -151,7 +154,7 @@ class DbService:
                     TableDocument(
                         id=uri_to_id[uri],
                         uri=uri,
-                        status=TableDocumentStatusEnum.INDEXING_SUCCESS,
+                        status=TableDocumentStatusEnum.indexing_success,
                         last_status_change=indexed_version.last_modification,
                         error_status_message=None,
                         indexed_source_version=indexed_version.source_version,

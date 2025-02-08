@@ -63,13 +63,13 @@ class Indexer:
         return raw_hash
 
     async def _reindex_and_store(self, uri: str) -> None:
-        await self.db.update_documents_status([uri], TableDocumentStatusEnum.INDEXING, None)
+        await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing, None)
         source_doc = await self.source.get_document(uri)
         if source_doc is None:
             logging.warning(f"Document {uri} not found in source")
             await self.db.update_documents_status(
                 [uri],
-                TableDocumentStatusEnum.INDEXING_ERROR,
+                TableDocumentStatusEnum.indexing_error,
                 "Document not found in source",
             )
         elif not is_parsable(source_doc.filetype):
@@ -77,7 +77,7 @@ class Indexer:
             logging.warning(f"Unsupported file type {source_doc.filetype}")
             await self.db.update_documents_status(
                 [uri],
-                TableDocumentStatusEnum.INDEXING_ERROR,
+                TableDocumentStatusEnum.indexing_error,
                 f"Unsupported file type {source_doc.filetype}",
             )
         else:
@@ -123,7 +123,7 @@ class Indexer:
                 continue
 
         await self.db.create_documents([doc.uri for doc in docs_to_create])
-        await self.db.update_documents_status([doc.uri for doc in docs_to_index], TableDocumentStatusEnum.PENDING, None)
+        await self.db.update_documents_status([doc.uri for doc in docs_to_index], TableDocumentStatusEnum.pending, None)
 
         await self.enqueue_doc_refs(docs_to_index + docs_to_create)
 
