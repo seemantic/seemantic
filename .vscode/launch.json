@@ -1,10 +1,19 @@
 {
     "configurations": [
+
         {
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
+            "cwd": "${workspaceFolder}/back",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python Debugger: Indxer",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/back/main_indexer.py",
             "cwd": "${workspaceFolder}/back",
             "console": "integratedTerminal"
         },
@@ -19,6 +28,12 @@
                 "--reload"
             ],
             "jinja": true
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Compound",
+            "configurations": ["Python Debugger: Indxer", "Python Debugger: FastAPI"]
         }
     ]
 }
