@@ -4,7 +4,6 @@ import logging
 from datetime import datetime
 from typing import cast
 
-from cv2 import log
 from pydantic import BaseModel
 
 from common.db_service import DbDocument, DbDocumentIndexedVersion, DbService, TableDocumentStatusEnum
@@ -73,10 +72,11 @@ class Indexer:
         self.queue_started.set()
         logging.info(f"Indexing queue started")
         while True:
+#            TODO ICI ASYN PROBLEM: IL FAUT QU'on repush un autre doc pour "debloquer" la queue
             uri = await self.uris_queue.get()
-            self.uris_in_queue.remove(uri)  # uri can be re-added to queue as soon as processing starts
-            logging.info(f"Start indexing: {uri}")
             try:
+                self.uris_in_queue.remove(uri)  # uri can be re-added to queue as soon as processing starts
+                logging.info(f"Start indexing: {uri}")
                 await self._reindex_and_store(uri)
             except IndexingError as e:
                 logging.exception(f"Error indexing {uri}")
@@ -122,12 +122,14 @@ class Indexer:
             },
         )
 
-    def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
+    async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
         for ref in refs:
             self.uris_in_queue.add(
                 ref.uri,
             )  # when uri is added to queue, unique set should already be updated (so it can be removed)
             self.uris_queue.put_nowait(ref.uri)
+        # this is to prevent queue from getting stuck (it awakes the queue after we enqueued all uris)
+        await asyncio.sleep(0)
 
     async def manage_upserts(self, refs: list[SourceDocumentReference], uri_to_db_docs: dict[str, DbDocument]) -> None:
         docs_to_index: list[SourceDocumentReference] = []
@@ -162,7 +164,7 @@ class Indexer:
         if docs_to_index or docs_to_create:
             docs_enqueued = docs_to_index + docs_to_create
             logging.info(f"Enqueuing documents: {docs_enqueued}")
-            self.enqueue_doc_refs(docs_enqueued)
+            await self.enqueue_doc_refs(docs_enqueued)
 
     async def start(self) -> None:
         logging.info("Starting indexer")
