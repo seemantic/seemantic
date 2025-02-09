@@ -1,4 +1,3 @@
-import asyncio
 import datetime as dt
 from collections.abc import AsyncGenerator
 from datetime import datetime

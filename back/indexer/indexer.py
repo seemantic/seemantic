@@ -111,13 +111,12 @@ class Indexer:
             raise IndexingError(public_error=f"Unsupported file type {source_doc.filetype}")
         raw_hash = await self.index(source_doc)
         await self.db.update_documents_indexed_version(
-            {
-                uri: DbDocumentIndexedVersion(
-                    raw_hash=raw_hash,
-                    source_version=source_doc.doc_ref.source_version_id,
-                    last_modification=datetime.now(tz=dt.timezone.utc),
-                ),
-            },
+            uri,
+            DbDocumentIndexedVersion(
+                raw_hash=raw_hash,
+                source_version=source_doc.doc_ref.source_version_id,
+                last_modification=datetime.now(tz=dt.timezone.utc),
+            ),
         )
 
     async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
