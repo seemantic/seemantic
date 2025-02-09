@@ -1,6 +1,7 @@
 import logging
+from datetime import datetime
 from io import BytesIO
-from uuid import UUID
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -8,8 +9,7 @@ from pydantic import BaseModel
 
 from app.app_services import DepDbService, DepMinioService
 from app.search_engine import SearchResult
-from common.db_service import DocumentView
-from common.document import IndexingStatus
+from common.db_service import DbDocument
 
 router: APIRouter = APIRouter(prefix="/api/v1")
 logger = logging.getLogger(__name__)
@@ -43,37 +43,35 @@ async def delete_file(relative_path: str, minio_service: DepMinioService) -> Non
 async def get_file(relative_path: str, minio_service: DepMinioService) -> StreamingResponse:
     file = minio_service.get_document(get_file_path(relative_path))
     if file:
-        return StreamingResponse(file, media_type="application/octet-stream")
+        return StreamingResponse(file.content, media_type="application/octet-stream")
 
     raise HTTPException(status_code=404, detail=f"File {relative_path} not found")
 
 
 class ApiDocumentSnippet(BaseModel):
-    id: UUID
     source_uri: str  # relative path within source
-    raw_content_hash: str | None
-    indexing_status: IndexingStatus
-    parsed_content_hash: str | None
+    status: Literal["pending", "indexing", "indexing_success", "indexing_error"]
+    error_status_message: str | None
+    last_indexing: datetime | None
 
 
 class ApiExplorer(BaseModel):
     documents: list[ApiDocumentSnippet]
 
 
-def _to_api_doc(db_doc: DocumentView) -> ApiDocumentSnippet:
+def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
 
     return ApiDocumentSnippet(
-        id=db_doc.source_document_id,
-        source_uri=db_doc.source_document_uri,
-        indexing_status=db_doc.indexing_status,
-        raw_content_hash=db_doc.current_version.raw_document_hash if db_doc.current_version else None,
-        parsed_content_hash=db_doc.indexed_version.parsed_content_hash if db_doc.indexed_version else None,
+        source_uri=db_doc.uri,
+        status=db_doc.status.status.value,
+        error_status_message=db_doc.status.error_status_message,
+        last_indexing=db_doc.indexed_version.last_modification if db_doc.indexed_version else None,
     )
 
 
 @router.get("/explorer")
 async def get_explorer(db_service: DepDbService) -> ApiExplorer:
-    db_docs = await db_service.get_all_source_documents()
+    db_docs = await db_service.get_all_documents()
 
     api_docs = [_to_api_doc(doc) for doc in db_docs]
     return ApiExplorer(documents=api_docs)

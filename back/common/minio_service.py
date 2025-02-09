@@ -1,8 +1,8 @@
+import asyncio
 import logging
 import time
-from collections.abc import Iterator
+from collections.abc import AsyncGenerator, Iterator
 from io import BytesIO
-from typing import Literal
 
 from pydantic import BaseModel
 from urllib3 import BaseHTTPResponse
@@ -18,9 +18,22 @@ class MinioSettings(BaseModel, frozen=True):
     bucket: str
 
 
-class MinioEvent(BaseModel, frozen=True):
+class MinioObject(BaseModel, frozen=True):
     key: str
-    event_type: Literal["put", "delete"]
+    etag: str
+
+
+class MinioObjectContent(BaseModel, frozen=True, arbitrary_types_allowed=True):
+    object: MinioObject
+    content: BytesIO
+
+
+class PutMinioEvent(BaseModel, frozen=True):
+    object: MinioObject
+
+
+class DeleteMinioEvent(BaseModel, frozen=True):
+    key: str
 
 
 class MinioService:
@@ -41,7 +54,7 @@ class MinioService:
         if not self._minio_client.bucket_exists(self._bucket_name):
             self._minio_client.make_bucket(self._bucket_name)
 
-    def listen_notifications(self, prefix: str) -> Iterator[MinioEvent]:
+    def _listen_notifications(self, prefix: str) -> Iterator[PutMinioEvent | DeleteMinioEvent]:
         # Continuously listen for events
         while True:
             try:
@@ -57,13 +70,26 @@ class MinioService:
                         key: str = str(record["s3"]["object"]["key"])
                         event_name: str = str(record["eventName"])
                         if event_name == "s3:ObjectCreated:Put":
-                            yield MinioEvent(key=key, event_type="put")
+                            etag: str = str(record["s3"]["object"]["eTag"])
+                            yield PutMinioEvent(object=MinioObject(key=key, etag=etag))
                         elif event_name == "s3:ObjectRemoved:Delete":
-                            yield MinioEvent(key=key, event_type="delete")
+                            yield DeleteMinioEvent(key=key)
 
             except Exception as e:  # noqa: BLE001, PERF203
                 logging.warning(f"Error: {e}, Reconnecting in 5 seconds...")
                 time.sleep(5)  # Wait before reconnecting
+
+    async def async_listen_notifications(self, prefix: str) -> AsyncGenerator[PutMinioEvent | DeleteMinioEvent, None]:
+
+        loop = asyncio.get_running_loop()
+        it = self._listen_notifications(prefix)
+
+        while True:
+            try:
+                event = await loop.run_in_executor(None, next, it)
+                yield event
+            except StopIteration:
+                break
 
     def create_or_update_document(self, key: str, file: BytesIO) -> None:
         self._minio_client.put_object(
@@ -73,7 +99,7 @@ class MinioService:
             len(file.getbuffer()),
         )
 
-    def get_document(self, object_name: str) -> BytesIO | None:
+    def get_document(self, object_name: str) -> MinioObjectContent | None:
 
         file: BaseHTTPResponse | None = None
         try:
@@ -81,21 +107,23 @@ class MinioService:
                 self._bucket_name,
                 object_name=object_name,
             )
+            etag = str(file.headers.get("ETag"))
             file_stream = BytesIO(file.read())
         except S3Error as e:
             if e.code == "NoSuchKey":
                 return None
             raise
         else:
-            return file_stream
+            return MinioObjectContent(object=MinioObject(key=object_name, etag=etag), content=file_stream)
         finally:
             if file:
                 file.close()
                 file.release_conn()
 
-    def get_all_documents(self, prefix: str) -> list[str]:
+    def get_all_documents(self, prefix: str) -> list[MinioObject]:
+
         return [
-            str(obj.object_name)
+            MinioObject(key=str(obj.object_name), etag=str(obj.etag))
             for obj in self._minio_client.list_objects(
                 self._bucket_name,
                 recursive=True,

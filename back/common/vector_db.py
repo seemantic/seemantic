@@ -5,6 +5,7 @@ import lancedb
 import pyarrow as pa
 from lancedb import AsyncConnection
 from pydantic import BaseModel
+from xxhash import xxh3_128_hexdigest
 
 from common.document import Chunk, EmbeddedChunk, ParsedDocument
 from common.embedding_service import DistanceMetric
@@ -17,19 +18,23 @@ class ChunkResult(BaseModel):
 
 
 class DocumentResult(BaseModel):
+    raw_hash: str
     parsed_document: ParsedDocument
     chunk_results: list[ChunkResult]
 
 
-row_parsed_doc_hash = "parsed_doc_hash"
+row_parsed_content_hash = "parsed_content_hash"
 row_str_content = "str_content"
+row_raw_doc_hash = "raw_doc_hash"
+
 row_start_index_in_doc = "start_index_in_doc"
 row_end_index_in_doc = "end_index_in_doc"
 
 parsed_doc_table_schema = pa.schema(
     [
-        (row_parsed_doc_hash, pa.string()),
+        (row_parsed_content_hash, pa.string()),
         (row_str_content, pa.string()),
+        (row_raw_doc_hash, pa.string()),
     ],
 )
 
@@ -37,7 +42,7 @@ embedding_dim = 1024
 chunk_table_schema = pa.schema(
     [
         (lancedb.common.VECTOR_COLUMN_NAME, pa.list_(pa.float16(), embedding_dim)),
-        (row_parsed_doc_hash, pa.string()),
+        (row_parsed_content_hash, pa.string()),
         (row_start_index_in_doc, pa.int64()),
         (row_end_index_in_doc, pa.int64()),
     ],
@@ -92,7 +97,7 @@ class VectorDB:
 
     async def query(self, vector: list[float], nb_chunks_to_retrieve: int) -> list[DocumentResult]:
 
-        chunk_results: pa.Table = (
+        chunk_table: pa.Table = (
             await self._chunk_table.query()
             .nearest_to(vector)
             .distance_type(self.distance_metric)
@@ -100,67 +105,75 @@ class VectorDB:
             .limit(nb_chunks_to_retrieve)
             .to_arrow()
         )
-        parsed_doc_hashes = cast(set[str], set(chunk_results[row_parsed_doc_hash].to_pylist()))
+        parsed_doc_hashes = cast(set[str], set(chunk_table[row_parsed_content_hash].to_pylist()))
         sql_in_str = ",".join([f"'{parsed_doc_hash}'" for parsed_doc_hash in parsed_doc_hashes])
 
-        parsed_docs = await self._parsed_doc_table.query().where(f"{row_parsed_doc_hash} IN ({sql_in_str})").to_arrow()
-
-        hash_to_content: dict[str, str] = dict(
-            zip(
-                cast(list[str], parsed_docs[row_parsed_doc_hash].to_pylist()),
-                cast(list[str], parsed_docs[row_str_content].to_pylist()),
-                strict=False,
-            ),
+        parsed_table = (
+            await self._parsed_doc_table.query().where(f"{row_parsed_content_hash} IN ({sql_in_str})").to_arrow()
         )
 
-        hash_to_chunks: dict[str, list[ChunkResult]] = {parsed_doc_hash: [] for parsed_doc_hash in parsed_doc_hashes}
-        for chunk_row in chunk_results.to_pylist():
-            hash_to_chunks[chunk_row[row_parsed_doc_hash]].append(
+        # Convert to Pandas for fast groupby operations
+        parsed_df = parsed_table.to_pandas()
+        chunk_df = chunk_table.to_pandas()
+
+        # Group chunks by parsed_content_hash (avoids repeated filtering)
+        chunk_groups = chunk_df.groupby(row_parsed_content_hash)
+
+        # Build results using dictionary lookups
+        results = []
+
+        for _, parsed_row in parsed_df.iterrows():
+            parsed_hash = cast(str, parsed_row[row_parsed_content_hash])
+            content = cast(str, parsed_row[row_str_content])
+            raw_hash = cast(str, parsed_row[row_raw_doc_hash])
+            parsed_doc = ParsedDocument(markdown_content=content)
+
+            # Retrieve chunks efficiently using groupby dictionary
+            chunk_results = [
                 ChunkResult(
                     chunk=Chunk(
-                        start_index_in_doc=chunk_row[row_start_index_in_doc],
-                        end_index_in_doc=chunk_row[row_end_index_in_doc],
+                        start_index_in_doc=cast(int, chunk_row[row_start_index_in_doc]),
+                        end_index_in_doc=cast(int, chunk_row[row_end_index_in_doc]),
                     ),
-                    distance=chunk_row["_distance"],
-                ),
-            )
+                    distance=cast(float, chunk_row["_distance"]),  # Placeholder for distance computation
+                )
+                for _, chunk_row in chunk_groups.get_group(parsed_hash).iterrows()
+            ]
 
-        return [
-            DocumentResult(
-                parsed_document=ParsedDocument(
-                    markdown_content=hash_to_content[parsed_doc_hash],
-                    hash=parsed_doc_hash,
-                ),
-                chunk_results=chunks,
-            )
-            for parsed_doc_hash, chunks in hash_to_chunks.items()
-        ]
+            results.append(DocumentResult(raw_hash=raw_hash, parsed_document=parsed_doc, chunk_results=chunk_results))
 
-    async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
-        hash_array = pa.array([document.hash])
+        return results
+
+    async def index(self, raw_hash: str, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
+        raw_hash_array = pa.array([raw_hash])
         content_array = pa.array([document.markdown_content])
-        doc_table = pa.Table.from_arrays([hash_array, content_array], schema=parsed_doc_table_schema)
+        parsed_content_hash = xxh3_128_hexdigest(document.markdown_content)
+        parsed_content_hash_array = pa.array([parsed_content_hash])
+        doc_table = pa.Table.from_arrays(
+            [parsed_content_hash_array, content_array, raw_hash_array],
+            schema=parsed_doc_table_schema,
+        )
         await self._parsed_doc_table.merge_insert(
-            row_parsed_doc_hash,
+            row_parsed_content_hash,
         ).when_not_matched_insert_all().when_not_matched_by_source_delete(
-            f"{row_parsed_doc_hash} = '{document.hash}'",
+            f"{row_parsed_content_hash} = '{parsed_content_hash}'",
         ).execute(
             doc_table,
         )
 
         embedding_array = pa.array([c.embedding.embedding for c in chunks])
-        hash_array: pa.StringArray = pa.array([document.hash] * len(chunks))
+        parsed_content_hash_array_chunk_table: pa.StringArray = pa.array([parsed_content_hash] * len(chunks))
         start_index_array = pa.array([c.chunk.start_index_in_doc for c in chunks])
         end_index_array = pa.array([c.chunk.end_index_in_doc for c in chunks])
         chunk_table = pa.Table.from_arrays(
-            [embedding_array, hash_array, start_index_array, end_index_array],
+            [embedding_array, parsed_content_hash_array_chunk_table, start_index_array, end_index_array],
             schema=chunk_table_schema,
         )
 
         await self._chunk_table.merge_insert(
-            row_parsed_doc_hash,
+            row_parsed_content_hash,
         ).when_not_matched_insert_all().when_not_matched_by_source_delete(
-            f"{row_parsed_doc_hash} = '{document.hash}'",
+            f"{row_parsed_content_hash} = '{parsed_content_hash}'",
         ).execute(
             chunk_table,
         )
