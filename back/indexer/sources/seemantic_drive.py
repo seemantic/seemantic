@@ -38,22 +38,18 @@ class SeemanticDriveSource(Source):
             for obj in self._minio_service.get_all_documents(prefix=self.prefix)
         ]
 
-    def listen(self) -> AsyncGenerator[SourceEvent]:
+    async def listen(self) -> AsyncGenerator[SourceEvent, None]:
 
-        async def generator() -> AsyncGenerator[SourceEvent]:
-            for event in self._minio_service.listen_notifications(prefix=self.prefix):
-                await asyncio.sleep(0)
-                if isinstance(event, DeleteMinioEvent):
-                    yield SourceDeleteEvent(uri=self._without_prefix(event.key))
-                else:
-                    yield SourceUpsertEvent(
-                        doc_ref=SourceDocumentReference(
-                            uri=self._without_prefix(event.object.key),
-                            source_version_id=event.object.etag,
-                        ),
-                    )
-
-        return generator()
+        async for event in self._minio_service.async_listen_notifications(prefix=self.prefix):
+            if isinstance(event, DeleteMinioEvent):
+                yield SourceDeleteEvent(uri=self._without_prefix(event.key))
+            else:
+                yield SourceUpsertEvent(
+                    doc_ref=SourceDocumentReference(
+                        uri=self._without_prefix(event.object.key),
+                        source_version_id=event.object.etag,
+                    ),
+                )
 
     async def get_document(self, uri: str) -> SourceDocument | None:
         object_content = self._minio_service.get_document(object_name=self._with_prefix(uri))

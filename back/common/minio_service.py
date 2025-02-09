@@ -1,6 +1,7 @@
+import asyncio
 import logging
 import time
-from collections.abc import Iterator
+from collections.abc import AsyncGenerator, Iterator
 from io import BytesIO
 
 from pydantic import BaseModel
@@ -53,7 +54,7 @@ class MinioService:
         if not self._minio_client.bucket_exists(self._bucket_name):
             self._minio_client.make_bucket(self._bucket_name)
 
-    def listen_notifications(self, prefix: str) -> Iterator[PutMinioEvent | DeleteMinioEvent]:
+    def _listen_notifications(self, prefix: str) -> Iterator[PutMinioEvent | DeleteMinioEvent]:
         # Continuously listen for events
         while True:
             try:
@@ -77,6 +78,18 @@ class MinioService:
             except Exception as e:  # noqa: BLE001, PERF203
                 logging.warning(f"Error: {e}, Reconnecting in 5 seconds...")
                 time.sleep(5)  # Wait before reconnecting
+
+    async def async_listen_notifications(self, prefix: str) -> AsyncGenerator[PutMinioEvent | DeleteMinioEvent, None]:
+
+        loop = asyncio.get_running_loop()
+        it = self._listen_notifications(prefix)
+
+        while True:
+            try:
+                event = await loop.run_in_executor(None, next, it)
+                yield event
+            except StopIteration:
+                break
 
     def create_or_update_document(self, key: str, file: BytesIO) -> None:
         self._minio_client.put_object(

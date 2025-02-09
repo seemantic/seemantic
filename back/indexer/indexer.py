@@ -50,7 +50,6 @@ class Indexer:
     queue_started: asyncio.Event
     background_task_process_queue: asyncio.Task[None]  # so it's not garbage collected, cf. RUF006
 
-
     def __init__(self, settings: Settings) -> None:
         self.embedder = EmbeddingService(token=settings.jina_token)
         self.vector_db = VectorDB(settings.minio, self.embedder.distance_metric())
@@ -70,9 +69,8 @@ class Indexer:
 
     async def process_queue(self) -> None:
         self.queue_started.set()
-        logging.info(f"Indexing queue started")
+        logging.info("Indexing queue started")
         while True:
-#            TODO ICI ASYN PROBLEM: IL FAUT QU'on repush un autre doc pour "debloquer" la queue
             uri = await self.uris_queue.get()
             try:
                 self.uris_in_queue.remove(uri)  # uri can be re-added to queue as soon as processing starts
@@ -128,8 +126,6 @@ class Indexer:
                 ref.uri,
             )  # when uri is added to queue, unique set should already be updated (so it can be removed)
             self.uris_queue.put_nowait(ref.uri)
-        # this is to prevent queue from getting stuck (it awakes the queue after we enqueued all uris)
-        await asyncio.sleep(0)
 
     async def manage_upserts(self, refs: list[SourceDocumentReference], uri_to_db_docs: dict[str, DbDocument]) -> None:
         docs_to_index: list[SourceDocumentReference] = []
@@ -169,7 +165,7 @@ class Indexer:
     async def start(self) -> None:
         logging.info("Starting indexer")
         await self._init()
-        await self.queue_started.wait() # we should not enqueue before queue is listening
+        await self.queue_started.wait()  # we should not enqueue before queue is listening
 
         source_doc_refs = await self.source.all_doc_refs()
         uri_to_doc_refs = {doc_ref.uri: doc_ref for doc_ref in source_doc_refs}
