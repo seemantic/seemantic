@@ -107,7 +107,8 @@ class MinioService:
                 self._bucket_name,
                 object_name=object_name,
             )
-            etag = str(file.headers.get("ETag"))
+            # header contains double quotes around the etag 
+            etag = str(file.headers.get("ETag")).strip('"')
             file_stream = BytesIO(file.read())
         except S3Error as e:
             if e.code == "NoSuchKey":
