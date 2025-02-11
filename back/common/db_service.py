@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from sqlalchemy import TIMESTAMP, Enum, MetaData, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
-from torch import t
 from uuid_utils import uuid7
 
 
@@ -208,15 +207,14 @@ class DbService:
             plain_objs = {row[0].uri: to_doc(row[0]) for row in table_rows}
 
             return plain_objs
-        
+
     async def get_document(self, uri: str) -> DbDocument:
         async with self.session_factory() as session, session.begin():
             result = await session.execute(
-                select(TableDocument).where(TableDocument.uri == uri), 
+                select(TableDocument).where(TableDocument.uri == uri),
             )
 
             row = result.first()
             if not row:
                 raise ValueError(f"Document {uri} not found")
             return to_doc(row[0])
-

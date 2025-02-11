@@ -88,7 +88,7 @@ class MinioService:
             try:
                 event = await loop.run_in_executor(None, next, it)
                 yield event
-            except StopIteration:
+            except StopIteration: # ignore[PERF203]
                 break
 
     def create_or_update_document(self, key: str, file: BytesIO) -> None:
@@ -107,7 +107,7 @@ class MinioService:
                 self._bucket_name,
                 object_name=object_name,
             )
-            # header contains double quotes around the etag 
+            # header contains double quotes around the etag
             etag = str(file.headers.get("ETag")).strip('"')
             file_stream = BytesIO(file.read())
         except S3Error as e:

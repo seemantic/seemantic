@@ -14,7 +14,7 @@ from common.vector_db import VectorDB
 from indexer.chunker import Chunker
 from indexer.parser import Parser
 from indexer.settings import Settings
-from indexer.source import Source, SourceDeleteEvent, SourceDocument, SourceDocumentReference, SourceUpsertEvent
+from indexer.source import Source, SourceDeleteEvent, SourceDocumentReference, SourceUpsertEvent
 from indexer.sources.seemantic_drive import SeemanticDriveSource
 
 
@@ -75,17 +75,17 @@ class Indexer:
             try:
                 self.uris_in_queue.remove(uri)  # uri can be re-added to queue as soon as processing starts
                 logging.info(f"Start indexing: {uri}")
-                await self._reindex_and_store(uri)
+                await self.index_and_store(uri)
             except IndexingError as e:
                 logging.exception(f"Error indexing {uri}")
                 await self._set_indexing_error(uri, e.public_error)
             except Exception:
-                logging.exception(f"Error indexing {uri}")
+                logging.exception(f"Unexpected error indexing {uri}")
                 await self._set_indexing_error(uri, "Unknown error")
             self.uris_queue.task_done()
 
     async def index_and_store(self, uri: str) -> None:
-    
+
         try:
             # Update document status to indexing
             await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing, None)
@@ -129,10 +129,10 @@ class Indexer:
                             parsed_hash=parsed_hash,
                             source_version=source_doc.doc_ref.source_version_id,
                             last_modification=datetime.now(tz=dt.timezone.utc),
-                        ),)
+                        ),
+                    )
         except Exception as e:
             raise IndexingError("Indexing error", e) from e
-
 
     async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
         for ref in refs:
