@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import TIMESTAMP, Enum, MetaData, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
+from torch import t
 from uuid_utils import uuid7
 
 
@@ -39,6 +40,8 @@ class TableDocument(Base):
     # version
     indexed_source_version: Mapped[str | None] = mapped_column(nullable=True)
     indexed_version_raw_hash: Mapped[str | None] = mapped_column(nullable=True)
+    indexed_version_parsed_hash: Mapped[str | None] = mapped_column(nullable=True)
+
     last_indexing: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
 
     # status
@@ -55,6 +58,7 @@ class TableDocument(Base):
 class DbDocumentIndexedVersion(BaseModel):
     source_version: str | None
     raw_hash: str
+    parsed_hash: str
     last_modification: datetime
 
 
@@ -76,6 +80,7 @@ def to_doc(table_obj: TableDocument) -> DbDocument:
         DbDocumentIndexedVersion(
             source_version=table_obj.indexed_source_version,
             raw_hash=table_obj.indexed_version_raw_hash,
+            parsed_hash=cast(str, table_obj.indexed_version_parsed_hash),
             last_modification=cast(datetime, table_obj.last_indexing),
         )
         if table_obj.indexed_version_raw_hash is not None
@@ -114,6 +119,7 @@ class DbService:
                     uri=uri,
                     indexed_source_version=None,
                     indexed_version_raw_hash=None,
+                    indexed_version_parsed_hash=None,
                     last_indexing=None,
                     status=TableDocumentStatusEnum.pending,
                     last_status_change=now,
@@ -132,8 +138,6 @@ class DbService:
         status: TableDocumentStatusEnum,
         error_status_message: str | None,
     ) -> None:
-        if status == TableDocumentStatusEnum.indexing_success:
-            raise ValueError("Use update_documents_indexed_version function instead")
         now = datetime.now(tz=dt.timezone.utc)
         async with self.session_factory() as session, session.begin():
             await session.execute(
@@ -154,6 +158,7 @@ class DbService:
                     error_status_message=None,
                     indexed_source_version=indexed_version.source_version,
                     indexed_version_raw_hash=indexed_version.raw_hash,
+                    indexed_version_parsed_hash=indexed_version.parsed_hash,
                     last_indexing=indexed_version.last_modification,
                 ),
             )
@@ -168,13 +173,13 @@ class DbService:
             table_rows = result.all()
             return {row[1]: row[0] for row in table_rows}
 
-    async def get_documents_from_indexed_raw_hashes(
+    async def get_documents_from_indexed_parsed_hashes(
         self,
-        raw_hashes: list[str],
+        parsed_hashes: list[str],
     ) -> list[DbDocument]:
         async with self.session_factory() as session, session.begin():
             result = await session.execute(
-                select(TableDocument).where(TableDocument.indexed_version_raw_hash.in_(raw_hashes)),
+                select(TableDocument).where(TableDocument.indexed_version_parsed_hash.in_(parsed_hashes)),
             )
 
             table_rows = result.all()
@@ -203,3 +208,15 @@ class DbService:
             plain_objs = {row[0].uri: to_doc(row[0]) for row in table_rows}
 
             return plain_objs
+        
+    async def get_document(self, uri: str) -> DbDocument:
+        async with self.session_factory() as session, session.begin():
+            result = await session.execute(
+                select(TableDocument).where(TableDocument.uri == uri), 
+            )
+
+            row = result.first()
+            if not row:
+                raise ValueError(f"Document {uri} not found")
+            return to_doc(row[0])
+

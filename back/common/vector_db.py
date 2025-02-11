@@ -17,15 +17,13 @@ class ChunkResult(BaseModel):
     distance: float
 
 
-class DocumentResult(BaseModel):
-    raw_hash: str
+class ParsedDocumentResult(BaseModel):
     parsed_document: ParsedDocument
     chunk_results: list[ChunkResult]
 
 
 row_parsed_content_hash = "parsed_content_hash"
 row_str_content = "str_content"
-row_raw_doc_hash = "raw_doc_hash"
 
 row_start_index_in_doc = "start_index_in_doc"
 row_end_index_in_doc = "end_index_in_doc"
@@ -34,7 +32,6 @@ parsed_doc_table_schema = pa.schema(
     [
         (row_parsed_content_hash, pa.string()),
         (row_str_content, pa.string()),
-        (row_raw_doc_hash, pa.string()),
     ],
 )
 
@@ -95,7 +92,7 @@ class VectorDB:
             mode="overwrite",  # For now as we test, this should be removed after
         )
 
-    async def query(self, vector: list[float], nb_chunks_to_retrieve: int) -> list[DocumentResult]:
+    async def query(self, vector: list[float], nb_chunks_to_retrieve: int) -> list[ParsedDocumentResult]:
 
         chunk_table: pa.Table = (
             await self._chunk_table.query()
@@ -125,7 +122,6 @@ class VectorDB:
         for _, parsed_row in parsed_df.iterrows():
             parsed_hash = cast(str, parsed_row[row_parsed_content_hash])
             content = cast(str, parsed_row[row_str_content])
-            raw_hash = cast(str, parsed_row[row_raw_doc_hash])
             parsed_doc = ParsedDocument(markdown_content=content)
 
             # Retrieve chunks efficiently using groupby dictionary
@@ -140,17 +136,22 @@ class VectorDB:
                 for _, chunk_row in chunk_groups.get_group(parsed_hash).iterrows()
             ]
 
-            results.append(DocumentResult(raw_hash=raw_hash, parsed_document=parsed_doc, chunk_results=chunk_results))
+            results.append(ParsedDocumentResult(parsed_document=parsed_doc, chunk_results=chunk_results))
 
         return results
 
-    async def index(self, raw_hash: str, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
-        raw_hash_array = pa.array([raw_hash])
+    async def is_indexed(self, document: ParsedDocument) -> bool:
+        parsed_hash = xxh3_128_hexdigest(document.markdown_content)
+        # we check _chunk_table as it is created last after _parsed_doc_table (and deleted first)
+        nb_rows= await self._chunk_table.count_rows(f"{row_parsed_content_hash} = '{parsed_hash}'")
+        return nb_rows > 0
+
+    async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> str:
         content_array = pa.array([document.markdown_content])
         parsed_content_hash = xxh3_128_hexdigest(document.markdown_content)
         parsed_content_hash_array = pa.array([parsed_content_hash])
         doc_table = pa.Table.from_arrays(
-            [parsed_content_hash_array, content_array, raw_hash_array],
+            [parsed_content_hash_array, content_array],
             schema=parsed_doc_table_schema,
         )
         await self._parsed_doc_table.merge_insert(
@@ -177,4 +178,5 @@ class VectorDB:
         ).execute(
             chunk_table,
         )
+        return parsed_content_hash
         # indexing is not necessary up to 100k rows. cf. https://lancedb.github.io/lancedb/ann_indexes/#when-is-it-necessary-to-create-an-ann-vector-index
