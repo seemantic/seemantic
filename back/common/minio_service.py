@@ -88,7 +88,7 @@ class MinioService:
             try:
                 event = await loop.run_in_executor(None, next, it)
                 yield event
-            except StopIteration: # ignore[PERF203]
+            except StopIteration:  # noqa: PERF203
                 break
 
     def create_or_update_document(self, key: str, file: BytesIO) -> None:

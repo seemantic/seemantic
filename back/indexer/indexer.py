@@ -86,53 +86,50 @@ class Indexer:
 
     async def index_and_store(self, uri: str) -> None:
 
-        try:
-            # Update document status to indexing
-            await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing, None)
+        # Update document status to indexing
+        await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing, None)
 
-            # Retrieve the source document
-            source_doc = await self.source.get_document(uri)
-            if source_doc is None:
-                raise IndexingError(public_error="Document not found in source")
+        # Retrieve the source document
+        source_doc = await self.source.get_document(uri)
+        if source_doc is None:
+            raise IndexingError(public_error="Document not found in source")
 
-            # Check if the file type is parsable
-            if not is_parsable(source_doc.filetype):
-                raise IndexingError(public_error=f"Unsupported file type {source_doc.filetype}")
+        # Check if the file type is parsable
+        if not is_parsable(source_doc.filetype):
+            raise IndexingError(public_error=f"Unsupported file type {source_doc.filetype}")
 
-            # check if raw hash changed
-            raw_hash = hash_file_content(source_doc.content)
-            db_doc = await self.db.get_document(uri)
-            if db_doc.indexed_version is not None and db_doc.indexed_version.raw_hash == raw_hash:
-                logging.info(f"raw_hash did not change for {uri}, indexing skipped")
+        # check if raw hash changed
+        raw_hash = hash_file_content(source_doc.content)
+        db_doc = await self.db.get_document(uri)
+        if db_doc.indexed_version is not None and db_doc.indexed_version.raw_hash == raw_hash:
+            logging.info(f"raw_hash did not change for {uri}, indexing skipped")
+            await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing_success, None)
+        else:
+            logging.info(f"Parsing {uri}")
+            filetype = cast(ParsableFileType, source_doc.filetype)
+            parsed = self.parser.parse(filetype, source_doc.content)
+            if await self.vector_db.is_indexed(parsed):
+                logging.info(f"parsed_hash already indexed, indexing skipped for {uri}")
                 await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing_success, None)
             else:
-                logging.info(f"Parsing {uri}")
-                filetype = cast(ParsableFileType, source_doc.filetype)
-                parsed = self.parser.parse(filetype, source_doc.content)
-                if await self.vector_db.is_indexed(parsed):
-                    logging.info(f"parsed_hash already indexed, indexing skipped for {uri}")
-                    await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing_success, None)
-                else:
-                    logging.info(f"Chunking {uri}")
-                    chunks = self.chunker.chunk(parsed)
-                    logging.info(f"Embedding {uri}")
-                    embedded_chunks = await self.embedder.embed_document(parsed, chunks)
-                    logging.info(f"Storing {uri}")
-                    parsed_hash = await self.vector_db.index(parsed, embedded_chunks)
-                    logging.info(f"Indexing completed for {uri}")
+                logging.info(f"Chunking {uri}")
+                chunks = self.chunker.chunk(parsed)
+                logging.info(f"Embedding {uri}")
+                embedded_chunks = await self.embedder.embed_document(parsed, chunks)
+                logging.info(f"Storing {uri}")
+                parsed_hash = await self.vector_db.index(parsed, embedded_chunks)
+                logging.info(f"Indexing completed for {uri}")
 
-                    # Update the indexed version in the database
-                    await self.db.update_documents_indexed_version(
-                        uri,
-                        DbDocumentIndexedVersion(
-                            raw_hash=raw_hash,
-                            parsed_hash=parsed_hash,
-                            source_version=source_doc.doc_ref.source_version_id,
-                            last_modification=datetime.now(tz=dt.timezone.utc),
-                        ),
-                    )
-        except Exception as e:
-            raise IndexingError("Indexing error", e) from e
+                # Update the indexed version in the database
+                await self.db.update_documents_indexed_version(
+                    uri,
+                    DbDocumentIndexedVersion(
+                        raw_hash=raw_hash,
+                        parsed_hash=parsed_hash,
+                        source_version=source_doc.doc_ref.source_version_id,
+                        last_modification=datetime.now(tz=dt.timezone.utc),
+                    ),
+                )
 
     async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
         for ref in refs:
