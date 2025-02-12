@@ -35,4 +35,4 @@ ALTER TABLE seemantic_schema.document
 ADD CONSTRAINT check_indexed_fields_consistency
 CHECK (
     (indexed_source_version IS NOT NULL AND indexed_version_raw_hash IS NOT NULL AND indexed_version_parsed_hash IS NOT NULL AND last_indexing IS NOT NULL)
-    OR (indexed_source_version IS NULL AND indexed_version_raw_hash IS NULL AND indexed_version_parsed_hash IS NULL AND last_indexing IS NULL)
+    OR (indexed_source_version IS NULL AND indexed_version_raw_hash IS NULL AND indexed_version_parsed_hash IS NULL AND last_indexing IS NULL));

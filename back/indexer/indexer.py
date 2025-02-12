@@ -104,32 +104,34 @@ class Indexer:
         if db_doc.indexed_version is not None and db_doc.indexed_version.raw_hash == raw_hash:
             logging.info(f"raw_hash did not change for {uri}, indexing skipped")
             await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing_success, None)
-        else:
-            logging.info(f"Parsing {uri}")
-            filetype = cast(ParsableFileType, source_doc.filetype)
-            parsed = self.parser.parse(filetype, source_doc.content)
-            if await self.vector_db.is_indexed(parsed):
-                logging.info(f"parsed_hash already indexed, indexing skipped for {uri}")
-                await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing_success, None)
-            else:
-                logging.info(f"Chunking {uri}")
-                chunks = self.chunker.chunk(parsed)
-                logging.info(f"Embedding {uri}")
-                embedded_chunks = await self.embedder.embed_document(parsed, chunks)
-                logging.info(f"Storing {uri}")
-                parsed_hash = await self.vector_db.index(parsed, embedded_chunks)
-                logging.info(f"Indexing completed for {uri}")
+            return
 
-                # Update the indexed version in the database
-                await self.db.update_documents_indexed_version(
-                    uri,
-                    DbDocumentIndexedVersion(
-                        raw_hash=raw_hash,
-                        parsed_hash=parsed_hash,
-                        source_version=source_doc.doc_ref.source_version_id,
-                        last_modification=datetime.now(tz=dt.timezone.utc),
-                    ),
-                )
+        logging.info(f"Parsing {uri}")
+        filetype = cast(ParsableFileType, source_doc.filetype)
+        parsed = self.parser.parse(filetype, source_doc.content)
+        if await self.vector_db.is_indexed(parsed):
+            logging.info(f"parsed_hash already indexed, indexing skipped for {uri}")
+            await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing_success, None)
+            return
+
+        logging.info(f"Chunking {uri}")
+        chunks = self.chunker.chunk(parsed)
+        logging.info(f"Embedding {uri}")
+        embedded_chunks = await self.embedder.embed_document(parsed, chunks)
+        logging.info(f"Storing {uri}")
+        parsed_hash = await self.vector_db.index(parsed, embedded_chunks)
+        logging.info(f"Indexing completed for {uri}")
+
+        # Update the indexed version in the database
+        await self.db.update_documents_indexed_version(
+            uri,
+            DbDocumentIndexedVersion(
+                raw_hash=raw_hash,
+                parsed_hash=parsed_hash,
+                source_version=source_doc.doc_ref.source_version_id,
+                last_modification=datetime.now(tz=dt.timezone.utc),
+            ),
+        )
 
     async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
         for ref in refs:
