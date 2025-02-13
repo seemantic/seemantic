@@ -5,7 +5,7 @@ from datetime import datetime
 import filetype  # type: ignore[StubNotFound]
 
 from common.minio_service import DeleteMinioEvent, MinioService
-from indexer.settings import MinioSettings
+from common.settings import MinioSettings
 from indexer.source import (
     Source,
     SourceDeleteEvent,

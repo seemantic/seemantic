@@ -2,20 +2,20 @@ from functools import lru_cache
 from typing import Annotated
 
 from fastapi import Depends
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 
-from common.db_service import DbSettings
-from common.minio_service import MinioSettings
+from common.settings import CommonSettings
 
 
-class Settings(BaseSettings):
-    minio: MinioSettings
-    db: DbSettings
-    seemantic_drive_root: str
-    log_level: str
+class Settings(CommonSettings):
 
     # frozen=True makes it hashable so it can be used as an argument of other functions decorated with lru_cache
-    model_config = SettingsConfigDict(env_file=".env.dev", frozen=True, env_nested_delimiter="__")
+    model_config = SettingsConfigDict(
+        env_file=".env.dev",
+        frozen=True,
+        env_nested_delimiter="__",
+        secrets_dir=".ignored/secrets",
+    )
 
 
 @lru_cache

@@ -1,17 +1,11 @@
 from functools import lru_cache
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 
-from common.db_service import DbSettings
-from common.minio_service import MinioSettings
+from common.settings import CommonSettings
 
 
-class Settings(BaseSettings):
-    minio: MinioSettings
-    db: DbSettings
-    seemantic_drive_root: str
-    log_level: str
-    jina_token: str
+class Settings(CommonSettings):
 
     # frozen=True makes it hashable so it can be used as an argument of other functions decorated with lru_cache
     model_config = SettingsConfigDict(
