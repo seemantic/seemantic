@@ -16,8 +16,8 @@ unidecode==1.3.6
 pydantic-settings==2.6.1
 python-dotenv==1.0.1
 
-# crawling
-watchfiles==0.24.0
+# hashing content
+xxhash==3.5.0
 
 # vector store
 lancedb==0.17.0
