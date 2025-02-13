@@ -24,6 +24,7 @@ class EmbeddedChunk(BaseModel):
 
 
 class ParsedDocument(BaseModel):
+    hash: str
     markdown_content: str
 
     def __getitem__(self, chunk: Chunk) -> str:

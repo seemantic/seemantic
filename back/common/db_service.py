@@ -175,14 +175,14 @@ class DbService:
     async def get_documents_from_indexed_parsed_hashes(
         self,
         parsed_hashes: list[str],
-    ) -> list[DbDocument]:
+    ) -> dict[str, DbDocument]:
         async with self.session_factory() as session, session.begin():
             result = await session.execute(
                 select(TableDocument).where(TableDocument.indexed_version_parsed_hash.in_(parsed_hashes)),
             )
 
             table_rows = result.all()
-            plain_objs = [to_doc(row[0]) for row in table_rows]
+            plain_objs = {row[0].indexed_version_parsed_hash: to_doc(row[0]) for row in table_rows}
 
             return plain_objs
 

@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.app_services import DepDbService, DepMinioService
+from app.app_services import DepDbService, DepMinioService, DepSearchEngine
 from app.search_engine import SearchResult
 from common.db_service import DbDocument
 
@@ -87,5 +87,6 @@ class QueryRequest(BaseModel):
 
 
 @router.post("/queries")
-async def create_query(_query: QueryRequest) -> QueryResponse:
-    return QueryResponse(answer="", search_result=[])
+async def create_query(search_engine: DepSearchEngine, query: QueryRequest) -> QueryResponse:
+    search_results = await search_engine.search(query.query)
+    return QueryResponse(answer="", search_result=search_results)

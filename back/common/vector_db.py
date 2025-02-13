@@ -18,6 +18,7 @@ class ChunkResult(BaseModel):
 
 
 class ParsedDocumentResult(BaseModel):
+
     parsed_document: ParsedDocument
     chunk_results: list[ChunkResult]
 
@@ -122,7 +123,7 @@ class VectorDB:
         for _, parsed_row in parsed_df.iterrows():
             parsed_hash = cast(str, parsed_row[row_parsed_content_hash])
             content = cast(str, parsed_row[row_str_content])
-            parsed_doc = ParsedDocument(markdown_content=content)
+            parsed_doc = ParsedDocument(hash=parsed_hash, markdown_content=content)
 
             # Retrieve chunks efficiently using groupby dictionary
             chunk_results = [
@@ -148,7 +149,7 @@ class VectorDB:
 
     async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> str:
         content_array = pa.array([document.markdown_content])
-        parsed_content_hash = xxh3_128_hexdigest(document.markdown_content)
+        parsed_content_hash = document.hash
         parsed_content_hash_array = pa.array([parsed_content_hash])
         doc_table = pa.Table.from_arrays(
             [parsed_content_hash_array, content_array],
