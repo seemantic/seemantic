@@ -60,12 +60,16 @@ class VectorDB:
     _parsed_doc_table: lancedb.AsyncTable
     _chunk_table: lancedb.AsyncTable
     distance_metric: str
+    _connected = False
 
     def __init__(self, settings: MinioSettings, distance_metric: DistanceMetric) -> None:
         self._settings = settings
         self.distance_metric = distance_metric
 
     async def connect(self) -> None:
+        if self._connected:
+            return
+        
         protocol = "https" if self._settings.use_tls else "http"
         self._db = await lancedb.connect_async(
             f"s3://{self._settings.bucket}/lancedb",
@@ -82,7 +86,7 @@ class VectorDB:
             exist_ok=True,
             schema=parsed_doc_table_schema,
             enable_v2_manifest_paths=True,
-            mode="overwrite",  # For now as we test, this should be removed after
+            mode="create",  # For now as we test, this should be removed after
         )
 
         self._chunk_table = await self._db.create_table(
@@ -90,10 +94,14 @@ class VectorDB:
             exist_ok=True,
             schema=chunk_table_schema,
             enable_v2_manifest_paths=True,
-            mode="overwrite",  # For now as we test, this should be removed after
+            mode="create",  # For now as we test, this should be removed after
         )
+        self._connected = True
 
     async def query(self, vector: list[float], nb_chunks_to_retrieve: int) -> list[ParsedDocumentResult]:
+        # to do, fix this, call it once
+        if not self._connected:
+            await self.connect()
 
         chunk_table: pa.Table = (
             await self._chunk_table.query()

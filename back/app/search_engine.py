@@ -1,8 +1,8 @@
 from pydantic import BaseModel
 
 from common.db_service import DbService
-from common.embedding_service import EmbeddingService
 from common.vector_db import VectorDB
+from common.embedding_service import EmbeddingService
 
 
 class SearchDocument(BaseModel):
@@ -55,7 +55,9 @@ class SearchEngine:
                             )
                             for passage in result.chunk_results
                         ],
-                    ),
+                    )
                 )
 
         return search_results
+
+
