@@ -6,7 +6,7 @@ from typing import cast
 
 from pydantic import BaseModel
 
-from common.db_service import DbDocument, DbDocumentIndexedVersion, DbService, TableDocumentStatusEnum
+from common.db_service import DbDocument, DbIndexedContent, DbService, TableDocumentStatusEnum
 from common.document import ParsableFileType, is_parsable
 from common.embedding_service import EmbeddingService
 from common.utils import hash_file_content
@@ -100,37 +100,38 @@ class Indexer:
 
         # check if raw hash changed
         raw_hash = hash_file_content(source_doc.content)
-        db_doc = await self.db.get_document(uri)
-        if db_doc.indexed_version is not None and db_doc.indexed_version.raw_hash == raw_hash:
-            logging.info(f"raw_hash did not change for {uri}, indexing skipped")
-            await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing_success, None)
-            return
+        indexed_content_id = await self.db.get_indexed_content_id_if_exists(raw_hash)
+        if indexed_content_id:
+            logging.info(
+                f"content with raw_hash {raw_hash} already indexed for {uri} with id {indexed_content_id}, indexing skipped",
+            )
+        else:
+            logging.info(f"Parsing {uri}")
+            filetype = cast(ParsableFileType, source_doc.filetype)
+            parsed = self.parser.parse(filetype, source_doc.content)
+            if await self.vector_db.is_indexed(parsed):
+                logging.info(f"parsed_hash already indexed, indexing skipped for {uri}")
+            else:
+                logging.info(f"Chunking {uri}")
+                chunks = self.chunker.chunk(parsed)
+                logging.info(f"Embedding {uri}")
+                embedded_chunks = await self.embedder.embed_document(parsed, chunks)
+                logging.info(f"Storing {uri}")
+                await self.vector_db.index(parsed, embedded_chunks)
+                logging.info(f"Indexing completed for {uri}")
 
-        logging.info(f"Parsing {uri}")
-        filetype = cast(ParsableFileType, source_doc.filetype)
-        parsed = self.parser.parse(filetype, source_doc.content)
-        if await self.vector_db.is_indexed(parsed):
-            logging.info(f"parsed_hash already indexed, indexing skipped for {uri}")
-            await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing_success, None)
-            return
+            # upsert indexed content
+            indexed_content_id = await self.db.upsert_indexed_content(
+                DbIndexedContent(
+                    raw_hash=raw_hash, parsed_hash=parsed.hash, last_modification=datetime.now(tz=dt.timezone.utc),
+                ),
+            )
 
-        logging.info(f"Chunking {uri}")
-        chunks = self.chunker.chunk(parsed)
-        logging.info(f"Embedding {uri}")
-        embedded_chunks = await self.embedder.embed_document(parsed, chunks)
-        logging.info(f"Storing {uri}")
-        parsed_hash = await self.vector_db.index(parsed, embedded_chunks)
-        logging.info(f"Indexing completed for {uri}")
-
-        # Update the indexed version in the database
-        await self.db.update_documents_indexed_version(
+        # update document indexed content id
+        await self.db.update_document_indexed_content(
             uri,
-            DbDocumentIndexedVersion(
-                raw_hash=raw_hash,
-                parsed_hash=parsed_hash,
-                source_version=source_doc.doc_ref.source_version_id,
-                last_modification=datetime.now(tz=dt.timezone.utc),
-            ),
+            source_doc.doc_ref.source_version_id,
+            indexed_content_id,
         )
 
     async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
@@ -151,10 +152,10 @@ class Indexer:
             if db_doc is None:
                 docs_to_create.append(doc_ref)
             elif (
-                db_doc.indexed_version is None
-                or db_doc.indexed_version.source_version is None
+                db_doc.indexed_content is None
+                or db_doc.indexed_source_version is None
                 or doc_ref.source_version_id is None
-                or db_doc.indexed_version.source_version != doc_ref.source_version_id
+                or db_doc.indexed_source_version != doc_ref.source_version_id
             ):
                 # doc might have changed
                 docs_to_index.append(doc_ref)
@@ -176,6 +177,7 @@ class Indexer:
             await self.enqueue_doc_refs(docs_enqueued)
 
     async def start(self) -> None:
+
         logging.info("Starting indexer")
         await self._init()
         await self.queue_started.wait()  # we should not enqueue before queue is listening

@@ -5,7 +5,6 @@ import lancedb
 import pyarrow as pa
 from lancedb import AsyncConnection
 from pydantic import BaseModel
-from xxhash import xxh3_128_hexdigest
 
 from common.document import Chunk, EmbeddedChunk, ParsedDocument
 from common.embedding_service import DistanceMetric
@@ -69,7 +68,7 @@ class VectorDB:
     async def connect(self) -> None:
         if self._connected:
             return
-        
+
         protocol = "https" if self._settings.use_tls else "http"
         self._db = await lancedb.connect_async(
             f"s3://{self._settings.bucket}/lancedb",
@@ -150,12 +149,11 @@ class VectorDB:
         return results
 
     async def is_indexed(self, document: ParsedDocument) -> bool:
-        parsed_hash = xxh3_128_hexdigest(document.markdown_content)
         # we check _chunk_table as it is created last after _parsed_doc_table (and deleted first)
-        nb_rows = await self._chunk_table.count_rows(f"{row_parsed_content_hash} = '{parsed_hash}'")
+        nb_rows = await self._chunk_table.count_rows(f"{row_parsed_content_hash} = '{document.hash}'")
         return nb_rows > 0
 
-    async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> str:
+    async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
         content_array = pa.array([document.markdown_content])
         parsed_content_hash = document.hash
         parsed_content_hash_array = pa.array([parsed_content_hash])
@@ -187,5 +185,4 @@ class VectorDB:
         ).execute(
             chunk_table,
         )
-        return parsed_content_hash
         # indexing is not necessary up to 100k rows. cf. https://lancedb.github.io/lancedb/ann_indexes/#when-is-it-necessary-to-create-an-ann-vector-index
