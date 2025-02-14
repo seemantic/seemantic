@@ -16,8 +16,6 @@ logger = logging.getLogger(__name__)
 seemantic_drive_prefix = "seemantic_drive/"
 
 
-
-
 def get_file_path(relative_path: str) -> str:
     return f"{seemantic_drive_prefix}{relative_path}"
 
@@ -67,7 +65,7 @@ def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
         source_uri=db_doc.uri,
         status=db_doc.status.status.value,
         error_status_message=db_doc.status.error_status_message,
-        last_indexing=db_doc.indexed_version.last_modification if db_doc.indexed_version else None,
+        last_indexing=db_doc.indexed_content.last_modification if db_doc.indexed_content else None,
     )
 
 

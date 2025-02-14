@@ -1,11 +1,11 @@
 import datetime as dt
 import enum
 from datetime import datetime
-from typing import cast
 from uuid import UUID
 
 from pydantic import BaseModel
-from sqlalchemy import TIMESTAMP, Enum, MetaData, delete, select, update
+from sqlalchemy import TIMESTAMP, Enum, ForeignKey, MetaData, delete, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
 from uuid_utils import uuid7
@@ -30,6 +30,15 @@ class TableDocumentStatusEnum(enum.Enum):
     indexing_error = "indexing_error"
 
 
+class TableIndexedContent(Base):
+    __tablename__ = "indexed_content"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    raw_hash: Mapped[str] = mapped_column(nullable=False)
+    parsed_hash: Mapped[str] = mapped_column(nullable=False)
+    last_indexing: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+
+
 class TableDocument(Base):
     __tablename__ = "document"
 
@@ -38,10 +47,7 @@ class TableDocument(Base):
 
     # version
     indexed_source_version: Mapped[str | None] = mapped_column(nullable=True)
-    indexed_version_raw_hash: Mapped[str | None] = mapped_column(nullable=True)
-    indexed_version_parsed_hash: Mapped[str | None] = mapped_column(nullable=True)
-
-    last_indexing: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    indexed_content_id: Mapped[UUID | None] = mapped_column(ForeignKey("indexed_content.id"), nullable=True)
 
     # status
     status: Mapped[TableDocumentStatusEnum] = mapped_column(
@@ -54,8 +60,7 @@ class TableDocument(Base):
     creation_datetime: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
 
 
-class DbDocumentIndexedVersion(BaseModel):
-    source_version: str | None
+class DbIndexedContent(BaseModel):
     raw_hash: str
     parsed_hash: str
     last_modification: datetime
@@ -69,30 +74,31 @@ class DbDocumentStatus(BaseModel):
 
 class DbDocument(BaseModel):
     uri: str
-    indexed_version: DbDocumentIndexedVersion | None
+    indexed_source_version: str | None
+    indexed_content: DbIndexedContent | None
     status: DbDocumentStatus
 
 
-def to_doc(table_obj: TableDocument) -> DbDocument:
+def to_doc(row_doc: TableDocument, row_indexed_content: TableIndexedContent | None) -> DbDocument:
 
-    indexed_version = (
-        DbDocumentIndexedVersion(
-            source_version=table_obj.indexed_source_version,
-            raw_hash=table_obj.indexed_version_raw_hash,
-            parsed_hash=cast(str, table_obj.indexed_version_parsed_hash),
-            last_modification=cast(datetime, table_obj.last_indexing),
+    indexed_content = (
+        DbIndexedContent(
+            raw_hash=row_indexed_content.raw_hash,
+            parsed_hash=row_indexed_content.parsed_hash,
+            last_modification=row_indexed_content.last_indexing,
         )
-        if table_obj.indexed_version_raw_hash is not None
+        if row_indexed_content
         else None
     )
 
     return DbDocument(
-        uri=table_obj.uri,
-        indexed_version=indexed_version,
+        uri=row_doc.uri,
+        indexed_source_version=row_doc.indexed_source_version,
+        indexed_content=indexed_content,
         status=DbDocumentStatus(
-            status=table_obj.status,
-            last_status_change=table_obj.last_status_change,
-            error_status_message=table_obj.error_status_message,
+            status=row_doc.status,
+            last_status_change=row_doc.last_status_change,
+            error_status_message=row_doc.error_status_message,
         ),
     )
 
@@ -117,9 +123,7 @@ class DbService:
                     id=uuid7(),  # Generate a unique UUID for each document
                     uri=uri,
                     indexed_source_version=None,
-                    indexed_version_raw_hash=None,
-                    indexed_version_parsed_hash=None,
-                    last_indexing=None,
+                    indexed_content_id=None,
                     status=TableDocumentStatusEnum.pending,
                     last_status_change=now,
                     error_status_message=None,
@@ -146,75 +150,94 @@ class DbService:
             )
             await session.commit()
 
-    async def update_documents_indexed_version(self, uri: str, indexed_version: DbDocumentIndexedVersion) -> None:
+    async def get_indexed_content_id_if_exists(self, raw_hash: str) -> UUID | None:
+        async with self.session_factory() as session, session.begin():
+            result = await session.execute(
+                select(TableIndexedContent.id).where(TableIndexedContent.raw_hash == raw_hash),
+            )
+            uuid = result.scalar_one_or_none()
+            return uuid
+
+    async def upsert_indexed_content(self, indexed_content: DbIndexedContent) -> UUID:
+        # create an indexed_content or update it if one with the same raw_hash already exists
+        async with self.session_factory() as session, session.begin():
+
+            stmt = insert(TableIndexedContent).values(
+                id=uuid7(),
+                raw_hash=indexed_content.raw_hash,
+                parsed_hash=indexed_content.parsed_hash,
+                last_indexing=indexed_content.last_modification,
+            )
+
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[TableIndexedContent.raw_hash],
+                set_={
+                    TableIndexedContent.parsed_hash: indexed_content.parsed_hash,
+                    TableIndexedContent.last_indexing: indexed_content.last_modification,
+                },
+            ).returning(TableIndexedContent.id)
+
+            result = await session.execute(stmt)
+            uuid = result.scalar_one()
+            await session.commit()
+            return uuid
+
+    async def update_document_indexed_content(
+        self, uri: str, indexed_source_version: str | None, indexed_content_id: UUID,
+    ) -> None:
         async with self.session_factory() as session, session.begin():
             await session.execute(
                 update(TableDocument)
                 .where(TableDocument.uri == uri)
                 .values(
                     status=TableDocumentStatusEnum.indexing_success,
-                    last_status_change=indexed_version.last_modification,
+                    last_status_change=datetime.now(tz=dt.timezone.utc),
                     error_status_message=None,
-                    indexed_source_version=indexed_version.source_version,
-                    indexed_version_raw_hash=indexed_version.raw_hash,
-                    indexed_version_parsed_hash=indexed_version.parsed_hash,
-                    last_indexing=indexed_version.last_modification,
+                    indexed_source_version=indexed_source_version,
+                    indexed_content_id=indexed_content_id,
                 ),
             )
 
             await session.commit()
 
-    async def get_id(self, uris: list[str]) -> dict[str, UUID]:
-        async with self.session_factory() as session, session.begin():
-            result = await session.execute(
-                select(TableDocument.id, TableDocument.uri).where(TableDocument.uri.in_(uris)),
-            )
-            table_rows = result.all()
-            return {row[1]: row[0] for row in table_rows}
-
     async def get_documents_from_indexed_parsed_hashes(
         self,
         parsed_hashes: list[str],
     ) -> dict[str, DbDocument]:
-        async with self.session_factory() as session, session.begin():
+        async with self.session_factory() as session:
             result = await session.execute(
-                select(TableDocument).where(TableDocument.indexed_version_parsed_hash.in_(parsed_hashes)),
+                select(TableDocument, TableIndexedContent)
+                .where(TableIndexedContent.parsed_hash.in_(parsed_hashes))
+                .join(TableIndexedContent, TableDocument.indexed_content_id == TableIndexedContent.id),
             )
 
             table_rows = result.all()
-            plain_objs = {row[0].indexed_version_parsed_hash: to_doc(row[0]) for row in table_rows}
+            plain_objs = {row[0].indexed_version_parsed_hash: to_doc(row[0], row[1]) for row in table_rows}
 
             return plain_objs
 
     async def get_all_documents(self) -> list[DbDocument]:
-        async with self.session_factory() as session, session.begin():
+        async with self.session_factory() as session:
             result = await session.execute(
-                select(TableDocument),
+                select(TableDocument, TableIndexedContent).outerjoin(
+                    TableIndexedContent, TableDocument.indexed_content_id == TableIndexedContent.id,
+                ),
             )
 
             table_rows = result.all()
-            plain_objs = [to_doc(row[0]) for row in table_rows]
+            plain_objs = [to_doc(row[0], row[1]) for row in table_rows]
 
             return plain_objs
 
     async def get_documents(self, uris: list[str]) -> dict[str, DbDocument]:
-        async with self.session_factory() as session, session.begin():
+        async with self.session_factory() as session:
             result = await session.execute(
-                select(TableDocument).where(TableDocument.uri.in_(uris)),
+                select(TableDocument, TableIndexedContent)
+                .where(TableDocument.uri.in_(uris))
+                .outerjoin(TableIndexedContent, TableDocument.indexed_content_id == TableIndexedContent.id),
             )
 
             table_rows = result.all()
-            plain_objs = {row[0].uri: to_doc(row[0]) for row in table_rows}
+            plain_objs = {row[0].uri: to_doc(row[0], row[1]) for row in table_rows}
 
             return plain_objs
-
-    async def get_document(self, uri: str) -> DbDocument:
-        async with self.session_factory() as session, session.begin():
-            result = await session.execute(
-                select(TableDocument).where(TableDocument.uri == uri),
-            )
-
-            row = result.first()
-            if not row:
-                raise ValueError(f"Document {uri} not found")
-            return to_doc(row[0])

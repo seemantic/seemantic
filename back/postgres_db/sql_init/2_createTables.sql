@@ -6,14 +6,22 @@
 
 CREATE TYPE document_status AS ENUM ('pending', 'indexing', 'indexing_success', 'indexing_error');
 
+
+
+CREATE TABLE seemantic_schema.indexed_content(
+   id UUID PRIMARY KEY,
+   raw_hash CHAR(32) NOT NULL UNIQUE, -- source independant hash of the raw content
+   parsed_hash CHAR(32) NOT NULL, -- hash of the parsed content
+   last_indexing TIMESTAMPTZ NOT NULL -- set on last_indexed_version_raw_hash change
+);
+
+
 CREATE TABLE seemantic_schema.document(
    id UUID PRIMARY KEY,
    uri TEXT NOT NULL UNIQUE,
 
    indexed_source_version TEXT, -- info that can be retreived from source without loading content (last update timestamp, hash, version id...)
-   indexed_version_raw_hash CHAR(32), -- source independant hash of the raw content
-   indexed_version_parsed_hash CHAR(32), -- hash of the parsed content
-   last_indexing TIMESTAMPTZ, -- set on last_indexed_version_raw_hash change
+   indexed_content_id UUID REFERENCES seemantic_schema.indexed_content(id), -- set when status is indexing_success
 
    status document_status NOT NULL,
    last_status_change TIMESTAMPTZ NOT NULL,
@@ -23,16 +31,11 @@ CREATE TABLE seemantic_schema.document(
 );
 
 
+
 CREATE INDEX idx_document_uri ON seemantic_schema.document (uri);
-CREATE INDEX idx_document_indexed_version_parsed_hash ON seemantic_schema.document (indexed_version_parsed_hash);
+CREATE INDEX idx_document_indexed_content_id ON seemantic_schema.document (indexed_content_id);
+CREATE INDEX idx_indexed_content_parsed_hash ON seemantic_schema.indexed_content (parsed_hash);
 
 ALTER TABLE seemantic_schema.document 
 ADD CONSTRAINT check_error_status_message 
 CHECK (status <> 'indexing_error' OR error_status_message IS NOT NULL);
-
-
-ALTER TABLE seemantic_schema.document
-ADD CONSTRAINT check_indexed_fields_consistency
-CHECK (
-    (indexed_source_version IS NOT NULL AND indexed_version_raw_hash IS NOT NULL AND indexed_version_parsed_hash IS NOT NULL AND last_indexing IS NOT NULL)
-    OR (indexed_source_version IS NULL AND indexed_version_raw_hash IS NULL AND indexed_version_parsed_hash IS NULL AND last_indexing IS NULL));
