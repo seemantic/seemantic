@@ -217,7 +217,7 @@ class DbService:
             )
 
             table_rows = result.all()
-            plain_objs = {row[0].indexed_version_parsed_hash: to_doc(row[0], row[1]) for row in table_rows}
+            plain_objs = {row[1].parsed_hash: to_doc(row[0], row[1]) for row in table_rows}
 
             return plain_objs
 

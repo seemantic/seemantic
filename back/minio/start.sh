@@ -1,5 +1,5 @@
 #!/bin/bash
 set -e
 
-docker start seemantic-mini
-docker logs seemantic-mini
+docker start seemantic-minio
+docker logs seemantic-minio
