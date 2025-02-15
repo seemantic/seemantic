@@ -5,6 +5,7 @@ import lancedb
 import pyarrow as pa
 from lancedb import AsyncConnection
 from pydantic import BaseModel
+
 from common.document import Chunk, EmbeddedChunk, ParsedDocument
 from common.embedding_service import DistanceMetric
 from common.minio_service import MinioSettings
@@ -83,7 +84,6 @@ class VectorDB:
             parsed_doc_table_name,
             exist_ok=True,
             schema=parsed_doc_table_schema,
-            enable_v2_manifest_paths=True,
             mode="create",  # For now as we test, this should be removed after
         )
 
@@ -91,7 +91,6 @@ class VectorDB:
             chunk_table_name,
             exist_ok=True,
             schema=chunk_table_schema,
-            enable_v2_manifest_paths=True,
             mode="create",  # For now as we test, this should be removed after
         )
         self._connected = True
@@ -111,7 +110,6 @@ class VectorDB:
         sql_in_str = ",".join([f"'{parsed_doc_hash}'" for parsed_doc_hash in parsed_doc_hashes])
 
         parsed_table = (
-
             await self._parsed_doc_table.query().where(f"{row_parsed_content_hash} IN ({sql_in_str})").to_arrow()
         )
 

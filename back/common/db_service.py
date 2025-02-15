@@ -1,7 +1,6 @@
 import datetime as dt
 import enum
 from datetime import datetime
-from typing import Tuple
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -151,17 +150,22 @@ class DbService:
             )
             await session.commit()
 
-    async def get_indexed_content_if_exists(self, raw_hash: str) -> Tuple[UUID,DbIndexedContent] | None:
+    async def get_indexed_content_if_exists(self, raw_hash: str) -> tuple[UUID, DbIndexedContent] | None:
         async with self.session_factory() as session, session.begin():
             result = await session.execute(
                 select(TableIndexedContent).where(TableIndexedContent.raw_hash == raw_hash),
             )
             content = result.scalar_one_or_none()
-            return (content.id,DbIndexedContent(
-                raw_hash=content.raw_hash,
-                parsed_hash=content.parsed_hash,
-                last_indexing=content.last_indexing)) if content else None
-
+            return (
+                (
+                    content.id,
+                    DbIndexedContent(
+                        raw_hash=content.raw_hash, parsed_hash=content.parsed_hash, last_indexing=content.last_indexing,
+                    ),
+                )
+                if content
+                else None
+            )
 
     async def upsert_indexed_content(self, indexed_content: DbIndexedContent) -> UUID:
         # create an indexed_content or update it if one with the same raw_hash already exists
@@ -188,7 +192,10 @@ class DbService:
             return uuid
 
     async def update_document_indexed_content(
-        self, uri: str, indexed_source_version: str | None, indexed_content_id: UUID,
+        self,
+        uri: str,
+        indexed_source_version: str | None,
+        indexed_content_id: UUID,
     ) -> None:
         async with self.session_factory() as session, session.begin():
             await session.execute(
@@ -225,7 +232,8 @@ class DbService:
         async with self.session_factory() as session:
             result = await session.execute(
                 select(TableDocument, TableIndexedContent).outerjoin(
-                    TableIndexedContent, TableDocument.indexed_content_id == TableIndexedContent.id,
+                    TableIndexedContent,
+                    TableDocument.indexed_content_id == TableIndexedContent.id,
                 ),
             )
 

@@ -1,7 +1,7 @@
 from copy import deepcopy
+
 from pydantic import BaseModel
 
-from common.document import Chunk
 from common.db_service import DbService
 from common.embedding_service import EmbeddingService
 from common.vector_db import ChunkResult, ParsedDocumentResult, VectorDB
@@ -33,7 +33,6 @@ class SearchEngine:
         self.vector_db = vector_db
         self.db = db
 
-
     def merge_chunks(self, doc_result: ParsedDocumentResult) -> ParsedDocumentResult:
         atomic_chunks = doc_result.chunk_results
         sorted_chunks = sorted(atomic_chunks, key=lambda chunk: chunk.chunk.start_index_in_doc)
@@ -44,16 +43,15 @@ class SearchEngine:
         for chunk in sorted_chunks[1:]:
             if chunk.chunk.start_index_in_doc - current_merged_chunk.chunk.end_index_in_doc <= max_interval_for_merge:
                 current_merged_chunk.distance = min(current_merged_chunk.distance, chunk.distance)
-                current_merged_chunk.chunk.end_index_in_doc = max(chunk.chunk.end_index_in_doc, current_merged_chunk.chunk.end_index_in_doc)
+                current_merged_chunk.chunk.end_index_in_doc = max(
+                    chunk.chunk.end_index_in_doc, current_merged_chunk.chunk.end_index_in_doc,
+                )
             else:
                 merged_chunks.append(current_merged_chunk)
                 current_merged_chunk = deepcopy(chunk)
 
         merged_chunks.append(current_merged_chunk)
         return ParsedDocumentResult(parsed_document=doc_result.parsed_document, chunk_results=merged_chunks)
-
-
-
 
     async def search(self, query: str) -> list[SearchResult]:
         embedding = await self.embedding_service.embed_query(query)

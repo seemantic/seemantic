@@ -124,7 +124,9 @@ class Indexer:
             # upsert indexed content
             indexed_content_id = await self.db.upsert_indexed_content(
                 DbIndexedContent(
-                    raw_hash=raw_hash, parsed_hash=parsed.hash, last_indexing=datetime.now(tz=dt.timezone.utc),
+                    raw_hash=raw_hash,
+                    parsed_hash=parsed.hash,
+                    last_indexing=datetime.now(tz=dt.timezone.utc),
                 ),
             )
 

@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Annotated
+
 from fastapi import Depends
 
 from app.search_engine import SearchEngine
