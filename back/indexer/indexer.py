@@ -59,9 +59,9 @@ class Indexer:
         self.uris_in_queue = set()
         self.queue_started = asyncio.Event()
 
-    async def _init(self) -> None:
-        await self.vector_db.connect()
+    async def _init_queue(self) -> None:
         self.background_task_process_queue = asyncio.create_task(self.process_queue())
+        await self.queue_started.wait()
 
     async def _set_indexing_error(self, uri: str, public_error: str, internal_error: Exception | None = None) -> None:
         logging.warning(f"indexing error for document {uri}: {internal_error or public_error}")
@@ -180,8 +180,7 @@ class Indexer:
     async def start(self) -> None:
 
         logging.info("Starting indexer")
-        await self._init()
-        await self.queue_started.wait()  # we should not enqueue before queue is listening
+        await self._init_queue()
 
         source_doc_refs = await self.source.all_doc_refs()
         uri_to_doc_refs = {doc_ref.uri: doc_ref for doc_ref in source_doc_refs}

@@ -5,7 +5,6 @@ import lancedb
 import pyarrow as pa
 from lancedb import AsyncConnection
 from pydantic import BaseModel
-
 from common.document import Chunk, EmbeddedChunk, ParsedDocument
 from common.embedding_service import DistanceMetric
 from common.minio_service import MinioSettings
@@ -65,7 +64,7 @@ class VectorDB:
         self._settings = settings
         self.distance_metric = distance_metric
 
-    async def connect(self) -> None:
+    async def connect_if_needed(self) -> None:
         if self._connected:
             return
 
@@ -98,9 +97,7 @@ class VectorDB:
         self._connected = True
 
     async def query(self, vector: list[float], nb_chunks_to_retrieve: int) -> list[ParsedDocumentResult]:
-        # to do, fix this, call it once
-        if not self._connected:
-            await self.connect()
+        await self.connect_if_needed()
 
         chunk_table: pa.Table = (
             await self._chunk_table.query()
@@ -149,11 +146,14 @@ class VectorDB:
         return results
 
     async def is_indexed(self, parsed_content_hash: str) -> bool:
+        await self.connect_if_needed()
+
         # we check _chunk_table as it is created last after _parsed_doc_table (and deleted first)
         nb_rows = await self._chunk_table.count_rows(f"{row_parsed_content_hash} = '{parsed_content_hash}'")
         return nb_rows > 0
 
     async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:
+        await self.connect_if_needed()
         content_array = pa.array([document.markdown_content])
         parsed_content_hash = document.hash
         parsed_content_hash_array = pa.array([parsed_content_hash])
