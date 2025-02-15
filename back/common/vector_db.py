@@ -148,9 +148,9 @@ class VectorDB:
 
         return results
 
-    async def is_indexed(self, document: ParsedDocument) -> bool:
+    async def is_indexed(self, parsed_content_hash: str) -> bool:
         # we check _chunk_table as it is created last after _parsed_doc_table (and deleted first)
-        nb_rows = await self._chunk_table.count_rows(f"{row_parsed_content_hash} = '{document.hash}'")
+        nb_rows = await self._chunk_table.count_rows(f"{row_parsed_content_hash} = '{parsed_content_hash}'")
         return nb_rows > 0
 
     async def index(self, document: ParsedDocument, chunks: list[EmbeddedChunk]) -> None:

@@ -100,8 +100,9 @@ class Indexer:
 
         # check if raw hash changed
         raw_hash = hash_file_content(source_doc.content)
-        indexed_content_id = await self.db.get_indexed_content_id_if_exists(raw_hash)
-        if indexed_content_id:
+        indexed_content = await self.db.get_indexed_content_if_exists(raw_hash)
+        if indexed_content:
+            indexed_content_id = indexed_content[0]
             logging.info(
                 f"content with raw_hash {raw_hash} already indexed for {uri} with id {indexed_content_id}, indexing skipped",
             )
@@ -109,7 +110,7 @@ class Indexer:
             logging.info(f"Parsing {uri}")
             filetype = cast(ParsableFileType, source_doc.filetype)
             parsed = self.parser.parse(filetype, source_doc.content)
-            if await self.vector_db.is_indexed(parsed):
+            if await self.vector_db.is_indexed(parsed.hash):
                 logging.info(f"parsed_hash already indexed, indexing skipped for {uri}")
             else:
                 logging.info(f"Chunking {uri}")
@@ -123,7 +124,7 @@ class Indexer:
             # upsert indexed content
             indexed_content_id = await self.db.upsert_indexed_content(
                 DbIndexedContent(
-                    raw_hash=raw_hash, parsed_hash=parsed.hash, last_modification=datetime.now(tz=dt.timezone.utc),
+                    raw_hash=raw_hash, parsed_hash=parsed.hash, last_indexing=datetime.now(tz=dt.timezone.utc),
                 ),
             )
 

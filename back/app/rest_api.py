@@ -65,7 +65,7 @@ def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
         source_uri=db_doc.uri,
         status=db_doc.status.status.value,
         error_status_message=db_doc.status.error_status_message,
-        last_indexing=db_doc.indexed_content.last_modification if db_doc.indexed_content else None,
+        last_indexing=db_doc.indexed_content.last_indexing if db_doc.indexed_content else None,
     )
 
 

@@ -1,6 +1,7 @@
 import datetime as dt
 import enum
 from datetime import datetime
+from typing import Tuple
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -63,7 +64,7 @@ class TableDocument(Base):
 class DbIndexedContent(BaseModel):
     raw_hash: str
     parsed_hash: str
-    last_modification: datetime
+    last_indexing: datetime
 
 
 class DbDocumentStatus(BaseModel):
@@ -85,7 +86,7 @@ def to_doc(row_doc: TableDocument, row_indexed_content: TableIndexedContent | No
         DbIndexedContent(
             raw_hash=row_indexed_content.raw_hash,
             parsed_hash=row_indexed_content.parsed_hash,
-            last_modification=row_indexed_content.last_indexing,
+            last_indexing=row_indexed_content.last_indexing,
         )
         if row_indexed_content
         else None
@@ -150,13 +151,17 @@ class DbService:
             )
             await session.commit()
 
-    async def get_indexed_content_id_if_exists(self, raw_hash: str) -> UUID | None:
+    async def get_indexed_content_if_exists(self, raw_hash: str) -> Tuple[UUID,DbIndexedContent] | None:
         async with self.session_factory() as session, session.begin():
             result = await session.execute(
-                select(TableIndexedContent.id).where(TableIndexedContent.raw_hash == raw_hash),
+                select(TableIndexedContent).where(TableIndexedContent.raw_hash == raw_hash),
             )
-            uuid = result.scalar_one_or_none()
-            return uuid
+            content = result.scalar_one_or_none()
+            return (content.id,DbIndexedContent(
+                raw_hash=content.raw_hash,
+                parsed_hash=content.parsed_hash,
+                last_indexing=content.last_indexing)) if content else None
+
 
     async def upsert_indexed_content(self, indexed_content: DbIndexedContent) -> UUID:
         # create an indexed_content or update it if one with the same raw_hash already exists
@@ -166,14 +171,14 @@ class DbService:
                 id=uuid7(),
                 raw_hash=indexed_content.raw_hash,
                 parsed_hash=indexed_content.parsed_hash,
-                last_indexing=indexed_content.last_modification,
+                last_indexing=indexed_content.last_indexing,
             )
 
             stmt = stmt.on_conflict_do_update(
                 index_elements=[TableIndexedContent.raw_hash],
                 set_={
                     TableIndexedContent.parsed_hash: indexed_content.parsed_hash,
-                    TableIndexedContent.last_indexing: indexed_content.last_modification,
+                    TableIndexedContent.last_indexing: indexed_content.last_indexing,
                 },
             ).returning(TableIndexedContent.id)
 
