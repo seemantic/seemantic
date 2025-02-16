@@ -160,7 +160,9 @@ class DbService:
                 (
                     content.id,
                     DbIndexedContent(
-                        raw_hash=content.raw_hash, parsed_hash=content.parsed_hash, last_indexing=content.last_indexing,
+                        raw_hash=content.raw_hash,
+                        parsed_hash=content.parsed_hash,
+                        last_indexing=content.last_indexing,
                     ),
                 )
                 if content
