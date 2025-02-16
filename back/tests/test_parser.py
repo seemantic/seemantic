@@ -25,7 +25,7 @@ def parse(filetype: ParsableFileType, file_path: str) -> ParsedDocument:
     path = Path(f"./tests/parsing_dataset/{file_path}")
     doc_bytes = path.read_bytes()
     bytesio = BytesIO(doc_bytes)
-    return parser.parse(filetype, bytesio)
+    return parser.parse("", filetype, bytesio)
 
 
 def test_parser_research_pdf() -> None:

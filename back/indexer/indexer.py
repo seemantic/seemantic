@@ -109,7 +109,7 @@ class Indexer:
         else:
             logging.info(f"Parsing {uri}")
             filetype = cast(ParsableFileType, source_doc.filetype)
-            parsed = self.parser.parse(filetype, source_doc.content)
+            parsed = self.parser.parse(uri, filetype, source_doc.content)
             if await self.vector_db.is_indexed(parsed.hash):
                 logging.info(f"parsed_hash already indexed, indexing skipped for {uri}")
             else:
