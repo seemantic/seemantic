@@ -1,4 +1,5 @@
 # pyright: strict, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+from datetime import timedelta
 from typing import cast
 
 import lancedb
@@ -72,6 +73,7 @@ class VectorDB:
         protocol = "https" if self._settings.use_tls else "http"
         self._db = await lancedb.connect_async(
             f"s3://{self._settings.bucket}/lancedb",
+            read_consistency_interval=timedelta(seconds=10),
             storage_options={
                 "access_key_id": self._settings.access_key,
                 "secret_access_key": self._settings.secret_key,
