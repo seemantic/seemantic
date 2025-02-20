@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, declarative_base, mapped_column
 from uuid_utils import uuid7
 
 
+
 class DbSettings(BaseModel, frozen=True):
     username: str
     password: str
@@ -39,15 +40,23 @@ class TableIndexedContent(Base):
     last_indexing: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
 
 
+class TableSourceDocument(Base):
+    __tablename__ = "source_document"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    uri: Mapped[str] = mapped_column(nullable=False, unique=True)
+    creation_datetime: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+
+
 class TableDocument(Base):
     __tablename__ = "document"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
-    uri: Mapped[str] = mapped_column(nullable=False, unique=True)
 
     # version
     indexed_source_version: Mapped[str | None] = mapped_column(nullable=True)
     indexed_content_id: Mapped[UUID | None] = mapped_column(ForeignKey("indexed_content.id"), nullable=True)
+    indexer_version: Mapped[int] = mapped_column(nullable=False)
 
     # status
     status: Mapped[TableDocumentStatusEnum] = mapped_column(
@@ -105,31 +114,53 @@ def to_doc(row_doc: TableDocument, row_indexed_content: TableIndexedContent | No
 
 class DbService:
 
-    def __init__(self, settings: DbSettings) -> None:
+    indexer_version: int
+
+    def __init__(self, settings: DbSettings, indexer_version: int) -> None:
         url = f"postgresql+asyncpg://{settings.username}:{settings.password}@{settings.host}:{settings.port}/{settings.database}"
         engine = create_async_engine(url, echo=True)  # add connect_args={"timeout": 10} in production ?
         self.session_factory = async_sessionmaker(engine, class_=AsyncSession)
+        self.indexer_version = indexer_version
 
-    async def delete_documents(self, uris: list[str]) -> None:
+    async def delete_source_documents(self, uris: list[str]) -> None:
         async with self.session_factory() as session, session.begin():
+            # this should delete attached documents thanks to ON DELETE CASCADE
             await session.execute(delete(TableDocument).where(TableDocument.uri.in_(uris)))
             await session.commit()
 
-    async def create_documents(self, uris: list[str]) -> None:
+
+    async def upsert_source_documents(self, uris: list[str]) -> dict[str, UUID]:
+        now = datetime.now(tz=dt.timezone.utc)
+        uri_to_id: dict[str, UUID] = {}
+        async with self.session_factory() as session, session.begin():
+            for uri in uris:
+                smt =  insert(TableSourceDocument).values(id=uuid7(), uri=uri, creation_datetime=now)
+                smt = smt.on_conflict_do_nothing(index_elements=[TableSourceDocument.uri]).returning(TableSourceDocument.id)
+                id = await session.execute(smt)
+                uri_to_id[uri] = id.scalar_one()
+
+            await session.commit()
+
+        return uri_to_id
+
+    async def create_documents(self, source_document_ids: list[UUID]) -> None:
+
         now = datetime.now(tz=dt.timezone.utc)
         async with self.session_factory() as session, session.begin():
+
             documents = [
                 TableDocument(
                     id=uuid7(),  # Generate a unique UUID for each document
-                    uri=uri,
+                    source_document_id=source_document_id,
                     indexed_source_version=None,
                     indexed_content_id=None,
                     status=TableDocumentStatusEnum.pending,
                     last_status_change=now,
                     error_status_message=None,
+                    version=self.indexer_version,
                     creation_datetime=now,
                 )
-                for uri in uris
+                for source_document_id in source_document_ids
             ]
 
             session.add_all(documents)

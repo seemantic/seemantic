@@ -192,7 +192,7 @@ class Indexer:
         await self.manage_upserts(source_doc_refs, uri_to_db)
         to_delete = set(uri_to_db.keys()) - set(uri_to_doc_refs.keys())
         if to_delete:
-            await self.db.delete_documents(list(to_delete))
+            await self.db.delete_source_documents(list(to_delete))
 
         async for event in self.source.listen():
             if isinstance(event, SourceUpsertEvent):
@@ -200,7 +200,7 @@ class Indexer:
                 await self.manage_upserts([event.doc_ref], uri_to_db)
             else:
                 assert isinstance(event, SourceDeleteEvent)
-                await self.db.delete_documents([event.uri])
+                await self.db.delete_source_documents([event.uri])
 
         logging.info("Indexer stopped")
 
