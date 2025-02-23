@@ -40,16 +40,16 @@ class TableIndexedContent(Base):
     last_indexing: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
 
 
-class TableSourceDocument(Base):
-    __tablename__ = "source_document"
+class TableDocument(Base):
+    __tablename__ = "document"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     uri: Mapped[str] = mapped_column(nullable=False, unique=True)
     creation_datetime: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
 
 
-class TableDocument(Base):
-    __tablename__ = "document"
+class TableIndexedDocument(Base):
+    __tablename__ = "indexed_document"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
 
@@ -88,7 +88,7 @@ class DbDocument(BaseModel):
     status: DbDocumentStatus
 
 
-def to_doc(row_doc: TableDocument, row_indexed_content: TableIndexedContent | None) -> DbDocument:
+def to_doc(row_doc: TableIndexedDocument, row_indexed_content: TableIndexedContent | None) -> DbDocument:
 
     indexed_content = (
         DbIndexedContent(
@@ -129,13 +129,13 @@ class DbService:
             await session.commit()
 
 
-    async def upsert_source_documents(self, uris: list[str]) -> dict[str, UUID]:
+    async def _upsert_global_documents(self, uris: list[str]) -> dict[str, UUID]:
         now = datetime.now(tz=dt.timezone.utc)
         uri_to_id: dict[str, UUID] = {}
         async with self.session_factory() as session, session.begin():
             for uri in uris:
-                smt =  insert(TableSourceDocument).values(id=uuid7(), uri=uri, creation_datetime=now)
-                smt = smt.on_conflict_do_nothing(index_elements=[TableSourceDocument.uri]).returning(TableSourceDocument.id)
+                smt =  insert(TableDocument).values(id=uuid7(), uri=uri, creation_datetime=now)
+                smt = smt.on_conflict_do_nothing(index_elements=[TableDocument.uri]).returning(TableDocument.id)
                 id = await session.execute(smt)
                 uri_to_id[uri] = id.scalar_one()
 
@@ -143,24 +143,30 @@ class DbService:
 
         return uri_to_id
 
-    async def create_documents(self, source_document_ids: list[UUID]) -> None:
-
+    async def create_documents(self, uris: list[str]) -> None:
         now = datetime.now(tz=dt.timezone.utc)
-        async with self.session_factory() as session, session.begin():
 
+        uri_to_id: dict[str, UUID] = {}
+        async with self.session_factory() as session, session.begin():
+            for uri in uris:
+                smt =  insert(TableDocument).values(id=uuid7(), uri=uri, creation_datetime=now)
+                smt = smt.on_conflict_do_nothing(index_elements=[TableDocument.uri]).returning(TableDocument.id)
+                id = await session.execute(smt)
+                uri_to_id[uri] = id.scalar_one()
+                
             documents = [
-                TableDocument(
+                TableIndexedDocument(
                     id=uuid7(),  # Generate a unique UUID for each document
-                    source_document_id=source_document_id,
+                    source_document_id=uri_to_id[uri],
                     indexed_source_version=None,
                     indexed_content_id=None,
                     status=TableDocumentStatusEnum.pending,
                     last_status_change=now,
                     error_status_message=None,
-                    version=self.indexer_version,
+                    indexer_version=self.indexer_version,
                     creation_datetime=now,
                 )
-                for source_document_id in source_document_ids
+                for uri in uris
             ]
 
             session.add_all(documents)
@@ -175,8 +181,8 @@ class DbService:
         now = datetime.now(tz=dt.timezone.utc)
         async with self.session_factory() as session, session.begin():
             await session.execute(
-                update(TableDocument)
-                .where(TableDocument.uri.in_(uris))
+                update(TableIndexedDocument)
+                .where(TableIndexedDocument.uri.in_(uris))
                 .values(status=status, last_status_change=now, error_status_message=error_status_message),
             )
             await session.commit()
@@ -232,8 +238,8 @@ class DbService:
     ) -> None:
         async with self.session_factory() as session, session.begin():
             await session.execute(
-                update(TableDocument)
-                .where(TableDocument.uri == uri)
+                update(TableIndexedDocument)
+                .where(TableIndexedDocument.uri == uri)
                 .values(
                     status=TableDocumentStatusEnum.indexing_success,
                     last_status_change=datetime.now(tz=dt.timezone.utc),
@@ -251,9 +257,9 @@ class DbService:
     ) -> dict[str, DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableDocument, TableIndexedContent)
+                select(TableIndexedDocument, TableIndexedContent)
                 .where(TableIndexedContent.parsed_hash.in_(parsed_hashes))
-                .join(TableIndexedContent, TableDocument.indexed_content_id == TableIndexedContent.id),
+                .join(TableIndexedContent, TableIndexedDocument.indexed_content_id == TableIndexedContent.id),
             )
 
             table_rows = result.all()
@@ -264,9 +270,9 @@ class DbService:
     async def get_all_documents(self) -> list[DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableDocument, TableIndexedContent).outerjoin(
+                select(TableIndexedDocument, TableIndexedContent).outerjoin(
                     TableIndexedContent,
-                    TableDocument.indexed_content_id == TableIndexedContent.id,
+                    TableIndexedDocument.indexed_content_id == TableIndexedContent.id,
                 ),
             )
 
@@ -278,9 +284,9 @@ class DbService:
     async def get_documents(self, uris: list[str]) -> dict[str, DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableDocument, TableIndexedContent)
-                .where(TableDocument.uri.in_(uris))
-                .outerjoin(TableIndexedContent, TableDocument.indexed_content_id == TableIndexedContent.id),
+                select(TableIndexedDocument, TableIndexedContent)
+                .where(TableIndexedDocument.uri.in_(uris))
+                .outerjoin(TableIndexedContent, TableIndexedDocument.indexed_content_id == TableIndexedContent.id),
             )
 
             table_rows = result.all()
