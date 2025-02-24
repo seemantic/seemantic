@@ -3,9 +3,7 @@
 -- creation_datetime, last_modification_datetime: for diagnostics
 -- index name pattern: <prefix>_<table_name>_<column_name>_<index_type>
 
-
 CREATE TYPE document_status AS ENUM ('pending', 'indexing', 'indexing_success', 'indexing_error');
-
 
 
 CREATE TABLE seemantic_schema.indexed_content(
@@ -26,7 +24,7 @@ CREATE TABLE seemantic_schema.document(
 
 CREATE TABLE seemantic_schema.indexed_document(
    id UUID PRIMARY KEY,
-   source_document_id UUID REFERENCES seemantic_schema.document(id) ON DELETE CASCADE NOT NULL,
+   document_id UUID REFERENCES seemantic_schema.document(id) ON DELETE CASCADE NOT NULL,
    indexer_version SMALLINT NOT NULL,
    indexed_source_version TEXT, -- info that can be retreived from source without loading content (last update timestamp, hash, version id...)
    indexed_content_id UUID REFERENCES seemantic_schema.indexed_content(id), -- set when status is indexing_success
@@ -35,7 +33,7 @@ CREATE TABLE seemantic_schema.indexed_document(
    error_status_message TEXT, -- set when status is Error
    creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
 
-   UNIQUE (source_document_id, indexer_version)
+   UNIQUE (document_id, indexer_version)
 );
 
 

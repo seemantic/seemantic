@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
 from uuid_utils import uuid7
 
+from back import indexer
+
 
 
 class DbSettings(BaseModel, frozen=True):
@@ -52,6 +54,7 @@ class TableIndexedDocument(Base):
     __tablename__ = "indexed_document"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
+    document_id: Mapped[UUID] = mapped_column(ForeignKey("document.id"), nullable=False)
 
     # version
     indexed_source_version: Mapped[str | None] = mapped_column(nullable=True)
@@ -122,28 +125,13 @@ class DbService:
         self.session_factory = async_sessionmaker(engine, class_=AsyncSession)
         self.indexer_version = indexer_version
 
-    async def delete_source_documents(self, uris: list[str]) -> None:
+    async def delete_documents(self, uris: list[str]) -> None:
         async with self.session_factory() as session, session.begin():
             # this should delete attached documents thanks to ON DELETE CASCADE
             await session.execute(delete(TableDocument).where(TableDocument.uri.in_(uris)))
             await session.commit()
 
-
-    async def _upsert_global_documents(self, uris: list[str]) -> dict[str, UUID]:
-        now = datetime.now(tz=dt.timezone.utc)
-        uri_to_id: dict[str, UUID] = {}
-        async with self.session_factory() as session, session.begin():
-            for uri in uris:
-                smt =  insert(TableDocument).values(id=uuid7(), uri=uri, creation_datetime=now)
-                smt = smt.on_conflict_do_nothing(index_elements=[TableDocument.uri]).returning(TableDocument.id)
-                id = await session.execute(smt)
-                uri_to_id[uri] = id.scalar_one()
-
-            await session.commit()
-
-        return uri_to_id
-
-    async def create_documents(self, uris: list[str]) -> None:
+    async def create_indexed_documents(self, uris: list[str]) -> dict[str, UUID]:
         now = datetime.now(tz=dt.timezone.utc)
 
         uri_to_id: dict[str, UUID] = {}
@@ -153,7 +141,7 @@ class DbService:
                 smt = smt.on_conflict_do_nothing(index_elements=[TableDocument.uri]).returning(TableDocument.id)
                 id = await session.execute(smt)
                 uri_to_id[uri] = id.scalar_one()
-                
+
             documents = [
                 TableIndexedDocument(
                     id=uuid7(),  # Generate a unique UUID for each document
@@ -171,26 +159,34 @@ class DbService:
 
             session.add_all(documents)
             await session.commit()
+        return uri_to_id
 
-    async def update_documents_status(
+    async def update_indexed_documents_status(
         self,
         uris: list[str],
         status: TableDocumentStatusEnum,
         error_status_message: str | None,
     ) -> None:
         now = datetime.now(tz=dt.timezone.utc)
+
         async with self.session_factory() as session, session.begin():
+            # see. https://docs.sqlalchemy.org/en/20/tutorial/data_update.html#update-from
             await session.execute(
                 update(TableIndexedDocument)
-                .where(TableIndexedDocument.uri.in_(uris))
+                .where(TableIndexedDocument.document_id == TableDocument.id)
+                .where(TableDocument.uri.in_(uris))
+                .where(TableIndexedDocument.indexer_version == self.indexer_version)
                 .values(status=status, last_status_change=now, error_status_message=error_status_message),
             )
             await session.commit()
 
+
     async def get_indexed_content_if_exists(self, raw_hash: str) -> tuple[UUID, DbIndexedContent] | None:
         async with self.session_factory() as session, session.begin():
             result = await session.execute(
-                select(TableIndexedContent).where(TableIndexedContent.raw_hash == raw_hash),
+                select(TableIndexedContent)
+                .where(TableIndexedContent.raw_hash == raw_hash)
+                .where(TableIndexedContent.indexer_version == self.indexer_version),
             )
             content = result.scalar_one_or_none()
             return (
@@ -209,7 +205,8 @@ class DbService:
     async def upsert_indexed_content(self, indexed_content: DbIndexedContent) -> UUID:
         # create an indexed_content or update it if one with the same raw_hash already exists
         async with self.session_factory() as session, session.begin():
-
+TODO HERE MANAGE NEW REF URI AND INDEXER_VERSION
+TODO: check indexer_version managed everywhere
             stmt = insert(TableIndexedContent).values(
                 id=uuid7(),
                 raw_hash=indexed_content.raw_hash,

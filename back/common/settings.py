@@ -9,3 +9,4 @@ class CommonSettings(BaseSettings):
     db: DbSettings
     log_level: str
     jina_token: str
+    indexer_version: int

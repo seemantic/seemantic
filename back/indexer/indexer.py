@@ -54,7 +54,7 @@ class Indexer:
         self.embedder = EmbeddingService(token=settings.jina_token)
         self.vector_db = VectorDB(settings.minio, self.embedder.distance_metric())
         self.source = SeemanticDriveSource(settings=settings.minio)
-        self.db = DbService(settings.db)
+        self.db = DbService(settings.db, settings.indexer_version)
         self.uris_queue = asyncio.Queue(maxsize=10000)
         self.uris_in_queue = set()
         self.queue_started = asyncio.Event()
@@ -65,7 +65,7 @@ class Indexer:
 
     async def _set_indexing_error(self, uri: str, public_error: str, internal_error: Exception | None = None) -> None:
         logging.warning(f"indexing error for document {uri}: {internal_error or public_error}")
-        await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing_error, public_error)
+        await self.db.update_indexed_documents_status([uri], TableDocumentStatusEnum.indexing_error, public_error)
 
     async def process_queue(self) -> None:
         self.queue_started.set()
@@ -87,7 +87,7 @@ class Indexer:
     async def index_and_store(self, uri: str) -> None:
 
         # Update document status to indexing
-        await self.db.update_documents_status([uri], TableDocumentStatusEnum.indexing, None)
+        await self.db.update_indexed_documents_status([uri], TableDocumentStatusEnum.indexing, None)
 
         # Retrieve the source document
         source_doc = await self.source.get_document(uri)
@@ -167,9 +167,9 @@ class Indexer:
                 continue
 
         if docs_to_create:
-            await self.db.create_documents([doc.uri for doc in docs_to_create])
+            await self.db.create_indexed_documents([doc.uri for doc in docs_to_create])
         if docs_to_index:
-            await self.db.update_documents_status(
+            await self.db.update_indexed_documents_status(
                 [doc.uri for doc in docs_to_index],
                 TableDocumentStatusEnum.pending,
                 None,
@@ -192,7 +192,7 @@ class Indexer:
         await self.manage_upserts(source_doc_refs, uri_to_db)
         to_delete = set(uri_to_db.keys()) - set(uri_to_doc_refs.keys())
         if to_delete:
-            await self.db.delete_source_documents(list(to_delete))
+            await self.db.delete_documents(list(to_delete))
 
         async for event in self.source.listen():
             if isinstance(event, SourceUpsertEvent):
@@ -200,7 +200,7 @@ class Indexer:
                 await self.manage_upserts([event.doc_ref], uri_to_db)
             else:
                 assert isinstance(event, SourceDeleteEvent)
-                await self.db.delete_source_documents([event.uri])
+                await self.db.delete_documents([event.uri])
 
         logging.info("Indexer stopped")
 
