@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from typing import cast
 
+from attr import frozen
 from pydantic import BaseModel
 
 from common.db_service import DbDocument, DbIndexedContent, DbService, TableDocumentStatusEnum
@@ -37,6 +38,10 @@ class IndexingError(Exception):
         return self.public_error
 
 
+class SourceDocToProcess(BaseModel, frozen=True):
+    source_doc_ref: SourceDocumentReference
+    indexed_doc_id: int
+
 class Indexer:
 
     source: Source
@@ -45,7 +50,7 @@ class Indexer:
     chunker: Chunker = Chunker()
     embedder: EmbeddingService
     vector_db: VectorDB
-    uris_queue: asyncio.Queue[str]
+    uris_queue: asyncio.Queue[SourceDocToProcess]
     uris_in_queue: set[str]
     queue_started: asyncio.Event
     background_task_process_queue: asyncio.Task[None]  # so it's not garbage collected, cf. RUF006
@@ -54,10 +59,11 @@ class Indexer:
         self.embedder = EmbeddingService(token=settings.jina_token)
         self.vector_db = VectorDB(settings.minio, self.embedder.distance_metric())
         self.source = SeemanticDriveSource(settings=settings.minio)
-        self.db = DbService(settings.db, settings.indexer_version)
+        self.db = DbService(settings.db)
         self.uris_queue = asyncio.Queue(maxsize=10000)
         self.uris_in_queue = set()
         self.queue_started = asyncio.Event()
+        self.indexer_version = settings.indexer_version
 
     async def _init_queue(self) -> None:
         self.background_task_process_queue = asyncio.create_task(self.process_queue())
@@ -167,8 +173,9 @@ class Indexer:
                 continue
 
         if docs_to_create:
-            await self.db.create_indexed_documents([doc.uri for doc in docs_to_create])
+            await self.db.create_indexed_documents([doc.uri for doc in docs_to_create], self.indexer_version)
         if docs_to_index:
+            TODO: FINISH USING ID INSTEAD OF URI
             await self.db.update_indexed_documents_status(
                 [doc.uri for doc in docs_to_index],
                 TableDocumentStatusEnum.pending,
@@ -186,7 +193,7 @@ class Indexer:
 
         source_doc_refs = await self.source.all_doc_refs()
         uri_to_doc_refs = {doc_ref.uri: doc_ref for doc_ref in source_doc_refs}
-        db_docs = await self.db.get_all_documents()
+        db_docs = await self.db.get_all_documents(indexer_version=self.indexer_version)
         uri_to_db = {doc.uri: doc for doc in db_docs}
 
         await self.manage_upserts(source_doc_refs, uri_to_db)
@@ -196,7 +203,7 @@ class Indexer:
 
         async for event in self.source.listen():
             if isinstance(event, SourceUpsertEvent):
-                uri_to_db = await self.db.get_documents([event.doc_ref.uri])
+                uri_to_db = await self.db.get_documents([event.doc_ref.uri], self.indexer_version)
                 await self.manage_upserts([event.doc_ref], uri_to_db)
             else:
                 assert isinstance(event, SourceDeleteEvent)

@@ -8,10 +8,12 @@ CREATE TYPE document_status AS ENUM ('pending', 'indexing', 'indexing_success', 
 
 CREATE TABLE seemantic_schema.indexed_content(
    id UUID PRIMARY KEY,
-   raw_hash CHAR(32) NOT NULL UNIQUE, -- source independant hash of the raw content
+   raw_hash CHAR(32) NOT NULL, -- source independant hash of the raw content
    parsed_hash CHAR(32) NOT NULL, -- hash of the parsed content
    last_indexing TIMESTAMPTZ NOT NULL, -- set on last_indexed_version_raw_hash change
-   indexer_version SMALLINT NOT NULL
+   indexer_version SMALLINT NOT NULL,
+
+   UNIQUE (raw_hash, indexer_version)
 );
 
 
