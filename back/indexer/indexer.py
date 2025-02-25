@@ -2,9 +2,10 @@ import asyncio
 import datetime as dt
 import logging
 from datetime import datetime
+from pydoc import Doc
 from typing import cast
+from uuid import UUID
 
-from attr import frozen
 from pydantic import BaseModel
 
 from common.db_service import DbDocument, DbIndexedContent, DbService, TableDocumentStatusEnum
@@ -38,9 +39,9 @@ class IndexingError(Exception):
         return self.public_error
 
 
-class SourceDocToProcess(BaseModel, frozen=True):
-    source_doc_ref: SourceDocumentReference
-    indexed_doc_id: int
+class DocToIndex(BaseModel, frozen=True):
+    source_ref: SourceDocumentReference
+    indexed_doc_id: UUID
 
 class Indexer:
 
@@ -50,7 +51,7 @@ class Indexer:
     chunker: Chunker = Chunker()
     embedder: EmbeddingService
     vector_db: VectorDB
-    uris_queue: asyncio.Queue[SourceDocToProcess]
+    uris_queue: asyncio.Queue[DocToIndex]
     uris_in_queue: set[str]
     queue_started: asyncio.Event
     background_task_process_queue: asyncio.Task[None]  # so it's not garbage collected, cf. RUF006
@@ -77,6 +78,7 @@ class Indexer:
         self.queue_started.set()
         logging.info("Indexing queue started")
         while True:
+            TODO: HERE CONTINUE REFACTO QUEUE TYPE
             uri = await self.uris_queue.get()
             try:
                 self.uris_in_queue.remove(uri)  # uri can be re-added to queue as soon as processing starts
@@ -143,23 +145,24 @@ class Indexer:
             indexed_content_id,
         )
 
-    async def enqueue_doc_refs(self, refs: list[SourceDocumentReference]) -> None:
+    async def enqueue_doc_refs(self, refs: list[DocToIndex]) -> None:
         for ref in refs:
             self.uris_in_queue.add(
-                ref.uri,
+                ref.source_ref.uri,
             )  # when uri is added to queue, unique set should already be updated (so it can be removed)
-            self.uris_queue.put_nowait(ref.uri)
+            self.uris_queue.put_nowait(ref)
 
     async def manage_upserts(self, refs: list[SourceDocumentReference], uri_to_db_docs: dict[str, DbDocument]) -> None:
-        docs_to_index: list[SourceDocumentReference] = []
-        docs_to_create: list[SourceDocumentReference] = []
+        docs_to_update: list[DocToIndex] = []
+        docs_to_create: list[DocToIndex] = []
+        new_doc_refs: list[SourceDocumentReference] = []
         for doc_ref in refs:
             uri = doc_ref.uri
             if uri in self.uris_in_queue:
                 continue
             db_doc = uri_to_db_docs.get(uri)
             if db_doc is None:
-                docs_to_create.append(doc_ref)
+                new_doc_refs.append(doc_ref)
             elif (
                 db_doc.indexed_content is None
                 or db_doc.indexed_source_version is None
@@ -167,22 +170,26 @@ class Indexer:
                 or db_doc.indexed_source_version != doc_ref.source_version_id
             ):
                 # doc might have changed
-                docs_to_index.append(doc_ref)
+                docs_to_update.append(DocToIndex(
+                    source_ref=doc_ref, indexed_doc_id=db_doc.indexed_document_id))
             else:
                 # doc did not change since last successful indexing
                 continue
 
-        if docs_to_create:
-            await self.db.create_indexed_documents([doc.uri for doc in docs_to_create], self.indexer_version)
-        if docs_to_index:
-            TODO: FINISH USING ID INSTEAD OF URI
+        if new_doc_refs:
+            uri_to_created_indexed_id = await self.db.create_indexed_documents([doc.uri for doc in new_doc_refs], self.indexer_version)
+            docs_to_create = [
+                DocToIndex(
+                    source_ref=doc_ref, indexed_doc_id=uri_to_created_indexed_id[doc_ref.uri]) for doc_ref in new_doc_refs
+            ]
+        if docs_to_update:
             await self.db.update_indexed_documents_status(
-                [doc.uri for doc in docs_to_index],
+                [doc.indexed_doc_id for doc in docs_to_update],
                 TableDocumentStatusEnum.pending,
                 None,
             )
-        if docs_to_index or docs_to_create:
-            docs_enqueued = docs_to_index + docs_to_create
+        if docs_to_update or docs_to_create:
+            docs_enqueued = docs_to_update + docs_to_create
             logging.info(f"Enqueuing documents: {docs_enqueued}")
             await self.enqueue_doc_refs(docs_enqueued)
 
