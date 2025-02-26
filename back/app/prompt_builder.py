@@ -6,7 +6,6 @@ from common.document import Chunk, ParsedDocument
 from common.vector_db import ChunkResult
 
 
-
 class PromptBuilder(BaseModel):
 
     header_pattern: re.Pattern[str] = re.compile(r"^(#{1,6})\s+(.+)", re.MULTILINE)

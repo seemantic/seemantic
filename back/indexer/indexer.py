@@ -42,6 +42,7 @@ class DocToIndex(BaseModel, frozen=True):
     source_ref: SourceDocumentReference
     indexed_doc_id: UUID
 
+
 class Indexer:
 
     source: Source
@@ -69,9 +70,13 @@ class Indexer:
         self.background_task_process_queue = asyncio.create_task(self.process_queue())
         await self.queue_started.wait()
 
-    async def _set_indexing_error(self, indexed_doc_id: UUID, public_error: str, internal_error: Exception | None = None) -> None:
+    async def _set_indexing_error(
+        self, indexed_doc_id: UUID, public_error: str, internal_error: Exception | None = None
+    ) -> None:
         logging.warning(f"indexing error for document {indexed_doc_id}: {internal_error or public_error}")
-        await self.db.update_indexed_documents_status([indexed_doc_id], TableDocumentStatusEnum.indexing_error, public_error)
+        await self.db.update_indexed_documents_status(
+            [indexed_doc_id], TableDocumentStatusEnum.indexing_error, public_error
+        )
 
     async def process_queue(self) -> None:
         self.queue_started.set()
@@ -173,17 +178,18 @@ class Indexer:
                 or db_doc.indexed_source_version != doc_ref.source_version_id
             ):
                 # doc might have changed
-                docs_to_update.append(DocToIndex(
-                    source_ref=doc_ref, indexed_doc_id=db_doc.indexed_document_id))
+                docs_to_update.append(DocToIndex(source_ref=doc_ref, indexed_doc_id=db_doc.indexed_document_id))
             else:
                 # doc did not change since last successful indexing
                 continue
 
         if new_doc_refs:
-            uri_to_created_indexed_id = await self.db.create_indexed_documents([doc.uri for doc in new_doc_refs], self.indexer_version)
+            uri_to_created_indexed_id = await self.db.create_indexed_documents(
+                [doc.uri for doc in new_doc_refs], self.indexer_version
+            )
             docs_to_create = [
-                DocToIndex(
-                    source_ref=doc_ref, indexed_doc_id=uri_to_created_indexed_id[doc_ref.uri]) for doc_ref in new_doc_refs
+                DocToIndex(source_ref=doc_ref, indexed_doc_id=uri_to_created_indexed_id[doc_ref.uri])
+                for doc_ref in new_doc_refs
             ]
         if docs_to_update:
             await self.db.update_indexed_documents_status(

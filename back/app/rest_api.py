@@ -80,7 +80,7 @@ async def get_explorer(db_service: DepDbService) -> ApiExplorer:
 class QueryResponse(BaseModel):
     answer: str
     search_result: list[SearchResult]
-    chunks_content: dict[str,float] # to delete
+    chunks_content: dict[str, float]  # to delete
 
 
 class QueryRequest(BaseModel):
@@ -90,5 +90,7 @@ class QueryRequest(BaseModel):
 @router.post("/queries")
 async def create_query(search_engine: DepSearchEngine, query: QueryRequest) -> QueryResponse:
     search_results = await search_engine.search(query.query)
-    chunks_content = {result.parsed_document[chunk.chunk]: chunk.distance for result in search_results for chunk in result.chunks}
+    chunks_content = {
+        result.parsed_document[chunk.chunk]: chunk.distance for result in search_results for chunk in result.chunks
+    }
     return QueryResponse(answer="", search_result=search_results, chunks_content=chunks_content)

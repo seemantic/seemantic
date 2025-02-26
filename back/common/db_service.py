@@ -90,7 +90,9 @@ class DbDocument(BaseModel):
     status: DbDocumentStatus
 
 
-def to_doc(row_doc: TableDocument,row_indexed_doc: TableIndexedDocument, row_indexed_content: TableIndexedContent | None) -> DbDocument:
+def to_doc(
+    row_doc: TableDocument, row_indexed_doc: TableIndexedDocument, row_indexed_content: TableIndexedContent | None
+) -> DbDocument:
 
     indexed_content = (
         DbIndexedContent(
@@ -136,7 +138,7 @@ class DbService:
         uri_to_id: dict[str, UUID] = {}
         async with self.session_factory() as session, session.begin():
             for uri in uris:
-                smt =  insert(TableDocument).values(id=uuid7(), uri=uri, creation_datetime=now)
+                smt = insert(TableDocument).values(id=uuid7(), uri=uri, creation_datetime=now)
                 smt = smt.on_conflict_do_nothing(index_elements=[TableDocument.uri]).returning(TableDocument.id)
                 id = await session.execute(smt)
                 uri_to_id[uri] = id.scalar_one()
@@ -177,8 +179,9 @@ class DbService:
             )
             await session.commit()
 
-
-    async def get_indexed_content_if_exists(self, raw_hash: str, indexer_version: int) -> tuple[UUID, DbIndexedContent] | None:
+    async def get_indexed_content_if_exists(
+        self, raw_hash: str, indexer_version: int
+    ) -> tuple[UUID, DbIndexedContent] | None:
         async with self.session_factory() as session, session.begin():
             result = await session.execute(
                 select(TableIndexedContent)
@@ -207,7 +210,7 @@ class DbService:
                 raw_hash=indexed_content.raw_hash,
                 parsed_hash=indexed_content.parsed_hash,
                 last_indexing=indexed_content.last_indexing,
-                indexer_version=indexer_version
+                indexer_version=indexer_version,
             )
 
             stmt = stmt.on_conflict_do_update(
@@ -245,9 +248,7 @@ class DbService:
             await session.commit()
 
     async def get_documents_from_indexed_parsed_hashes(
-        self,
-        parsed_hashes: list[str],
-        indexer_version: int
+        self, parsed_hashes: list[str], indexer_version: int
     ) -> dict[str, DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
@@ -272,7 +273,8 @@ class DbService:
                 .outerjoin(
                     TableIndexedContent,
                     TableIndexedDocument.indexed_content_id == TableIndexedContent.id,
-                ).where(TableIndexedDocument.indexer_version == indexer_version),
+                )
+                .where(TableIndexedDocument.indexer_version == indexer_version),
             )
 
             table_rows = result.all()
