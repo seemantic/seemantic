@@ -69,9 +69,9 @@ class Indexer:
         self.background_task_process_queue = asyncio.create_task(self.process_queue())
         await self.queue_started.wait()
 
-    async def _set_indexing_error(self, uri: str, public_error: str, internal_error: Exception | None = None) -> None:
-        logging.warning(f"indexing error for document {uri}: {internal_error or public_error}")
-        await self.db.update_indexed_documents_status([uri], TableDocumentStatusEnum.indexing_error, public_error)
+    async def _set_indexing_error(self, indexed_doc_id: UUID, public_error: str, internal_error: Exception | None = None) -> None:
+        logging.warning(f"indexing error for document {indexed_doc_id}: {internal_error or public_error}")
+        await self.db.update_indexed_documents_status([indexed_doc_id], TableDocumentStatusEnum.indexing_error, public_error)
 
     async def process_queue(self) -> None:
         self.queue_started.set()
@@ -79,16 +79,17 @@ class Indexer:
         while True:
             doc_to_index = await self.docs_to_index_queue.get()
             uri = doc_to_index.source_ref.uri
+            indexed_doc_id = doc_to_index.indexed_doc_id
             try:
                 self.uris_in_queue.remove(uri)  # uri can be re-added to queue as soon as processing starts
                 logging.info(f"Start indexing: {uri}")
-                await self.index_and_store(uri)
+                await self.index_and_store(doc_to_index)
             except IndexingError as e:
                 logging.exception(f"Error indexing {uri}")
-                await self._set_indexing_error(uri, e.public_error)
+                await self._set_indexing_error(indexed_doc_id, e.public_error)
             except Exception:
                 logging.exception(f"Unexpected error indexing {uri}")
-                await self._set_indexing_error(uri, "Unknown error")
+                await self._set_indexing_error(indexed_doc_id, "Unknown error")
             self.docs_to_index_queue.task_done()
 
     async def index_and_store(self, doc_to_index: DocToIndex) -> None:
