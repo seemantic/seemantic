@@ -2,7 +2,6 @@ import asyncio
 import datetime as dt
 import logging
 from datetime import datetime
-from pydoc import Doc
 from typing import cast
 from uuid import UUID
 
@@ -51,7 +50,7 @@ class Indexer:
     chunker: Chunker = Chunker()
     embedder: EmbeddingService
     vector_db: VectorDB
-    uris_queue: asyncio.Queue[DocToIndex]
+    docs_to_index_queue: asyncio.Queue[DocToIndex]
     uris_in_queue: set[str]
     queue_started: asyncio.Event
     background_task_process_queue: asyncio.Task[None]  # so it's not garbage collected, cf. RUF006
@@ -61,7 +60,7 @@ class Indexer:
         self.vector_db = VectorDB(settings.minio, self.embedder.distance_metric())
         self.source = SeemanticDriveSource(settings=settings.minio)
         self.db = DbService(settings.db)
-        self.uris_queue = asyncio.Queue(maxsize=10000)
+        self.docs_to_index_queue = asyncio.Queue(maxsize=10000)
         self.uris_in_queue = set()
         self.queue_started = asyncio.Event()
         self.indexer_version = settings.indexer_version
@@ -78,8 +77,8 @@ class Indexer:
         self.queue_started.set()
         logging.info("Indexing queue started")
         while True:
-            TODO: HERE CONTINUE REFACTO QUEUE TYPE
-            uri = await self.uris_queue.get()
+            doc_to_index = await self.docs_to_index_queue.get()
+            uri = doc_to_index.source_ref.uri
             try:
                 self.uris_in_queue.remove(uri)  # uri can be re-added to queue as soon as processing starts
                 logging.info(f"Start indexing: {uri}")
@@ -90,12 +89,14 @@ class Indexer:
             except Exception:
                 logging.exception(f"Unexpected error indexing {uri}")
                 await self._set_indexing_error(uri, "Unknown error")
-            self.uris_queue.task_done()
+            self.docs_to_index_queue.task_done()
 
-    async def index_and_store(self, uri: str) -> None:
+    async def index_and_store(self, doc_to_index: DocToIndex) -> None:
 
         # Update document status to indexing
-        await self.db.update_indexed_documents_status([uri], TableDocumentStatusEnum.indexing, None)
+        indexed_doc_id = doc_to_index.indexed_doc_id
+        uri = doc_to_index.source_ref.uri
+        await self.db.update_indexed_documents_status([indexed_doc_id], TableDocumentStatusEnum.indexing, None)
 
         # Retrieve the source document
         source_doc = await self.source.get_document(uri)
@@ -108,7 +109,7 @@ class Indexer:
 
         # check if raw hash changed
         raw_hash = hash_file_content(source_doc.content)
-        indexed_content = await self.db.get_indexed_content_if_exists(raw_hash)
+        indexed_content = await self.db.get_indexed_content_if_exists(raw_hash, self.indexer_version)
         if indexed_content:
             indexed_content_id = indexed_content[0]
             logging.info(
@@ -136,11 +137,12 @@ class Indexer:
                     parsed_hash=parsed.hash,
                     last_indexing=datetime.now(tz=dt.timezone.utc),
                 ),
+                self.indexer_version,
             )
 
         # update document indexed content id
         await self.db.update_document_indexed_content(
-            uri,
+            indexed_doc_id,
             source_doc.doc_ref.source_version_id,
             indexed_content_id,
         )
@@ -150,7 +152,7 @@ class Indexer:
             self.uris_in_queue.add(
                 ref.source_ref.uri,
             )  # when uri is added to queue, unique set should already be updated (so it can be removed)
-            self.uris_queue.put_nowait(ref)
+            self.docs_to_index_queue.put_nowait(ref)
 
     async def manage_upserts(self, refs: list[SourceDocumentReference], uri_to_db_docs: dict[str, DbDocument]) -> None:
         docs_to_update: list[DocToIndex] = []
