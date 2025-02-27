@@ -91,7 +91,9 @@ class DbDocument(BaseModel):
 
 
 def to_doc(
-    row_doc: TableDocument, row_indexed_doc: TableIndexedDocument, row_indexed_content: TableIndexedContent | None
+    row_doc: TableDocument,
+    row_indexed_doc: TableIndexedDocument,
+    row_indexed_content: TableIndexedContent | None,
 ) -> DbDocument:
 
     indexed_content = (
@@ -180,7 +182,9 @@ class DbService:
             await session.commit()
 
     async def get_indexed_content_if_exists(
-        self, raw_hash: str, indexer_version: int
+        self,
+        raw_hash: str,
+        indexer_version: int,
     ) -> tuple[UUID, DbIndexedContent] | None:
         async with self.session_factory() as session, session.begin():
             result = await session.execute(
@@ -248,7 +252,9 @@ class DbService:
             await session.commit()
 
     async def get_documents_from_indexed_parsed_hashes(
-        self, parsed_hashes: list[str], indexer_version: int
+        self,
+        parsed_hashes: list[str],
+        indexer_version: int,
     ) -> dict[str, DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
@@ -287,6 +293,8 @@ class DbService:
             result = await session.execute(
                 select(TableDocument, TableIndexedDocument, TableIndexedContent)
                 .where(TableDocument.uri.in_(uris))
+                .where(TableIndexedDocument.indexer_version == indexer_version)
+                .where(TableIndexedContent.indexer_version == indexer_version)
                 .join(TableIndexedDocument, TableIndexedDocument.document_id == TableDocument.id)
                 .outerjoin(TableIndexedContent, TableIndexedDocument.indexed_content_id == TableIndexedContent.id),
             )

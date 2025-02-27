@@ -18,18 +18,27 @@ class SearchEngine:
     embedding_service: EmbeddingService
     vector_db: VectorDB
     db: DbService
+    indexer_version: int
+    prompt_builder: PromptBuilder
 
-    def __init__(self, embedding_service: EmbeddingService, vector_db: VectorDB, db: DbService) -> None:
+    def __init__(
+        self,
+        embedding_service: EmbeddingService,
+        vector_db: VectorDB,
+        db: DbService,
+        indexer_version: int,
+    ) -> None:
         self.embedding_service = embedding_service
         self.vector_db = vector_db
         self.db = db
+        self.indexer_version = indexer_version
         self.prompt_builder = PromptBuilder()
 
     async def search(self, query: str) -> list[SearchResult]:
         embedding = await self.embedding_service.embed_query(query)
         parsed_doc_results = await self.vector_db.query(embedding.embedding, 10)
         parsed_hashes = [result.parsed_document.hash for result in parsed_doc_results]
-        hash_to_doc = await self.db.get_documents_from_indexed_parsed_hashes(parsed_hashes)
+        hash_to_doc = await self.db.get_documents_from_indexed_parsed_hashes(parsed_hashes, self.indexer_version)
         # keep only results from documents in db
         parsed_doc_results = [result for result in parsed_doc_results if result.parsed_document.hash in hash_to_doc]
 

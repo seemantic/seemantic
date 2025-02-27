@@ -71,11 +71,16 @@ class Indexer:
         await self.queue_started.wait()
 
     async def _set_indexing_error(
-        self, indexed_doc_id: UUID, public_error: str, internal_error: Exception | None = None
+        self,
+        indexed_doc_id: UUID,
+        public_error: str,
+        internal_error: Exception | None = None,
     ) -> None:
         logging.warning(f"indexing error for document {indexed_doc_id}: {internal_error or public_error}")
         await self.db.update_indexed_documents_status(
-            [indexed_doc_id], TableDocumentStatusEnum.indexing_error, public_error
+            [indexed_doc_id],
+            TableDocumentStatusEnum.indexing_error,
+            public_error,
         )
 
     async def process_queue(self) -> None:
@@ -185,7 +190,8 @@ class Indexer:
 
         if new_doc_refs:
             uri_to_created_indexed_id = await self.db.create_indexed_documents(
-                [doc.uri for doc in new_doc_refs], self.indexer_version
+                [doc.uri for doc in new_doc_refs],
+                self.indexer_version,
             )
             docs_to_create = [
                 DocToIndex(source_ref=doc_ref, indexed_doc_id=uri_to_created_indexed_id[doc_ref.uri])

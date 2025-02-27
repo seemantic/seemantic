@@ -34,6 +34,7 @@ def get_search_engine(settings: DepSettings) -> SearchEngine:
         embedding_service=embedding_service,
         vector_db=VectorDB(settings.minio, embedding_service.distance_metric()),
         db=DbService(settings.db),
+        indexer_version=settings.indexer_version,
     )
 
 

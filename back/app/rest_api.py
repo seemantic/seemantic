@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.app_services import DepDbService, DepMinioService, DepSearchEngine
 from app.search_engine import SearchResult
+from app.settings import DepSettings
 from common.db_service import DbDocument
 
 router: APIRouter = APIRouter(prefix="/api/v1")
@@ -70,8 +71,8 @@ def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
 
 
 @router.get("/explorer")
-async def get_explorer(db_service: DepDbService) -> ApiExplorer:
-    db_docs = await db_service.get_all_documents()
+async def get_explorer(db_service: DepDbService, settings: DepSettings) -> ApiExplorer:
+    db_docs = await db_service.get_all_documents(settings.indexer_version)
 
     api_docs = [_to_api_doc(doc) for doc in db_docs]
     return ApiExplorer(documents=api_docs)
