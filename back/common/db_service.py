@@ -267,7 +267,7 @@ class DbService:
             )
 
             table_rows = result.all()
-            plain_objs = {row[1].parsed_hash: to_doc(row[0], row[1], row[2]) for row in table_rows}
+            plain_objs = {row[2].parsed_hash: to_doc(row[0], row[1], row[2]) for row in table_rows}
 
             return plain_objs
 
