@@ -45,12 +45,6 @@ chunk_table_schema = pa.schema(
         (row_end_index_in_doc, pa.int64()),
     ],
 )
-parsed_doc_table_version = "v1"
-chunk_table_version = "v1"
-
-
-parsed_doc_table_name = f"parsed_doc_{parsed_doc_table_version}"
-chunk_table_name = f"chunk_{chunk_table_version}"
 
 
 class VectorDB:
@@ -61,10 +55,14 @@ class VectorDB:
     _chunk_table: lancedb.AsyncTable
     distance_metric: str
     _connected = False
+    parsed_doc_table_name: str
+    chunk_table_name: str
 
-    def __init__(self, settings: MinioSettings, distance_metric: DistanceMetric) -> None:
+    def __init__(self, settings: MinioSettings, distance_metric: DistanceMetric, indexer_version: int) -> None:
         self._settings = settings
         self.distance_metric = distance_metric
+        self.parsed_doc_table_name = f"parsed_doc_v{indexer_version}"
+        self.chunk_table_name = f"chunk_v{indexer_version}"
 
     async def connect_if_needed(self) -> None:
         if self._connected:
@@ -83,14 +81,14 @@ class VectorDB:
         )
 
         self._parsed_doc_table = await self._db.create_table(
-            parsed_doc_table_name,
+            self.parsed_doc_table_name,
             exist_ok=True,
             schema=parsed_doc_table_schema,
             mode="create",  # For now as we test, this should be removed after
         )
 
         self._chunk_table = await self._db.create_table(
-            chunk_table_name,
+            self.chunk_table_name,
             exist_ok=True,
             schema=chunk_table_schema,
             mode="create",  # For now as we test, this should be removed after

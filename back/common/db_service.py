@@ -148,7 +148,7 @@ class DbService:
             documents = [
                 TableIndexedDocument(
                     id=uuid7(),  # Generate a unique UUID for each document
-                    source_document_id=uri_to_id[uri],
+                    document_id=uri_to_id[uri],
                     indexed_source_version=None,
                     indexed_content_id=None,
                     status=TableDocumentStatusEnum.pending,
