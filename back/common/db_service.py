@@ -8,7 +8,7 @@ from sqlalchemy import TIMESTAMP, Enum, ForeignKey, MetaData, delete, select, up
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
-from uuid_utils import uuid7
+from uuid_utils.compat import uuid7 # cf. https://pypi.org/project/uuid-utils/ compat so that instances are real UUIDs form std lib (else pydantic complains)
 
 
 class DbSettings(BaseModel, frozen=True):
@@ -141,11 +141,12 @@ class DbService:
         async with self.session_factory() as session, session.begin():
             for uri in uris:
                 smt = insert(TableDocument).values(id=uuid7(), uri=uri, creation_datetime=now)
-                smt = smt.on_conflict_do_nothing(index_elements=[TableDocument.uri]).returning(TableDocument.id)
+                # if uri already exists, this is a no op and the id is returned
+                smt = smt.on_conflict_do_update(index_elements=[TableDocument.uri], set_= {TableDocument.uri: uri}).returning(TableDocument.id)
                 id = await session.execute(smt)
                 uri_to_id[uri] = id.scalar_one()
 
-            documents = [
+            uri_to_indexed_documents = {uri:
                 TableIndexedDocument(
                     id=uuid7(),  # Generate a unique UUID for each document
                     document_id=uri_to_id[uri],
@@ -158,11 +159,13 @@ class DbService:
                     creation_datetime=now,
                 )
                 for uri in uris
-            ]
+            }
 
-            session.add_all(documents)
+            session.add_all(uri_to_indexed_documents.values())
+            result = {uri: indexed_doc.id for uri, indexed_doc in uri_to_indexed_documents.items()}
             await session.commit()
-        return uri_to_id
+            
+        return result
 
     async def update_indexed_documents_status(
         self,
@@ -176,7 +179,7 @@ class DbService:
             # see. https://docs.sqlalchemy.org/en/20/tutorial/data_update.html#update-from
             await session.execute(
                 update(TableIndexedDocument)
-                .where(TableIndexedDocument.document_id.in_(ids))
+                .where(TableIndexedDocument.id.in_(ids))
                 .values(status=status, last_status_change=now, error_status_message=error_status_message),
             )
             await session.commit()
@@ -230,11 +233,11 @@ class DbService:
             await session.commit()
             return uuid
 
-    async def update_document_indexed_content(
+    async def update_indexed_document_indexed_content_id(
         self,
         indexed_document_id: UUID,
         indexed_source_version: str | None,
-        indexed_content_id: UUID,
+        indexed_content_id: UUID
     ) -> None:
         async with self.session_factory() as session, session.begin():
             await session.execute(

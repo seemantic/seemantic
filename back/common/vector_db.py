@@ -106,6 +106,9 @@ class VectorDB:
             .limit(nb_chunks_to_retrieve)
             .to_arrow()
         )
+        # if no chunks are found, return empty list
+        if chunk_table.num_rows == 0:
+            return []
         parsed_doc_hashes = cast(set[str], set(chunk_table[row_parsed_content_hash].to_pylist()))
         sql_in_str = ",".join([f"'{parsed_doc_hash}'" for parsed_doc_hash in parsed_doc_hashes])
 

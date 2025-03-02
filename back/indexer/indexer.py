@@ -137,9 +137,9 @@ class Indexer:
                 chunks = self.chunker.chunk(parsed)
                 logging.info(f"Embedding {uri}")
                 embedded_chunks = await self.embedder.embed_document(parsed, chunks)
-                logging.info(f"Storing {uri}")
+                logging.info(f"Storing {uri} in vector db")
                 await self.vector_db.index(parsed, embedded_chunks)
-                logging.info(f"Indexing completed for {uri}")
+                logging.info(f"Mark content as indexed in db for {uri}")
 
             # upsert indexed content
             indexed_content_id = await self.db.upsert_indexed_content(
@@ -152,11 +152,13 @@ class Indexer:
             )
 
         # update document indexed content id
-        await self.db.update_document_indexed_content(
+        logging.info(f"Mark document as indexed in db for {uri}")
+        await self.db.update_indexed_document_indexed_content_id(
             indexed_doc_id,
             source_doc.doc_ref.source_version_id,
             indexed_content_id,
         )
+        logging.info(f"indexing process completed for {uri}")
 
     async def enqueue_doc_refs(self, refs: list[DocToIndex]) -> None:
         for ref in refs:
