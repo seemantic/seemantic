@@ -9,7 +9,7 @@ from common.db_service import DbService
 from common.embedding_service import EmbeddingService
 from common.minio_service import MinioService
 from common.vector_db import VectorDB
-
+from app.generator import Generator
 
 @lru_cache
 def get_minio_service(settings: DepSettings) -> MinioService:
@@ -39,3 +39,10 @@ def get_search_engine(settings: DepSettings) -> SearchEngine:
 
 
 DepSearchEngine = Annotated[SearchEngine, Depends(get_search_engine)]
+
+@lru_cache
+def get_generator_service(settings: DepSettings) -> Generator:
+    return Generator(mistral_api_key=settings.mistral_api_key)
+
+
+DepGenerator = Annotated[Generator, Depends(get_generator_service)]
