@@ -21,7 +21,7 @@ def all_results_context(search_results: list[SearchResult]) -> str:
 class Generator:
 
     mistral_client: Mistral
-    model = "mistral-large-latest"
+    model = "mistral-small-latest"
 
     def __init__(self, mistral_api_key: str) -> None:
         self.mistral_client = Mistral(api_key=mistral_api_key)
