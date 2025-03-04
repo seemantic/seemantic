@@ -43,3 +43,6 @@ pur==7.3.3
 
 # to get uuid V1 (faster in DB)
 uuid-utils==0.10.0
+
+# llm
+mistralai==1.5.0
