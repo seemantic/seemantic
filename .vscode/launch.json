@@ -1,7 +1,6 @@
 {
+    "version": "0.2.0",
     "configurations": [
-        
-
         {
             "name": "Python Debugger: Current File",
             "type": "debugpy",
@@ -11,7 +10,7 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python Debugger: Indxer",
+            "name": "Python Debugger: Indexer",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/back/main_indexer.py",
@@ -34,7 +33,7 @@
     "compounds": [
         {
             "name": "Compound",
-            "configurations": ["Python Debugger: Indxer", "Python Debugger: FastAPI"]
+            "configurations": ["Python Debugger: Indexer", "Python Debugger: FastAPI"]
         }
     ]
 }
