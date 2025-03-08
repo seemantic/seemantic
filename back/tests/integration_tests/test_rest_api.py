@@ -1,4 +1,6 @@
 # pyright: strict, reportMissingTypeStubs=false
+from io import BytesIO
+from fastapi import UploadFile
 from testcontainers.postgres import PostgresContainer
 from testcontainers.minio import MinioContainer
 from fastapi.testclient import TestClient
@@ -17,10 +19,15 @@ from main import app
 @pytest.fixture(scope="session")
 def test_client():
     postgres = PostgresContainer("postgres:17", driver="asyncpg")
-    minio = MinioContainer()
+    minio: MinioContainer = MinioContainer()
     postgres.with_volume_mapping(os.path.abspath("/home/nicolas/dev/seemantic/back/postgres_db/sql_init/"), "/docker-entrypoint-initdb.d/")
     postgres.start()
     minio.start()
+
+    # get minio endpoint
+    host_ip = minio.get_container_host_ip()
+    exposed_port = minio.get_exposed_port(minio.port)
+    minio_endpoint = f"{host_ip}:{exposed_port}"
 
     def get_test_app_settings():
         base_settings = AppSettings()  # type: ignore[reportCallIssue]
@@ -38,11 +45,11 @@ def test_client():
         )
         
         new_minio = MinioSettings(
-            endpoint="localhost",
+            endpoint=minio_endpoint,
             access_key=minio.access_key,
             secret_key=minio.secret_key,
             use_tls=False,
-            bucket="seemantic_test_bucket"
+            bucket="seemantic-test"
         )
         
         # Replace the nested settings in the dictionary
@@ -63,6 +70,13 @@ def test_client():
 
 
 def test_happy_path(test_client: TestClient) -> None:
+    relative_path = "test/path/to/file"
+    file_content = b"This is a test file content"
+    files = {"file": ("testfile.txt", file_content, "text/plain")}
+
+    # Make a PUT request to the endpoint
+    response = test_client.put(f"/api/v1/files/{relative_path}", files=files)
+
     result = test_client.get("/api/v1/explorer")
     print(result.json())
     assert result is not None
