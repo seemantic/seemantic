@@ -17,6 +17,7 @@ class DbSettings(BaseModel, frozen=True):
     host: str
     port: int
     database: str
+    
 
 
 Base = declarative_base(metadata=MetaData(schema="seemantic_schema"))
@@ -134,7 +135,7 @@ class DbService:
             await session.execute(delete(TableDocument).where(TableDocument.uri.in_(uris)))
             await session.commit()
 
-    async def create_indexed_documents(self, uris: list[str], indexer_version: int) -> dict[str, UUID]:
+    async def create_indexed_documents(self, uris: list[str], indexer_version: int) -> dict[str, UUID]: 
         now = datetime.now(tz=dt.timezone.utc)
 
         uri_to_id: dict[str, UUID] = {}

@@ -16,46 +16,49 @@ from main import app
 
 @pytest.fixture(scope="session")
 def test_client():
-    with PostgresContainer("postgres:17", port=5433, driver="asyncpg") as postgres, MinioContainer() as minio:  # Ensure you use the correct version
-        postgres.with_volume_mapping(os.path.abspath("/home/nicolas/dev/seemantic/back/postgres_db/sql_init/"), "/docker-entrypoint-initdb.d/")
-        postgres.start()
+    postgres = PostgresContainer("postgres:17", driver="asyncpg")
+    minio = MinioContainer()
+    postgres.with_volume_mapping(os.path.abspath("/home/nicolas/dev/seemantic/back/postgres_db/sql_init/"), "/docker-entrypoint-initdb.d/")
+    postgres.start()
+    minio.start()
+
+    def get_test_app_settings():
+        base_settings = AppSettings()  # type: ignore[reportCallIssue]
         
-        minio.start()
+        # Get the settings as a dictionary
+        settings_dict = base_settings.model_dump()
+        
+        # Create new nested settings objects
+        new_db = DbSettings(
+            username=postgres.username,
+            password=postgres.password,
+            host="localhost",
+            port=postgres.get_exposed_port(postgres.port),
+            database=postgres.dbname
+        )
+        
+        new_minio = MinioSettings(
+            endpoint="localhost",
+            access_key=minio.access_key,
+            secret_key=minio.secret_key,
+            use_tls=False,
+            bucket="seemantic_test_bucket"
+        )
+        
+        # Replace the nested settings in the dictionary
+        settings_dict["db"] = new_db
+        settings_dict["minio"] = new_minio
+        
+        # Create a new instance with the modified dictionary
+        return AppSettings(**settings_dict)
 
-        def get_test_app_settings():
-            base_settings = AppSettings()  # type: ignore[reportCallIssue]
-            
-            # Get the settings as a dictionary
-            settings_dict = base_settings.model_dump()
-            
-            # Create new nested settings objects
-            new_db = DbSettings(
-                username=postgres.username,
-                password=postgres.password,
-                host="localhost",
-                port=postgres.get_exposed_port(postgres.port),
-                database=postgres.dbname
-            )
-            
-            new_minio = MinioSettings(
-                endpoint="localhost",
-                access_key=minio.access_key,
-                secret_key=minio.secret_key,
-                use_tls=False,
-                bucket="seemantic_test_bucket"
-            )
-            
-            # Replace the nested settings in the dictionary
-            settings_dict["db"] = new_db
-            settings_dict["minio"] = new_minio
-            
-            # Create a new instance with the modified dictionary
-            return AppSettings(**settings_dict)
+    app.dependency_overrides[get_app_settings] = get_test_app_settings
+    client = TestClient(app)
 
-        app.dependency_overrides[get_app_settings] = get_test_app_settings
-        client = TestClient(app)
+    yield client
+    postgres.stop()
+    minio.stop()
 
-        yield client
 
 
 
