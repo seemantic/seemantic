@@ -1,23 +1,21 @@
 # pyright: strict, reportMissingTypeStubs=false
-from io import BytesIO
-from fastapi import UploadFile
+import asyncio
+from typing import Generator, AsyncGenerator
 from testcontainers.postgres import PostgresContainer
 from testcontainers.minio import MinioContainer
 from fastapi.testclient import TestClient
 from app.settings import Settings as AppSettings, get_settings as get_app_settings
+from indexer.settings import Settings as IndexerSettings
 from common.db_service import DbSettings
 from common.minio_service import MinioSettings
 from indexer.indexer import Indexer
 import pytest
 import os
 from main import app
+import pytest_asyncio
 
-
-
-
-
-@pytest.fixture(scope="session")
-def test_client():
+@pytest_asyncio.fixture(scope="session")
+async def test_client() -> AsyncGenerator[TestClient, None]:
     postgres = PostgresContainer("postgres:17", driver="asyncpg")
     minio: MinioContainer = MinioContainer()
     postgres.with_volume_mapping(os.path.abspath("/home/nicolas/dev/seemantic/back/postgres_db/sql_init/"), "/docker-entrypoint-initdb.d/")
@@ -29,47 +27,49 @@ def test_client():
     exposed_port = minio.get_exposed_port(minio.port)
     minio_endpoint = f"{host_ip}:{exposed_port}"
 
+    db_settings = DbSettings(
+        username=postgres.username,
+        password=postgres.password,
+        host="localhost",
+        port=postgres.get_exposed_port(postgres.port),
+        database=postgres.dbname)
+
+    minio_settings = MinioSettings(
+        endpoint=minio_endpoint,
+        access_key=minio.access_key,
+        secret_key=minio.secret_key,
+        use_tls=False,
+        bucket="seemantic-test"
+    )
+
     def get_test_app_settings():
         base_settings = AppSettings()  # type: ignore[reportCallIssue]
-        
-        # Get the settings as a dictionary
         settings_dict = base_settings.model_dump()
-        
-        # Create new nested settings objects
-        new_db = DbSettings(
-            username=postgres.username,
-            password=postgres.password,
-            host="localhost",
-            port=postgres.get_exposed_port(postgres.port),
-            database=postgres.dbname
-        )
-        
-        new_minio = MinioSettings(
-            endpoint=minio_endpoint,
-            access_key=minio.access_key,
-            secret_key=minio.secret_key,
-            use_tls=False,
-            bucket="seemantic-test"
-        )
-        
-        # Replace the nested settings in the dictionary
-        settings_dict["db"] = new_db
-        settings_dict["minio"] = new_minio
-        
-        # Create a new instance with the modified dictionary
+        settings_dict["db"] = db_settings
+        settings_dict["minio"] = minio_settings
         return AppSettings(**settings_dict)
+    
+    def get_test_indexer_settings():
+        base_settings = IndexerSettings()  # type: ignore[reportCallIssue]
+        settings_dict = base_settings.model_dump()
+        settings_dict["db"] = db_settings
+        settings_dict["minio"] = minio_settings
+        return IndexerSettings(**settings_dict)
 
     app.dependency_overrides[get_app_settings] = get_test_app_settings
     client = TestClient(app)
-
+    
+    indexer = Indexer(get_test_indexer_settings())
+    asyncio.create_task(indexer.start())
+    await asyncio.sleep(5)
     yield client
     postgres.stop()
     minio.stop()
 
 
 
-
-def test_happy_path(test_client: TestClient) -> None:
+@pytest.mark.asyncio
+async def test_happy_path(test_client: TestClient) -> None:
     relative_path = "test/path/to/file"
     file_content = b"This is a test file content"
     files = {"file": ("testfile.txt", file_content, "text/plain")}
