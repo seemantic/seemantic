@@ -3,13 +3,14 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from app.generator import Generator
 from app.search_engine import SearchEngine
 from app.settings import DepSettings
 from common.db_service import DbService
 from common.embedding_service import EmbeddingService
 from common.minio_service import MinioService
 from common.vector_db import VectorDB
-from app.generator import Generator
+
 
 @lru_cache
 def get_minio_service(settings: DepSettings) -> MinioService:
@@ -39,6 +40,7 @@ def get_search_engine(settings: DepSettings) -> SearchEngine:
 
 
 DepSearchEngine = Annotated[SearchEngine, Depends(get_search_engine)]
+
 
 @lru_cache
 def get_generator_service(settings: DepSettings) -> Generator:

@@ -8,7 +8,9 @@ from sqlalchemy import TIMESTAMP, Enum, ForeignKey, MetaData, delete, select, up
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
-from uuid_utils.compat import uuid7 # cf. https://pypi.org/project/uuid-utils/ compat so that instances are real UUIDs form std lib (else pydantic complains)
+from uuid_utils.compat import (
+    uuid7,
+)  # cf. https://pypi.org/project/uuid-utils/ compat so that instances are real UUIDs form std lib (else pydantic complains)
 
 
 class DbSettings(BaseModel, frozen=True):
@@ -17,7 +19,6 @@ class DbSettings(BaseModel, frozen=True):
     host: str
     port: int
     database: str
-    
 
 
 Base = declarative_base(metadata=MetaData(schema="seemantic_schema"))
@@ -135,7 +136,7 @@ class DbService:
             await session.execute(delete(TableDocument).where(TableDocument.uri.in_(uris)))
             await session.commit()
 
-    async def create_indexed_documents(self, uris: list[str], indexer_version: int) -> dict[str, UUID]: 
+    async def create_indexed_documents(self, uris: list[str], indexer_version: int) -> dict[str, UUID]:
         now = datetime.now(tz=dt.timezone.utc)
 
         uri_to_id: dict[str, UUID] = {}
@@ -143,12 +144,15 @@ class DbService:
             for uri in uris:
                 smt = insert(TableDocument).values(id=uuid7(), uri=uri, creation_datetime=now)
                 # if uri already exists, this is a no op and the id is returned
-                smt = smt.on_conflict_do_update(index_elements=[TableDocument.uri], set_= {TableDocument.uri: uri}).returning(TableDocument.id)
+                smt = smt.on_conflict_do_update(
+                    index_elements=[TableDocument.uri],
+                    set_={TableDocument.uri: uri},
+                ).returning(TableDocument.id)
                 id = await session.execute(smt)
                 uri_to_id[uri] = id.scalar_one()
 
-            uri_to_indexed_documents = {uri:
-                TableIndexedDocument(
+            uri_to_indexed_documents = {
+                uri: TableIndexedDocument(
                     id=uuid7(),  # Generate a unique UUID for each document
                     document_id=uri_to_id[uri],
                     indexed_source_version=None,
@@ -165,7 +169,7 @@ class DbService:
             session.add_all(uri_to_indexed_documents.values())
             result = {uri: indexed_doc.id for uri, indexed_doc in uri_to_indexed_documents.items()}
             await session.commit()
-            
+
         return result
 
     async def update_indexed_documents_status(
@@ -238,7 +242,7 @@ class DbService:
         self,
         indexed_document_id: UUID,
         indexed_source_version: str | None,
-        indexed_content_id: UUID
+        indexed_content_id: UUID,
     ) -> None:
         async with self.session_factory() as session, session.begin():
             await session.execute(

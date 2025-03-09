@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.app_services import DepDbService, DepMinioService, DepSearchEngine, DepGenerator
+from app.app_services import DepDbService, DepGenerator, DepMinioService, DepSearchEngine
 from app.search_engine import SearchResult
 from app.settings import DepSettings
 from common.db_service import DbDocument
@@ -94,5 +94,5 @@ async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, 
     chunks_content = {
         result.parsed_document[chunk.chunk]: chunk.distance for result in search_results for chunk in result.chunks
     }
-    answer =generator.generate(query.query, search_results)
+    answer = generator.generate(query.query, search_results)
     return QueryResponse(answer=answer, search_result=search_results, chunks_content=chunks_content)
