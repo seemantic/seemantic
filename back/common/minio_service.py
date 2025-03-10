@@ -62,14 +62,14 @@ class MinioService:
                 events = self._minio_client.listen_bucket_notification(
                     bucket_name=self._bucket_name,
                     prefix=prefix,
-                    events=("s3:ObjectCreated:Put", "s3:ObjectRemoved:Delete"),
+                    events=("s3:ObjectCreated:*", "s3:ObjectRemoved:*"),
                 )
 
                 for event in events:
                     for record in event["Records"]:
                         key: str = str(record["s3"]["object"]["key"])
                         event_name: str = str(record["eventName"])
-                        if event_name == "s3:ObjectCreated:Put":
+                        if event_name.startswith("s3:ObjectCreated:"): # deal with :Put, :Copy, :Post, :CompleteMultipartUpload
                             etag: str = str(record["s3"]["object"]["eTag"])
                             yield PutMinioEvent(object=MinioObject(key=key, etag=etag))
                         elif event_name == "s3:ObjectRemoved:Delete":
