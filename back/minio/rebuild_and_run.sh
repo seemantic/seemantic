@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-docker stop seemantic-minio
-docker rm seemantic-minio
+docker stop seemantic-minio || true
+docker rm seemantic-minio || true
 
 docker run -d -p 9000:9000 -p 9001:9001 --name seemantic-minio \
   -e "MINIO_ROOT_USER=dev_minio_root_user" \
