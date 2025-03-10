@@ -54,6 +54,7 @@ class TableIndexedDocument(Base):
     __tablename__ = "indexed_document"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
+    uri: Mapped[str] = mapped_column(nullable=False)
     document_id: Mapped[UUID] = mapped_column(ForeignKey("document.id"), nullable=False)
 
     # version
@@ -154,6 +155,7 @@ class DbService:
             uri_to_indexed_documents = {
                 uri: TableIndexedDocument(
                     id=uuid7(),  # Generate a unique UUID for each document
+                    uri=uri,
                     document_id=uri_to_id[uri],
                     indexed_source_version=None,
                     indexed_content_id=None,

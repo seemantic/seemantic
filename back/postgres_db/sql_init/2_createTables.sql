@@ -27,6 +27,7 @@ CREATE TABLE seemantic_schema.document(
 CREATE TABLE seemantic_schema.indexed_document(
    id UUID PRIMARY KEY,
    document_id UUID REFERENCES seemantic_schema.document(id) ON DELETE CASCADE NOT NULL,
+   uri TEXT NOT NULL,
    indexer_version SMALLINT NOT NULL,
    indexed_source_version TEXT, -- info that can be retreived from source without loading content (last update timestamp, hash, version id...)
    indexed_content_id UUID REFERENCES seemantic_schema.indexed_content(id), -- set when status is indexing_success
@@ -46,3 +47,23 @@ CREATE INDEX idx_indexed_content_parsed_hash ON seemantic_schema.indexed_content
 ALTER TABLE seemantic_schema.indexed_document
 ADD CONSTRAINT check_error_status_message 
 CHECK (status <> 'indexing_error' OR error_status_message IS NOT NULL);
+
+
+CREATE OR REPLACE FUNCTION update_indexed_document_uri()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Update the uri in indexed_document when the uri in document changes
+    UPDATE seemantic_schema.indexed_document
+    SET uri = NEW.uri
+    WHERE document_id = NEW.id;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_indexed_document_uri
+AFTER INSERT OR UPDATE OF uri ON seemantic_schema.document
+FOR EACH ROW
+EXECUTE FUNCTION update_indexed_document_uri();
+
+
