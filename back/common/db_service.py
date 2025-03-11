@@ -24,7 +24,7 @@ class DbSettings(BaseModel, frozen=True):
 Base = declarative_base(metadata=MetaData(schema="seemantic_schema"))
 
 
-class TableDocumentStatusEnum(enum.Enum):
+class TableIndexedDocumentStatusEnum(enum.Enum):
     # nb. for some reason, if i put the enum lable in uppercase, it does not work (it passes 'PENDING' to the db)
     pending = "pending"
     indexing = "indexing"
@@ -63,8 +63,8 @@ class TableIndexedDocument(Base):
     indexer_version: Mapped[int] = mapped_column(nullable=False)
 
     # status
-    status: Mapped[TableDocumentStatusEnum] = mapped_column(
-        Enum(TableDocumentStatusEnum, name="document_status"),
+    status: Mapped[TableIndexedDocumentStatusEnum] = mapped_column(
+        Enum(TableIndexedDocumentStatusEnum, name="document_status"),
         nullable=False,
     )
     last_status_change: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
@@ -80,7 +80,7 @@ class DbIndexedContent(BaseModel):
 
 
 class DbDocumentStatus(BaseModel):
-    status: TableDocumentStatusEnum
+    status: TableIndexedDocumentStatusEnum
     last_status_change: datetime
     error_status_message: str | None
 
@@ -94,7 +94,6 @@ class DbDocument(BaseModel):
 
 
 def to_doc(
-    row_doc: TableDocument,
     row_indexed_doc: TableIndexedDocument,
     row_indexed_content: TableIndexedContent | None,
 ) -> DbDocument:
@@ -110,7 +109,7 @@ def to_doc(
     )
 
     return DbDocument(
-        uri=row_doc.uri,
+        uri=row_indexed_doc.uri,
         indexed_document_id=row_indexed_doc.id,
         indexed_source_version=row_indexed_doc.indexed_source_version,
         indexed_content=indexed_content,
@@ -159,7 +158,7 @@ class DbService:
                     document_id=uri_to_id[uri],
                     indexed_source_version=None,
                     indexed_content_id=None,
-                    status=TableDocumentStatusEnum.pending,
+                    status=TableIndexedDocumentStatusEnum.pending,
                     last_status_change=now,
                     error_status_message=None,
                     indexer_version=indexer_version,
@@ -177,7 +176,7 @@ class DbService:
     async def update_indexed_documents_status(
         self,
         ids: list[UUID],
-        status: TableDocumentStatusEnum,
+        status: TableIndexedDocumentStatusEnum,
         error_status_message: str | None,
     ) -> None:
         now = datetime.now(tz=dt.timezone.utc)
@@ -251,7 +250,7 @@ class DbService:
                 update(TableIndexedDocument)
                 .where(TableIndexedDocument.id == indexed_document_id)
                 .values(
-                    status=TableDocumentStatusEnum.indexing_success,
+                    status=TableIndexedDocumentStatusEnum.indexing_success,
                     last_status_change=datetime.now(tz=dt.timezone.utc),
                     error_status_message=None,
                     indexed_source_version=indexed_source_version,
@@ -268,24 +267,22 @@ class DbService:
     ) -> dict[str, DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableDocument, TableIndexedDocument, TableIndexedContent)
+                select(TableIndexedDocument, TableIndexedContent)
                 .where(TableIndexedContent.parsed_hash.in_(parsed_hashes))
                 .where(TableIndexedContent.indexer_version == indexer_version)
                 .where(TableIndexedDocument.indexer_version == indexer_version)
-                .join(TableDocument, TableIndexedDocument.document_id == TableDocument.id)
                 .join(TableIndexedContent, TableIndexedDocument.indexed_content_id == TableIndexedContent.id),
             )
 
             table_rows = result.all()
-            plain_objs = {row[2].parsed_hash: to_doc(row[0], row[1], row[2]) for row in table_rows}
+            plain_objs = {row[2].parsed_hash: to_doc(row[0], row[1]) for row in table_rows}
 
             return plain_objs
 
     async def get_all_documents(self, indexer_version: int) -> list[DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableDocument, TableIndexedDocument, TableIndexedContent)
-                .join(TableIndexedDocument, TableIndexedDocument.document_id == TableDocument.id)
+                select(TableIndexedDocument, TableIndexedContent)
                 .outerjoin(
                     TableIndexedContent,
                     TableIndexedDocument.indexed_content_id == TableIndexedContent.id,
@@ -294,22 +291,21 @@ class DbService:
             )
 
             table_rows = result.all()
-            plain_objs = [to_doc(row[0], row[1], row[2]) for row in table_rows]
+            plain_objs = [to_doc(row[0], row[1]) for row in table_rows]
 
             return plain_objs
 
     async def get_documents(self, uris: list[str], indexer_version: int) -> dict[str, DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableDocument, TableIndexedDocument, TableIndexedContent)
-                .where(TableDocument.uri.in_(uris))
+                select(TableIndexedDocument, TableIndexedContent)
+                .where(TableIndexedDocument.uri.in_(uris))
                 .where(TableIndexedDocument.indexer_version == indexer_version)
                 .where(TableIndexedContent.indexer_version == indexer_version)
-                .join(TableIndexedDocument, TableIndexedDocument.document_id == TableDocument.id)
                 .outerjoin(TableIndexedContent, TableIndexedDocument.indexed_content_id == TableIndexedContent.id),
             )
 
             table_rows = result.all()
-            plain_objs = {row[0].uri: to_doc(row[0], row[1], row[2]) for row in table_rows}
+            plain_objs = {row[0].uri: to_doc(row[0], row[1]) for row in table_rows}
 
             return plain_objs

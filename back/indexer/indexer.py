@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from common.db_service import DbDocument, DbIndexedContent, DbService, TableDocumentStatusEnum
+from common.db_service import DbDocument, DbIndexedContent, DbService, TableIndexedDocumentStatusEnum
 from common.document import ParsableFileType, is_parsable
 from common.embedding_service import EmbeddingService
 from common.utils import hash_file_content
@@ -79,7 +79,7 @@ class Indexer:
         logging.warning(f"indexing error for document {indexed_doc_id}: {internal_error or public_error}")
         await self.db.update_indexed_documents_status(
             [indexed_doc_id],
-            TableDocumentStatusEnum.indexing_error,
+            TableIndexedDocumentStatusEnum.indexing_error,
             public_error,
         )
 
@@ -107,7 +107,7 @@ class Indexer:
         # Update document status to indexing
         indexed_doc_id = doc_to_index.indexed_doc_id
         uri = doc_to_index.source_ref.uri
-        await self.db.update_indexed_documents_status([indexed_doc_id], TableDocumentStatusEnum.indexing, None)
+        await self.db.update_indexed_documents_status([indexed_doc_id], TableIndexedDocumentStatusEnum.indexing, None)
 
         # Retrieve the source document
         source_doc = await self.source.get_document(uri)
@@ -202,7 +202,7 @@ class Indexer:
         if docs_to_update:
             await self.db.update_indexed_documents_status(
                 [doc.indexed_doc_id for doc in docs_to_update],
-                TableDocumentStatusEnum.pending,
+                TableIndexedDocumentStatusEnum.pending,
                 None,
             )
         if docs_to_update or docs_to_create:

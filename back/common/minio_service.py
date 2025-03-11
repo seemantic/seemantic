@@ -69,7 +69,9 @@ class MinioService:
                     for record in event["Records"]:
                         key: str = str(record["s3"]["object"]["key"])
                         event_name: str = str(record["eventName"])
-                        if event_name.startswith("s3:ObjectCreated:"): # deal with :Put, :Copy, :Post, :CompleteMultipartUpload
+                        if event_name.startswith(
+                            "s3:ObjectCreated:",
+                        ):  # deal with :Put, :Copy, :Post, :CompleteMultipartUpload
                             etag: str = str(record["s3"]["object"]["eTag"])
                             yield PutMinioEvent(object=MinioObject(key=key, etag=etag))
                         elif event_name == "s3:ObjectRemoved:Delete":
