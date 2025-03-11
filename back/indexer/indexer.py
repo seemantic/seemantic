@@ -173,7 +173,7 @@ class Indexer:
             if db_doc is None:
                 new_doc_refs.append(doc_ref)
             elif (
-                db_doc.indexed_content is None
+                db_doc.last_indexing is None
                 or db_doc.indexed_source_version is None
                 or doc_ref.source_version_id is None
                 or db_doc.indexed_source_version != doc_ref.source_version_id

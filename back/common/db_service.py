@@ -61,7 +61,8 @@ class TableIndexedDocument(Base):
     indexed_content_id: Mapped[UUID | None] = mapped_column(ForeignKey("indexed_content.id"), nullable=True)
     indexer_version: Mapped[int] = mapped_column(nullable=False)
     last_indexing: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), nullable=True,
+        TIMESTAMP(timezone=True),
+        nullable=True,
     )  # updated when indexed_content_id is updated
 
     # status
@@ -90,27 +91,16 @@ class DbDocument(BaseModel):
     uri: str
     indexed_document_id: UUID
     indexed_source_version: str | None
-    indexed_content: DbIndexedContent | None
     status: DbDocumentStatus
     last_indexing: datetime | None
 
 
-def to_doc(
-    row_indexed_doc: TableIndexedDocument,
-    row_indexed_content: TableIndexedContent | None,
-) -> DbDocument:
-
-    indexed_content = (
-        DbIndexedContent(raw_hash=row_indexed_content.raw_hash, parsed_hash=row_indexed_content.parsed_hash)
-        if row_indexed_content
-        else None
-    )
+def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
 
     return DbDocument(
         uri=row_indexed_doc.uri,
         indexed_document_id=row_indexed_doc.id,
         indexed_source_version=row_indexed_doc.indexed_source_version,
-        indexed_content=indexed_content,
         last_indexing=row_indexed_doc.last_indexing,
         status=DbDocumentStatus(
             status=row_indexed_doc.status,
@@ -263,7 +253,7 @@ class DbService:
     ) -> dict[str, DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableIndexedDocument, TableIndexedContent)
+                select(TableIndexedDocument)
                 .where(TableIndexedContent.parsed_hash.in_(parsed_hashes))
                 .where(TableIndexedContent.indexer_version == indexer_version)
                 .where(TableIndexedDocument.indexer_version == indexer_version)
@@ -271,38 +261,31 @@ class DbService:
             )
 
             table_rows = result.all()
-            plain_objs = {row[2].parsed_hash: to_doc(row[0], row[1]) for row in table_rows}
+            plain_objs = {row[2].parsed_hash: to_doc(row[0]) for row in table_rows}
 
             return plain_objs
 
     async def get_all_documents(self, indexer_version: int) -> list[DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableIndexedDocument, TableIndexedContent)
-                .outerjoin(
-                    TableIndexedContent,
-                    TableIndexedDocument.indexed_content_id == TableIndexedContent.id,
-                )
-                .where(TableIndexedDocument.indexer_version == indexer_version),
+                select(TableIndexedDocument).where(TableIndexedDocument.indexer_version == indexer_version),
             )
 
             table_rows = result.all()
-            plain_objs = [to_doc(row[0], row[1]) for row in table_rows]
+            plain_objs = [to_doc(row[0]) for row in table_rows]
 
             return plain_objs
 
     async def get_documents(self, uris: list[str], indexer_version: int) -> dict[str, DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableIndexedDocument, TableIndexedContent)
+                select(TableIndexedDocument)
                 .where(TableIndexedDocument.uri.in_(uris))
-                .where(TableIndexedDocument.indexer_version == indexer_version)
-                .where(TableIndexedContent.indexer_version == indexer_version)
-                .outerjoin(TableIndexedContent, TableIndexedDocument.indexed_content_id == TableIndexedContent.id),
+                .where(TableIndexedDocument.indexer_version == indexer_version),
             )
 
             table_rows = result.all()
-            plain_objs = {row[0].uri: to_doc(row[0], row[1]) for row in table_rows}
+            plain_objs = {row[0].uri: to_doc(row[0]) for row in table_rows}
 
             return plain_objs
 
