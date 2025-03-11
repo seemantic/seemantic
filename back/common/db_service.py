@@ -1,9 +1,13 @@
+import asyncio
 import datetime as dt
 import enum
 from datetime import datetime
+from typing import AsyncGenerator
 from uuid import UUID
 
+import asyncpg
 from pydantic import BaseModel
+from regex import D
 from sqlalchemy import TIMESTAMP, Enum, ForeignKey, MetaData, delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -113,10 +117,13 @@ def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
 class DbService:
 
     indexer_version: int
+    url: str
+    session_factory: async_sessionmaker[AsyncSession]
 
     def __init__(self, settings: DbSettings) -> None:
-        url = f"postgresql+asyncpg://{settings.username}:{settings.password}@{settings.host}:{settings.port}/{settings.database}"
-        engine = create_async_engine(url, echo=True)  # add connect_args={"timeout": 10} in production ?
+        self.url = f"postgresql+asyncpg://{settings.username}:{settings.password}@{settings.host}:{settings.port}/{settings.database}"
+        self.raw_url = f"postgresql://{settings.username}:{settings.password}@{settings.host}:{settings.port}/{settings.database}"
+        engine = create_async_engine(self.url, echo=True)  # add connect_args={"timeout": 10} in production ?
         self.session_factory = async_sessionmaker(engine, class_=AsyncSession)
 
     async def delete_documents(self, uris: list[str]) -> None:
@@ -289,4 +296,39 @@ class DbService:
 
             return plain_objs
 
-    # async def listen_to_indexed_documents_changes(self, indexer_version: int) -> AsyncGenerator[]
+    async def listen_to_indexed_documents_changes(self, indexer_version: int) -> AsyncGenerator[str, None]:
+        
+        queue: asyncio.Queue[str] = asyncio.Queue()
+    
+        # Create a dedicated connection for listening
+        connection: asyncpg.Connection = await asyncpg.connect(self.raw_url) # type: ignore
+        
+        # Define callback function to process notifications
+        async def on_notification(
+            conn: asyncpg.Connection, 
+            pid: int, 
+            channel: str, 
+            payload: str
+        ) -> None:
+            print(payload)
+            await queue.put(payload)
+        
+        # Set up the listener
+        await connection.add_listener('table_changes', on_notification)
+        
+        # Start listening
+        await connection.execute('LISTEN table_changes')
+       
+        try:
+            while True:
+                # Wait for notifications
+                data: str = await queue.get()
+                yield data
+        except asyncio.CancelledError:
+            # Clean up
+            await connection.remove_listener('table_changes', on_notification)
+            await connection.close()
+            raise
+        finally:
+            # Ensure connection is closed
+            await connection.close()

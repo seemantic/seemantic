@@ -96,3 +96,16 @@ async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, 
     }
     answer = generator.generate(query.query, search_results)
     return QueryResponse(answer=answer, search_result=search_results, chunks_content=chunks_content)
+
+# SSE subscription to indexed documents changes from the database
+@router.get("/sse")
+async def subscribe_to_indexed_documents_changes(db_service: DepDbService) -> StreamingResponse:
+    async def event_generator():
+        async for event in db_service.listen_to_indexed_documents_changes(1):
+            # Format as SSE event
+            yield f"event: document_change\ndata: {event}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream",  headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        })
