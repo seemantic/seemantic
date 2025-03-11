@@ -39,7 +39,6 @@ class TableIndexedContent(Base):
     raw_hash: Mapped[str] = mapped_column(nullable=False)
     parsed_hash: Mapped[str] = mapped_column(nullable=False)
     indexer_version: Mapped[int] = mapped_column(nullable=False)
-    last_indexing: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
 
 
 class TableDocument(Base):
@@ -61,6 +60,9 @@ class TableIndexedDocument(Base):
     indexed_source_version: Mapped[str | None] = mapped_column(nullable=True)
     indexed_content_id: Mapped[UUID | None] = mapped_column(ForeignKey("indexed_content.id"), nullable=True)
     indexer_version: Mapped[int] = mapped_column(nullable=False)
+    last_indexing: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True,
+    )  # updated when indexed_content_id is updated
 
     # status
     status: Mapped[TableIndexedDocumentStatusEnum] = mapped_column(
@@ -76,7 +78,6 @@ class TableIndexedDocument(Base):
 class DbIndexedContent(BaseModel):
     raw_hash: str
     parsed_hash: str
-    last_indexing: datetime
 
 
 class DbDocumentStatus(BaseModel):
@@ -91,6 +92,7 @@ class DbDocument(BaseModel):
     indexed_source_version: str | None
     indexed_content: DbIndexedContent | None
     status: DbDocumentStatus
+    last_indexing: datetime | None
 
 
 def to_doc(
@@ -99,11 +101,7 @@ def to_doc(
 ) -> DbDocument:
 
     indexed_content = (
-        DbIndexedContent(
-            raw_hash=row_indexed_content.raw_hash,
-            parsed_hash=row_indexed_content.parsed_hash,
-            last_indexing=row_indexed_content.last_indexing,
-        )
+        DbIndexedContent(raw_hash=row_indexed_content.raw_hash, parsed_hash=row_indexed_content.parsed_hash)
         if row_indexed_content
         else None
     )
@@ -113,6 +111,7 @@ def to_doc(
         indexed_document_id=row_indexed_doc.id,
         indexed_source_version=row_indexed_doc.indexed_source_version,
         indexed_content=indexed_content,
+        last_indexing=row_indexed_doc.last_indexing,
         status=DbDocumentStatus(
             status=row_indexed_doc.status,
             last_status_change=row_indexed_doc.last_status_change,
@@ -158,6 +157,7 @@ class DbService:
                     document_id=uri_to_id[uri],
                     indexed_source_version=None,
                     indexed_content_id=None,
+                    last_indexing=None,
                     status=TableIndexedDocumentStatusEnum.pending,
                     last_status_change=now,
                     error_status_message=None,
@@ -205,11 +205,7 @@ class DbService:
             return (
                 (
                     content.id,
-                    DbIndexedContent(
-                        raw_hash=content.raw_hash,
-                        parsed_hash=content.parsed_hash,
-                        last_indexing=content.last_indexing,
-                    ),
+                    DbIndexedContent(raw_hash=content.raw_hash, parsed_hash=content.parsed_hash),
                 )
                 if content
                 else None
@@ -222,7 +218,6 @@ class DbService:
                 id=uuid7(),
                 raw_hash=indexed_content.raw_hash,
                 parsed_hash=indexed_content.parsed_hash,
-                last_indexing=indexed_content.last_indexing,
                 indexer_version=indexer_version,
             )
 
@@ -230,7 +225,6 @@ class DbService:
                 index_elements=[TableIndexedContent.raw_hash, TableIndexedContent.indexer_version],
                 set_={
                     TableIndexedContent.parsed_hash: indexed_content.parsed_hash,
-                    TableIndexedContent.last_indexing: indexed_content.last_indexing,
                 },
             ).returning(TableIndexedContent.id)
 
@@ -245,13 +239,15 @@ class DbService:
         indexed_source_version: str | None,
         indexed_content_id: UUID,
     ) -> None:
+        now = datetime.now(tz=dt.timezone.utc)
         async with self.session_factory() as session, session.begin():
             await session.execute(
                 update(TableIndexedDocument)
                 .where(TableIndexedDocument.id == indexed_document_id)
                 .values(
                     status=TableIndexedDocumentStatusEnum.indexing_success,
-                    last_status_change=datetime.now(tz=dt.timezone.utc),
+                    last_status_change=now,
+                    last_indexing=now,
                     error_status_message=None,
                     indexed_source_version=indexed_source_version,
                     indexed_content_id=indexed_content_id,
@@ -309,3 +305,5 @@ class DbService:
             plain_objs = {row[0].uri: to_doc(row[0], row[1]) for row in table_rows}
 
             return plain_objs
+
+    # async def listen_to_indexed_documents_changes(self, indexer_version: int) -> AsyncGenerator[]
