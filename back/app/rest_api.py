@@ -1,9 +1,10 @@
+import asyncio
 import logging
 from datetime import datetime
 from io import BytesIO
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -104,6 +105,34 @@ async def subscribe_to_indexed_documents_changes(db_service: DepDbService) -> St
         async for event in db_service.listen_to_indexed_documents_changes(1):
             # Format as SSE event
             yield f"event: document_change\ndata: {event}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream",  headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        })
+
+@router.get("/sse2")
+async def subscribe_to_indexed_documents_changes2(db_service: DepDbService, request: Request) -> StreamingResponse:
+
+    async def event_generator():
+
+        event_queue: asyncio.Queue[str] = asyncio.Queue()
+        await db_service.listen_to_indexed_documents_changes(event_queue,1)
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                
+                # Wait for message with timeout to check for disconnects
+                try:
+                    message = await asyncio.wait_for(event_queue.get(), timeout=60.0)
+                    yield f"data: {message}\n\n"
+                except asyncio.TimeoutError:
+                    # Send keep-alive comment, message starting swith ":" are ignored by the client, this prevents the connection from timing out
+                    yield ":ka\n\n"
+        finally:
+            # Clean up on disconnect
+            await db_service.removed_listener_to_indexed_documents_changes(event_queue)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream",  headers={
             "Cache-Control": "no-cache",
