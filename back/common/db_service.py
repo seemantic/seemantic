@@ -104,6 +104,7 @@ class DbIndexedDocumentEvent(BaseModel):
     event_type: Literal["insert", "update", "delete"]
     document: DbDocument
 
+
 def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
 
     return DbDocument(
@@ -117,7 +118,6 @@ def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
             error_status_message=row_indexed_doc.error_status_message,
         ),
     )
-
 
 
 class DbService:
@@ -307,7 +307,9 @@ class DbService:
 
             return plain_objs
 
-    async def listen_to_indexed_documents_changes(self, queue: asyncio.Queue[DbIndexedDocumentEvent], _indexer_version: int) -> None:
+    async def listen_to_indexed_documents_changes(
+        self, queue: asyncio.Queue[DbIndexedDocumentEvent], _indexer_version: int,
+    ) -> None:
 
         # Define callback function to process notifications
         def on_notification(_conn: asyncpg.Connection, _pid: int, _channel: str, payload: str) -> None:
@@ -321,7 +323,7 @@ class DbService:
                 indexed_source_version=db_indexed_doc_json["indexed_source_version"],
                 last_indexing=db_indexed_doc_json["last_indexing"],
                 status=DbDocumentStatus(
-                    status=db_indexed_doc_json["document_status"],
+                    status=db_indexed_doc_json["status"],
                     last_status_change=db_indexed_doc_json["last_status_change"],
                     error_status_message=db_indexed_doc_json["error_status_message"],
                 ),
