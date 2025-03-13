@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections.abc import AsyncGenerator
 from datetime import datetime
 from io import BytesIO
 from typing import Literal
@@ -99,19 +100,18 @@ async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, 
     return QueryResponse(answer=answer, search_result=search_results, chunks_content=chunks_content)
 
 
-
 @router.get("/sse")
 async def subscribe_to_indexed_documents_changes(db_service: DepDbService, request: Request) -> StreamingResponse:
 
-    async def event_generator():
+    async def event_generator() -> AsyncGenerator[str, None]:
 
         event_queue: asyncio.Queue[str] = asyncio.Queue()
-        await db_service.listen_to_indexed_documents_changes(event_queue,1)
+        await db_service.listen_to_indexed_documents_changes(event_queue, 1)
         try:
             while True:
                 if await request.is_disconnected():
                     break
-                
+
                 # Wait for message with timeout to check for disconnects
                 try:
                     message = await asyncio.wait_for(event_queue.get(), timeout=20.0)
@@ -123,7 +123,11 @@ async def subscribe_to_indexed_documents_changes(db_service: DepDbService, reque
             # Clean up on disconnect
             await db_service.removed_listener_to_indexed_documents_changes(event_queue)
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream",  headers={
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-        })
+        },
+    )

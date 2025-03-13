@@ -1,12 +1,11 @@
 import asyncio
 import datetime as dt
 import enum
-from datetime import datetime
-from typing import Set
-from uuid import UUID
 import logging
+from datetime import datetime
+from uuid import UUID
 
-import asyncpg
+import asyncpg  # type: ignore[reportMissingTypesStubs]
 from pydantic import BaseModel
 from sqlalchemy import TIMESTAMP, Enum, ForeignKey, MetaData, delete, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -119,12 +118,17 @@ class DbService:
     indexer_version: int
     url: str
     session_factory: async_sessionmaker[AsyncSession]
+    subscribed_clients: set[asyncio.Queue[str]]
+    active_connection: asyncpg.Connection | None = None
 
     def __init__(self, settings: DbSettings) -> None:
         self.url = f"postgresql+asyncpg://{settings.username}:{settings.password}@{settings.host}:{settings.port}/{settings.database}"
-        self.raw_url = f"postgresql://{settings.username}:{settings.password}@{settings.host}:{settings.port}/{settings.database}"
+        self.raw_url = (
+            f"postgresql://{settings.username}:{settings.password}@{settings.host}:{settings.port}/{settings.database}"
+        )
         engine = create_async_engine(self.url, echo=True)  # add connect_args={"timeout": 10} in production ?
         self.session_factory = async_sessionmaker(engine, class_=AsyncSession)
+        self.subscribed_clients = set()
 
     async def delete_documents(self, uris: list[str]) -> None:
         async with self.session_factory() as session, session.begin():
@@ -296,42 +300,31 @@ class DbService:
 
             return plain_objs
 
-
-    subscribed_clients: Set[asyncio.Queue[str]] = set()
-    connection: asyncpg.Connection | None = None
-
-    async def listen_to_indexed_documents_changes(self, queue: asyncio.Queue[str], indexer_version: int) -> None:
+    async def listen_to_indexed_documents_changes(self, queue: asyncio.Queue[str], _indexer_version: int) -> None:
 
         # Define callback function to process notifications
-        def on_notification(
-            conn: asyncpg.Connection, 
-            pid: int, 
-            channel: str, 
-            payload: str
-        ) -> None:
-            for queue in DbService.subscribed_clients:
-                if not queue.full():
-                    queue.put_nowait(payload)
+        def on_notification(_conn: asyncpg.Connection, _pid: int, _channel: str, payload: str) -> None:
+            for client_queue in DbService.subscribed_clients:
+                if not client_queue.full():
+                    client_queue.put_nowait(payload)
 
         self.subscribed_clients.add(queue)
-        if not self.connection:
+        if not self.active_connection:
             logging.info("First listener to indexed_documents_changes events removed, Start connection")
-            connection: asyncpg.Connection = await asyncpg.connect(self.raw_url) # type: ignore
-            self.connection = connection
-            await connection.add_listener('table_changes', on_notification)
-            await connection.execute('LISTEN table_changes')
-        
-
+            connection: asyncpg.Connection = await asyncpg.connect(self.raw_url)  # type: ignore[reportUnknownVariableType]
+            self.active_connection = connection
+            await connection.add_listener("table_changes", on_notification)  # type: ignore[reportUnknownMemberType]
+            await connection.execute("LISTEN table_changes")  # type: ignore[reportUnknownMemberType]
 
     async def removed_listener_to_indexed_documents_changes(self, queue: asyncio.Queue[str]) -> None:
         self.subscribed_clients.remove(queue)
         if not self.subscribed_clients:
-            connection: asyncpg.Connection | None = self.connection
+            connection: asyncpg.Connection | None = self.active_connection
             if connection is not None:
                 try:
                     logging.info("Last listener to indexed_documents_changes events removed, Closing connection")
-                    await connection.close() # this cleans all listeners
-                except asyncio.CancelledError as e:
+                    await connection.close()  # type: ignore[reportUnknownMemberType], # this cleans all listeners
+                except asyncio.CancelledError:
                     pass
                 finally:
-                    self.connection = None
+                    self.active_connection = None
