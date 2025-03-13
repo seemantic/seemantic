@@ -98,21 +98,10 @@ async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, 
     answer = generator.generate(query.query, search_results)
     return QueryResponse(answer=answer, search_result=search_results, chunks_content=chunks_content)
 
-# SSE subscription to indexed documents changes from the database
+
+
 @router.get("/sse")
-async def subscribe_to_indexed_documents_changes(db_service: DepDbService) -> StreamingResponse:
-    async def event_generator():
-        async for event in db_service.listen_to_indexed_documents_changes(1):
-            # Format as SSE event
-            yield f"event: document_change\ndata: {event}\n\n"
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream",  headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        })
-
-@router.get("/sse2")
-async def subscribe_to_indexed_documents_changes2(db_service: DepDbService, request: Request) -> StreamingResponse:
+async def subscribe_to_indexed_documents_changes(db_service: DepDbService, request: Request) -> StreamingResponse:
 
     async def event_generator():
 
@@ -125,7 +114,7 @@ async def subscribe_to_indexed_documents_changes2(db_service: DepDbService, requ
                 
                 # Wait for message with timeout to check for disconnects
                 try:
-                    message = await asyncio.wait_for(event_queue.get(), timeout=60.0)
+                    message = await asyncio.wait_for(event_queue.get(), timeout=20.0)
                     yield f"data: {message}\n\n"
                 except asyncio.TimeoutError:
                     # Send keep-alive comment, message starting swith ":" are ignored by the client, this prevents the connection from timing out

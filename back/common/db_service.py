@@ -326,45 +326,9 @@ class DbService:
         if not self.subscribed_clients:
             connection: asyncpg.Connection | None = self.connection
             if connection is not None:
-                await connection.close() # this cleans all listeners
-                self.connection = None
-
-
-
-
-    # async def listen_to_indexed_documents_changes_old(self, indexer_version: int) -> AsyncGenerator[str, None]:
-        
-    #     queue: asyncio.Queue[str] = asyncio.Queue()
-    
-    #     # Create a dedicated connection for listening
-    #     connection: asyncpg.Connection = await asyncpg.connect(self.raw_url) # type: ignore
-        
-    #     # Define callback function to process notifications
-    #     async def on_notification(
-    #         conn: asyncpg.Connection, 
-    #         pid: int, 
-    #         channel: str, 
-    #         payload: str
-    #     ) -> None:
-    #         print(payload)
-    #         await queue.put(payload)
-        
-    #     # Set up the listener
-    #     await connection.add_listener('table_changes', on_notification)
-        
-    #     # Start listening
-    #     await connection.execute('LISTEN table_changes')
-       
-    #     try:
-    #         while True:
-    #             # Wait for notifications
-    #             data: str = await queue.get()
-    #             yield data
-    #     except asyncio.CancelledError:
-    #         # Clean up
-    #         await connection.remove_listener('table_changes', on_notification)
-    #         await connection.close()
-    #         raise
-    #     finally:
-    #         # Ensure connection is closed
-    #         await connection.close()
+                try:
+                    await connection.close() # this cleans all listeners
+                except asyncio.CancelledError as e:
+                    pass
+                finally:
+                    self.connection = None
