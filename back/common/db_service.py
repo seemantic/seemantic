@@ -4,6 +4,7 @@ import enum
 from datetime import datetime
 from typing import Set
 from uuid import UUID
+import logging
 
 import asyncpg
 from pydantic import BaseModel
@@ -314,6 +315,7 @@ class DbService:
 
         self.subscribed_clients.add(queue)
         if not self.connection:
+            logging.info("First listener to indexed_documents_changes events removed, Start connection")
             connection: asyncpg.Connection = await asyncpg.connect(self.raw_url) # type: ignore
             self.connection = connection
             await connection.add_listener('table_changes', on_notification)
@@ -327,6 +329,7 @@ class DbService:
             connection: asyncpg.Connection | None = self.connection
             if connection is not None:
                 try:
+                    logging.info("Last listener to indexed_documents_changes events removed, Closing connection")
                     await connection.close() # this cleans all listeners
                 except asyncio.CancelledError as e:
                     pass
