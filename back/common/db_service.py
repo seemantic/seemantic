@@ -1,8 +1,10 @@
 import asyncio
 import datetime as dt
 import enum
+import json
 import logging
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 import asyncpg  # type: ignore[reportMissingTypesStubs]
@@ -98,6 +100,10 @@ class DbDocument(BaseModel):
     last_indexing: datetime | None
 
 
+class DbIndexedDocumentEvent(BaseModel):
+    event_type: Literal["insert", "update", "delete"]
+    document: DbDocument
+
 def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
 
     return DbDocument(
@@ -113,12 +119,13 @@ def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
     )
 
 
+
 class DbService:
 
     indexer_version: int
     url: str
     session_factory: async_sessionmaker[AsyncSession]
-    subscribed_clients: set[asyncio.Queue[str]]
+    subscribed_clients: set[asyncio.Queue[DbIndexedDocumentEvent]]
     active_connection: asyncpg.Connection | None = None
 
     def __init__(self, settings: DbSettings) -> None:
@@ -300,13 +307,29 @@ class DbService:
 
             return plain_objs
 
-    async def listen_to_indexed_documents_changes(self, queue: asyncio.Queue[str], _indexer_version: int) -> None:
+    async def listen_to_indexed_documents_changes(self, queue: asyncio.Queue[DbIndexedDocumentEvent], _indexer_version: int) -> None:
 
         # Define callback function to process notifications
         def on_notification(_conn: asyncpg.Connection, _pid: int, _channel: str, payload: str) -> None:
-            for client_queue in DbService.subscribed_clients:
+            # deserialize payload
+            json_payload = json.loads(payload)
+            event_type = json_payload["operation"].lower()
+            db_indexed_doc_json = json_payload["data"]
+            doc = DbDocument(
+                uri=db_indexed_doc_json["uri"],
+                indexed_document_id=db_indexed_doc_json["id"],
+                indexed_source_version=db_indexed_doc_json["indexed_source_version"],
+                last_indexing=db_indexed_doc_json["last_indexing"],
+                status=DbDocumentStatus(
+                    status=db_indexed_doc_json["document_status"],
+                    last_status_change=db_indexed_doc_json["last_status_change"],
+                    error_status_message=db_indexed_doc_json["error_status_message"],
+                ),
+            )
+            doc_event = DbIndexedDocumentEvent(event_type=event_type, document=doc)
+            for client_queue in self.subscribed_clients:
                 if not client_queue.full():
-                    client_queue.put_nowait(payload)
+                    client_queue.put_nowait(doc_event)
 
         self.subscribed_clients.add(queue)
         if not self.active_connection:
@@ -316,7 +339,7 @@ class DbService:
             await connection.add_listener("table_changes", on_notification)  # type: ignore[reportUnknownMemberType]
             await connection.execute("LISTEN table_changes")  # type: ignore[reportUnknownMemberType]
 
-    async def removed_listener_to_indexed_documents_changes(self, queue: asyncio.Queue[str]) -> None:
+    async def removed_listener_to_indexed_documents_changes(self, queue: asyncio.Queue[DbIndexedDocumentEvent]) -> None:
         self.subscribed_clients.remove(queue)
         if not self.subscribed_clients:
             connection: asyncpg.Connection | None = self.active_connection

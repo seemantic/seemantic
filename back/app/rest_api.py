@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.app_services import DepDbService, DepGenerator, DepMinioService, DepSearchEngine
 from app.search_engine import SearchResult
 from app.settings import DepSettings
-from common.db_service import DbDocument
+from common.db_service import DbDocument, DbIndexedDocumentEvent
 
 router: APIRouter = APIRouter(prefix="/api/v1")
 logger = logging.getLogger(__name__)
@@ -105,7 +105,7 @@ async def subscribe_to_indexed_documents_changes(db_service: DepDbService, reque
 
     async def event_generator() -> AsyncGenerator[str, None]:
 
-        event_queue: asyncio.Queue[str] = asyncio.Queue()
+        event_queue: asyncio.Queue[DbIndexedDocumentEvent] = asyncio.Queue()
         await db_service.listen_to_indexed_documents_changes(event_queue, 1)
         try:
             while True:
