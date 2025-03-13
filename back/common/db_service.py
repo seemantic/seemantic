@@ -308,7 +308,9 @@ class DbService:
             return plain_objs
 
     async def listen_to_indexed_documents_changes(
-        self, queue: asyncio.Queue[DbIndexedDocumentEvent], _indexer_version: int,
+        self,
+        queue: asyncio.Queue[DbIndexedDocumentEvent],
+        _indexer_version: int,
     ) -> None:
 
         # Define callback function to process notifications

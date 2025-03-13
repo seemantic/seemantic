@@ -52,10 +52,14 @@ async def get_file(relative_path: str, minio_service: DepMinioService) -> Stream
 
 
 class ApiDocumentSnippet(BaseModel):
-    source_uri: str  # relative path within source
+    uri: str  # relative path within source
     status: Literal["pending", "indexing", "indexing_success", "indexing_error"]
     error_status_message: str | None
     last_indexing: datetime | None
+
+
+class ApiDocumentDelete(BaseModel):
+    uri: str
 
 
 class ApiExplorer(BaseModel):
@@ -65,7 +69,7 @@ class ApiExplorer(BaseModel):
 def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
 
     return ApiDocumentSnippet(
-        source_uri=db_doc.uri,
+        uri=db_doc.uri,
         status=db_doc.status.status.value,
         error_status_message=db_doc.status.error_status_message,
         last_indexing=db_doc.last_indexing,
@@ -100,7 +104,7 @@ async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, 
     return QueryResponse(answer=answer, search_result=search_results, chunks_content=chunks_content)
 
 
-@router.get("/sse")
+@router.get("/document_events")
 async def subscribe_to_indexed_documents_changes(db_service: DepDbService, request: Request) -> StreamingResponse:
 
     async def event_generator() -> AsyncGenerator[str, None]:
@@ -115,7 +119,12 @@ async def subscribe_to_indexed_documents_changes(db_service: DepDbService, reque
                 # Wait for message with timeout to check for disconnects
                 try:
                     message = await asyncio.wait_for(event_queue.get(), timeout=20.0)
-                    yield f"data: {message}\n\n"
+                    api_event = (
+                        _to_api_doc(message.document)
+                        if message.event_type != "delete"
+                        else ApiDocumentDelete(uri=message.document.uri)
+                    )
+                    yield f"event: {message.event_type}\ndata: {api_event.model_dump_json()}\n\n"
                 except asyncio.TimeoutError:
                     # Send keep-alive comment, message starting swith ":" are ignored by the client, this prevents the connection from timing out
                     yield ":ka\n\n"
