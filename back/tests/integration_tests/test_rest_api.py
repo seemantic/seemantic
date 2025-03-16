@@ -11,12 +11,13 @@ from testcontainers.postgres import PostgresContainer
 
 from app.settings import Settings as AppSettings
 from app.settings import get_settings as get_app_settings
+from app.rest_api import ApiDocumentDelete, ApiDocumentSnippet, ApiExplorer
 from common.db_service import DbSettings
 from common.minio_service import MinioSettings
 from indexer.indexer import Indexer
 from indexer.settings import Settings as IndexerSettings
 from main import app
-
+from typing import Tuple
 
 @pytest_asyncio.fixture(scope="session")  # type: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
 async def test_client() -> AsyncGenerator[TestClient, None]:
@@ -52,11 +53,11 @@ async def test_client() -> AsyncGenerator[TestClient, None]:
     )
 
     def get_test_app_settings() -> AppSettings:
-        base_settings = AppSettings()  # type: ignore[reportCallIssue]
+        base_settings = AppSettings()  # type: ignore[reportCallIssue] 
         settings_dict = base_settings.model_dump()
         settings_dict["db"] = db_settings
         settings_dict["minio"] = minio_settings
-        return AppSettings(**settings_dict)
+        return AppSettings(**settings_dict) 
 
     def get_test_indexer_settings() -> IndexerSettings:
         base_settings = IndexerSettings()  # type: ignore[reportCallIssue]
@@ -67,54 +68,94 @@ async def test_client() -> AsyncGenerator[TestClient, None]:
 
     app.dependency_overrides[get_app_settings] = get_test_app_settings
     client = TestClient(app)
+    # listen_docs_task = asyncio.create_task(listen_docs())
 
     indexer = Indexer(get_test_indexer_settings())
     indexed_task = asyncio.create_task(indexer.start())  # type: ignore[reportUnusedVariable]
     await asyncio.sleep(5)
-    yield client
-    indexed_task.cancel()
-    postgres.stop()
-    minio.stop()
+    try:
+        yield client
+    finally:
+        # listen_docs_task.cancel()
+        indexed_task.cancel()
+        postgres.stop()
+        minio.stop()
 
 
 def upload_file(test_client: TestClient, relative_path: str, file_content: bytes) -> None:
-    files = {"file": ("testfile.txt", file_content, "text/plain")}
+    files = {"file": ("testfile.md", file_content, "text/markdown")}
     response = test_client.put(f"/api/v1/files/{relative_path}", files=files)
     assert response.status_code == 201
     assert response.headers["Location"] == f"/files/{relative_path}"
 
 
-@pytest.mark.asyncio
-async def test_happy_path(test_client: TestClient) -> None:
+def get_explorer(client: TestClient)-> list[ApiDocumentSnippet]:
+    result = client.get("/api/v1/explorer")
+    json = result.json()
+    explorer = ApiExplorer.model_validate(json)
+    return explorer.documents
 
+
+def parse_event(event: str) -> Tuple[str, ApiDocumentSnippet | ApiDocumentDelete]:
+    # Split into lines and extract event type and data
+    lines = event.split("\n")
+    event_type = lines[0].split(": ")[1]
+    data = lines[1].split(": ")[1]
+    
+    if event_type == "delete":
+        return event_type, ApiDocumentDelete.model_validate_json(data)
+    else:
+        return event_type, ApiDocumentSnippet.model_validate_json(data)
+
+
+
+def listen_docs(client: TestClient, nb_events: int) -> list[Tuple[str, ApiDocumentSnippet | ApiDocumentDelete]]:
+    response = client.get("/api/v1/document_events", params={"nb_events": nb_events})
+    assert response.status_code == 200
+    events: list[Tuple[str, ApiDocumentSnippet | ApiDocumentDelete]] = []
+    for sse_line in response.text.split("\n\n"):
+        if sse_line.startswith("event: "):
+            event_type, event_data = parse_event(sse_line)
+            events.append((event_type, event_data))
+    return events
+
+
+#ef run_listen_docs_in_background_thread(client: TestClient, nb_events: int) -> Future[list[Tuple[str, ApiDocumentSnippet | ApiDocumentDelete]]]:
+#    events = []
+#    return asyncio.to_thread(listen_docs, client, nb_events, events)
+
+
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_upload_file(test_client: TestClient) -> None:
+
+    print("test_upload_file")
+    # check the file does not exists already
+    docs = get_explorer(test_client)
+    assert len(docs) == 0
+
+    #task = asyncio.create_task(asyncio.to_thread(listen_docs, test_client, 1))
+    #await asyncio.sleep(5)
     upload_file(test_client, "test/path/to/file.txt", b"This is a test file content")
-
-    result = test_client.get("/api/v1/explorer")
-    assert result is not None
-    # - start the server
-    # - start the indexed
-    # 1) upload a new document
-    # 2) create a query
-    # 3) check the answer
-    # 4) update the document
-    # 5) ask the query again
-    # 6) check the answer is updated
-    # 7) delete the document
-    # 8) ask the query again
-    # 9) check the answer is deleted
+    await asyncio.sleep(10)
+    docs = get_explorer(test_client)
+    assert len(docs) == 1
+    #result = await task
+    #assert len(result) == 1
+    #assert result[0][0] == "insert"
 
 
-def test_indexer_restart() -> None:
-    pass
+
+    # check that file is updated following the follwing steps
+    # pending, indexing, indexing_success
+
+    # once indexed, ask a query, check the answer is ok
 
 
-def test_server_restart() -> None:
-    pass
 
-
-def test_unparsable_file() -> None:
-    pass
-
-
-def test_hug_file() -> None:
-    pass
+# other test cases:
+# - update with same source_version does nothing
+# - update with different source_version but same hash only parse
+# - update with different hash re-index correctly, previous file can still be queried
+# - several indexer versions can work concurently

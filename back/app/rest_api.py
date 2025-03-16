@@ -105,15 +105,23 @@ async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, 
 
 
 @router.get("/document_events")
-async def subscribe_to_indexed_documents_changes(db_service: DepDbService, request: Request) -> StreamingResponse:
+async def subscribe_to_indexed_documents_changes(
+    db_service: DepDbService,
+    request: Request,
+    nb_events: int | None = None
+) -> StreamingResponse:
 
     async def event_generator() -> AsyncGenerator[str, None]:
-
+        yield ":ka\n\n"
         event_queue: asyncio.Queue[DbIndexedDocumentEvent] = asyncio.Queue()
         await db_service.listen_to_indexed_documents_changes(event_queue, 1)
+        events_sent = 0
         try:
             while True:
                 if await request.is_disconnected():
+                    break
+
+                if nb_events is not None and events_sent >= nb_events:
                     break
 
                 # Wait for message with timeout to check for disconnects
@@ -125,6 +133,7 @@ async def subscribe_to_indexed_documents_changes(db_service: DepDbService, reque
                         else ApiDocumentDelete(uri=message.document.uri)
                     )
                     yield f"event: {message.event_type}\ndata: {api_event.model_dump_json()}\n\n"
+                    events_sent += 1
                 except asyncio.TimeoutError:
                     # Send keep-alive comment, message starting swith ":" are ignored by the client, this prevents the connection from timing out
                     yield ":ka\n\n"

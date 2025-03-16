@@ -9,7 +9,7 @@ from uuid import UUID
 
 import asyncpg  # type: ignore[reportMissingTypesStubs]
 from pydantic import BaseModel
-from sqlalchemy import TIMESTAMP, Enum, ForeignKey, MetaData, delete, select, update
+from sqlalchemy import TIMESTAMP, Enum, ForeignKey, MetaData, NullPool, delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
@@ -118,8 +118,7 @@ def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
             error_status_message=row_indexed_doc.error_status_message,
         ),
     )
-
-
+# https://docs.sqlalchemy.org/en/14/orm/extensions/asyncio.html#using-multiple-asyncio-event-loops
 class DbService:
 
     indexer_version: int
@@ -133,7 +132,8 @@ class DbService:
         self.raw_url = (
             f"postgresql://{settings.username}:{settings.password}@{settings.host}:{settings.port}/{settings.database}"
         )
-        engine = create_async_engine(self.url, echo=True)  # add connect_args={"timeout": 10} in production ?
+        engine = create_async_engine(self.url, echo=True, poolclass=NullPool)  # add connect_args={"timeout": 10} in production ?
+        # TODO remove NullPool one issue is understood
         self.session_factory = async_sessionmaker(engine, class_=AsyncSession)
         self.subscribed_clients = set()
 
