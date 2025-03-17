@@ -9,7 +9,7 @@ from uuid import UUID
 
 import asyncpg  # type: ignore[reportMissingTypesStubs]
 from pydantic import BaseModel
-from sqlalchemy import TIMESTAMP, Enum, ForeignKey, MetaData, NullPool, delete, select, update
+from sqlalchemy import TIMESTAMP, Enum, ForeignKey, MetaData, delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column
@@ -132,8 +132,8 @@ class DbService:
         self.raw_url = (
             f"postgresql://{settings.username}:{settings.password}@{settings.host}:{settings.port}/{settings.database}"
         )
-        engine = create_async_engine(self.url, echo=True, poolclass=NullPool)  # add connect_args={"timeout": 10} in production ?
-        # TODO remove NullPool one issue is understood
+
+        engine = create_async_engine(self.url, echo=True) # add connect_args={"timeout": 10} in production ?
         self.session_factory = async_sessionmaker(engine, class_=AsyncSession)
         self.subscribed_clients = set()
 
@@ -284,6 +284,7 @@ class DbService:
             return plain_objs
 
     async def get_all_documents(self, indexer_version: int) -> list[DbDocument]:
+
         async with self.session_factory() as session:
             result = await session.execute(
                 select(TableIndexedDocument).where(TableIndexedDocument.indexer_version == indexer_version),
