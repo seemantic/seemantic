@@ -1,11 +1,10 @@
 # pyright: strict, reportMissingTypeStubs=false
 import asyncio
-from collections.abc import AsyncGenerator
 from pathlib import Path
-
+from time import sleep
+from httpx import ASGITransport, AsyncClient
 import pytest
-import pytest_asyncio
-from fastapi.testclient import TestClient
+
 from testcontainers.minio import MinioContainer
 from testcontainers.postgres import PostgresContainer
 
@@ -17,10 +16,18 @@ from common.minio_service import MinioSettings
 from indexer.indexer import Indexer
 from indexer.settings import Settings as IndexerSettings
 from main import app
-from typing import Tuple
+from typing import AsyncGenerator, Literal, Tuple
 
-@pytest_asyncio.fixture(scope="session")  # type: ignore[reportUnknownMemberType, reportUntypedFunctionDecorator]
-async def test_client() -> AsyncGenerator[TestClient, None]:
+
+# cf. https://anyio.readthedocs.io/en/stable/testing.html#using-async-fixtures-with-higher-scopes
+@pytest.fixture(scope='session')
+def anyio_backend():
+    return 'asyncio'
+
+
+
+@pytest.fixture(scope="session")
+async def test_client(anyio_backend: Literal['asyncio']) -> AsyncGenerator[AsyncClient, None]:
     postgres = PostgresContainer("postgres:17", driver="asyncpg")
     minio: MinioContainer = MinioContainer()
     sql_init_folder = str(Path(__file__).resolve().parent.parent.parent / "postgres_db/sql_init/")
@@ -67,30 +74,29 @@ async def test_client() -> AsyncGenerator[TestClient, None]:
         return IndexerSettings(**settings_dict)
 
     app.dependency_overrides[get_app_settings] = get_test_app_settings
-    client = TestClient(app)
-    # listen_docs_task = asyncio.create_task(listen_docs())
-
+    
     indexer = Indexer(get_test_indexer_settings())
-    indexed_task = asyncio.create_task(indexer.start())  # type: ignore[reportUnusedVariable]
-    await asyncio.sleep(5)
+    indexed_task = asyncio.create_task(indexer.start())
+    sleep(1)
     try:
-        yield client
+        # see; https://fastapi.tiangolo.com/advanced/async-tests/#in-detail
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            yield client
     finally:
-        # listen_docs_task.cancel()
         indexed_task.cancel()
         postgres.stop()
         minio.stop()
 
 
-def upload_file(test_client: TestClient, relative_path: str, file_content: bytes) -> None:
+async def upload_file(test_client: AsyncClient, relative_path: str, file_content: bytes) -> None:
     files = {"file": ("testfile.md", file_content, "text/markdown")}
-    response = test_client.put(f"/api/v1/files/{relative_path}", files=files)
+    response = await test_client.put(f"/api/v1/files/{relative_path}", files=files)
     assert response.status_code == 201
     assert response.headers["Location"] == f"/files/{relative_path}"
 
 
-def get_explorer(client: TestClient)-> list[ApiDocumentSnippet]:
-    result = client.get("/api/v1/explorer")
+async def get_explorer(client: AsyncClient)-> list[ApiDocumentSnippet]:
+    result = await client.get("/api/v1/explorer")
     json = result.json()
     explorer = ApiExplorer.model_validate(json)
     return explorer.documents
@@ -109,8 +115,8 @@ def parse_event(event: str) -> Tuple[str, ApiDocumentSnippet | ApiDocumentDelete
 
 
 
-def listen_docs(client: TestClient, nb_events: int) -> list[Tuple[str, ApiDocumentSnippet | ApiDocumentDelete]]:
-    response = client.get("/api/v1/document_events", params={"nb_events": nb_events})
+async def listen_docs(client: AsyncClient, nb_events: int) -> list[Tuple[str, ApiDocumentSnippet | ApiDocumentDelete]]:
+    response = await client.get("/api/v1/document_events", params={"nb_events": nb_events})
     assert response.status_code == 200
     events: list[Tuple[str, ApiDocumentSnippet | ApiDocumentDelete]] = []
     for sse_line in response.text.split("\n\n"):
@@ -120,37 +126,22 @@ def listen_docs(client: TestClient, nb_events: int) -> list[Tuple[str, ApiDocume
     return events
 
 
-#ef run_listen_docs_in_background_thread(client: TestClient, nb_events: int) -> Future[list[Tuple[str, ApiDocumentSnippet | ApiDocumentDelete]]]:
-#    events = []
-#    return asyncio.to_thread(listen_docs, client, nb_events, events)
-
-
-
-
-@pytest.mark.asyncio(loop_scope="session")
-async def test_upload_file(test_client: TestClient) -> None:
+@pytest.mark.anyio
+async def test_upload_file(test_client: AsyncClient) -> None:
 
     print("test_upload_file")
     # check the file does not exists already
-    docs = get_explorer(test_client)
+    docs = await get_explorer(test_client)
     assert len(docs) == 0
 
-    #task = asyncio.create_task(asyncio.to_thread(listen_docs, test_client, 1))
-    #await asyncio.sleep(5)
-    upload_file(test_client, "test/path/to/file.txt", b"This is a test file content")
-    await asyncio.sleep(10)
-    docs = get_explorer(test_client)
-    assert len(docs) == 1
-    #result = await task
-    #assert len(result) == 1
-    #assert result[0][0] == "insert"
+    task = asyncio.create_task(listen_docs(test_client, 3))
+    await asyncio.sleep(0)
+    await upload_file(test_client, "test/path/to/file.md", b"This is a test file content")
+    await asyncio.sleep(5)
+    result = await task
+    assert len(result) == 3
+    assert result[0][0] == "insert"
 
-
-
-    # check that file is updated following the follwing steps
-    # pending, indexing, indexing_success
-
-    # once indexed, ask a query, check the answer is ok
 
 
 
