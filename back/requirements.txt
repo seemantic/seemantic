@@ -34,12 +34,12 @@ filetype==1.2.0
 
 # dev dependencies
 pytest==8.3.4
-pytest-asyncio==0.25.3
 black==25.1.0
 pyright==1.1.394
 ruff==0.9.6
 testcontainers[postgres,minio]==4.9.1
 pur==7.3.3
+anyio==4.9.0
 
 # to get uuid V1 (faster in DB)
 uuid-utils==0.10.0
