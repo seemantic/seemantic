@@ -83,9 +83,20 @@ async def test_client(anyio_backend: Literal['asyncio']) -> AsyncGenerator[Async
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             yield client
     finally:
-        indexed_task.cancel()
+        await stop_indexer(indexed_task)
         postgres.stop()
-        minio.stop()
+        # minio.stop()
+
+async def stop_indexer(indexed_task: asyncio.Task[None]) -> None:
+    # Send cancellation signal
+    indexed_task.cancel()
+    try:
+        # Wait for the task to actually complete its cleanup and finish
+        await indexed_task
+    except asyncio.CancelledError:
+        # Task has now fully completed its cancellation
+        pass
+        
 
 
 async def upload_file(test_client: AsyncClient, relative_path: str, file_content: bytes) -> None:
