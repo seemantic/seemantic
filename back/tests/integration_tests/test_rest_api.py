@@ -25,7 +25,6 @@ def anyio_backend():
     return 'asyncio'
 
 
-
 @pytest.fixture(scope="session")
 async def test_client(anyio_backend: Literal['asyncio']) -> AsyncGenerator[AsyncClient, None]:
     postgres = PostgresContainer("postgres:17", driver="asyncpg")
@@ -85,7 +84,10 @@ async def test_client(anyio_backend: Literal['asyncio']) -> AsyncGenerator[Async
     finally:
         await stop_indexer(indexed_task)
         postgres.stop()
-        # minio.stop()
+        minio.stop()
+
+
+
 
 async def stop_indexer(indexed_task: asyncio.Task[None]) -> None:
     # Send cancellation signal

@@ -1,8 +1,9 @@
 import asyncio
 import logging
 import time
-from collections.abc import AsyncGenerator, Iterator
+from collections.abc import AsyncGenerator
 from io import BytesIO
+from typing import Any, Generator
 
 from pydantic import BaseModel
 from urllib3 import BaseHTTPResponse
@@ -40,6 +41,7 @@ class MinioService:
 
     _minio_client: Minio
     _bucket_name: str
+    _exit_subscription: bool = False
 
     def __init__(self, settings: MinioSettings) -> None:
         self._minio_client = Minio(
@@ -54,44 +56,41 @@ class MinioService:
         if not self._minio_client.bucket_exists(self._bucket_name):
             self._minio_client.make_bucket(self._bucket_name)
 
-    def _listen_notifications(self, prefix: str) -> Iterator[PutMinioEvent | DeleteMinioEvent]:
-        # Continuously listen for events
-        while True:
-            try:
-                # Listen to events from MinIO server (e.g., object creation, deletion)
-                events = self._minio_client.listen_bucket_notification(
-                    bucket_name=self._bucket_name,
-                    prefix=prefix,
-                    events=("s3:ObjectCreated:*", "s3:ObjectRemoved:*"),
-                )
 
-                for event in events:
-                    for record in event["Records"]:
-                        key: str = str(record["s3"]["object"]["key"])
-                        event_name: str = str(record["eventName"])
-                        if event_name.startswith(
-                            "s3:ObjectCreated:",
-                        ):  # deal with :Put, :Copy, :Post, :CompleteMultipartUpload
-                            etag: str = str(record["s3"]["object"]["eTag"])
-                            yield PutMinioEvent(object=MinioObject(key=key, etag=etag))
-                        elif event_name == "s3:ObjectRemoved:Delete":
-                            yield DeleteMinioEvent(key=key)
-
-            except Exception as e:  # noqa: BLE001, PERF203
-                logging.warning(f"Error: {e}, Reconnecting in 5 seconds...")
-                time.sleep(5)  # Wait before reconnecting
+    def _get_event(self, event: dict[str,Any]) -> Generator[PutMinioEvent | DeleteMinioEvent, None, None]:
+        for record in event["Records"]:
+            key: str = str(record["s3"]["object"]["key"])
+            event_name: str = str(record["eventName"])
+            if event_name.startswith(
+                "s3:ObjectCreated:",
+            ):  # deal with :Put, :Copy, :Post, :CompleteMultipartUpload
+                etag: str = str(record["s3"]["object"]["eTag"])
+                yield PutMinioEvent(object=MinioObject(key=key, etag=etag))
+            elif event_name == "s3:ObjectRemoved:Delete":
+                yield DeleteMinioEvent(key=key)
 
     async def async_listen_notifications(self, prefix: str) -> AsyncGenerator[PutMinioEvent | DeleteMinioEvent, None]:
 
         loop = asyncio.get_running_loop()
-        it = self._listen_notifications(prefix)
-
         while True:
             try:
-                event = await loop.run_in_executor(None, next, it)
-                yield event
+                with self._minio_client.listen_bucket_notification(
+                    bucket_name=self._bucket_name,
+                    prefix=prefix,
+                    events=("s3:ObjectCreated:*", "s3:ObjectRemoved:*"),
+                ) as events:
+                    event = await loop.run_in_executor(None, next, events)
+                    my_events = self._get_event(event)
+                    for my_event in my_events:
+                        yield my_event
+            except asyncio.CancelledError:
+                break
             except StopIteration:  # noqa: PERF203
                 break
+            except Exception as e:  # noqa: BLE001, PERF203
+                logging.warning(f"Error: {e}, Reconnecting in 5 seconds...")
+                time.sleep(5)  # Wait before reconnecting
+
 
     def create_or_update_document(self, key: str, file: BytesIO) -> None:
         self._minio_client.put_object(
