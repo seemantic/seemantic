@@ -1,10 +1,11 @@
 import datetime as dt
+import pathlib
 from collections.abc import AsyncGenerator
 from datetime import datetime
 
 import filetype  # type: ignore[StubNotFound]
 
-from common.minio_service import DeleteMinioEvent, MinioService
+from common.minio_service import DeleteMinioEvent, MinioObjectContent, MinioService
 from common.settings import MinioSettings
 from indexer.source import (
     Source,
@@ -54,7 +55,7 @@ class SeemanticDriveSource(Source):
         object_content = self._minio_service.get_document(object_name=self._with_prefix(uri))
 
         if object_content:
-            kind: str | None = filetype.guess_extension(object_content.content.read(1024))  # type: ignore[Attribute]
+            kind: str | None = self.get_extension(object_content, uri)
             object_content.content.seek(0)
             # check that kind is a supported file type
             return SourceDocument(
@@ -64,3 +65,11 @@ class SeemanticDriveSource(Source):
                 filetype=kind,
             )
         return None
+
+    def get_extension(self, object_content: MinioObjectContent, uri: str) -> str | None:
+        kind: str | None = filetype.guess_extension(object_content.content.read(1024))  # type: ignore[Attribute]
+        object_content.content.seek(0)
+        if not kind:
+            kind_with_dot_or_empty = pathlib.Path(uri).suffix
+            kind = kind_with_dot_or_empty[1:] if kind_with_dot_or_empty else None
+        return kind
