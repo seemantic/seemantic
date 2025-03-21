@@ -97,11 +97,11 @@ async def stop_indexer(indexed_task: asyncio.Task[None]) -> None:
         await indexed_task
 
 
-async def upload_file(test_client: AsyncClient, relative_path: str, file_content: bytes) -> None:
+async def upload_file(test_client: AsyncClient, uri: str, file_content: bytes) -> None:
     files = {"file": ("testfile.md", file_content, "text/markdown")}
-    response = await test_client.put(f"/api/v1/files/{relative_path}", files=files)
+    response = await test_client.put(f"/api/v1/files/{uri}", files=files)
     assert response.status_code == 201
-    assert response.headers["Location"] == f"/files/{relative_path}"
+    assert response.headers["Location"] == f"/files/{uri}"
 
 
 async def get_explorer(client: AsyncClient) -> list[ApiDocumentSnippet]:
@@ -133,6 +133,28 @@ async def listen_docs(client: AsyncClient, nb_events: int) -> list[tuple[str, Ap
     return events
 
 
+def check_events_valid(uri: str, events: list[tuple[str, ApiDocumentSnippet | ApiDocumentDelete]]) -> None:
+    assert len(events) == 3
+
+    insert, val_pending = events[0]
+    update, val_indexing = events[1]
+    update_success, val_success = events[2]
+
+    assert insert == "insert"
+    assert update == "update"
+    assert update_success == "update"
+
+    assert isinstance(val_pending, ApiDocumentSnippet)
+    assert val_pending.status == "pending"
+    assert isinstance(val_indexing, ApiDocumentSnippet)
+    assert val_indexing.status == "indexing"
+    assert isinstance(val_success, ApiDocumentSnippet)
+    assert val_success.status == "indexing_success"
+    assert val_pending.uri == uri
+    assert val_indexing.uri == uri
+    assert val_success.uri == uri
+
+
 @pytest.mark.anyio
 async def test_upload_file(test_client: AsyncClient) -> None:
 
@@ -140,13 +162,12 @@ async def test_upload_file(test_client: AsyncClient) -> None:
     docs = await get_explorer(test_client)
     assert len(docs) == 0
 
+    uri = "test/path/to/file.md"
     task = asyncio.create_task(listen_docs(test_client, 3))
-    await asyncio.sleep(0)
-    await upload_file(test_client, "test/path/to/file.md", b"This is a test file content")
-    await asyncio.sleep(5)
+    await upload_file(test_client, uri, b"# This is a test file content")
+    await asyncio.sleep(1)
     result = await task
-    assert len(result) == 3
-    assert result[0][0] == "insert"
+    check_events_valid(uri, result)
 
 
 # other test cases:
