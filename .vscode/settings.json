@@ -7,4 +7,9 @@
         // from /back folder execution path, pytest config is at root (hence ".") inside the pyproject
         "."
     ],
-}   
+    "python.formatting.provider": "black",
+    "editor.formatOnSave": true,
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.linting.lintOnSave": true
+}

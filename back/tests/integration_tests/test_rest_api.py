@@ -1,32 +1,33 @@
 # pyright: strict, reportMissingTypeStubs=false
 import asyncio
+import contextlib
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from time import sleep
-from httpx import ASGITransport, AsyncClient
-import pytest
+from typing import Literal
 
+import pytest
+from httpx import ASGITransport, AsyncClient
 from testcontainers.minio import MinioContainer
 from testcontainers.postgres import PostgresContainer
 
+from app.rest_api import ApiDocumentDelete, ApiDocumentSnippet, ApiExplorer
 from app.settings import Settings as AppSettings
 from app.settings import get_settings as get_app_settings
-from app.rest_api import ApiDocumentDelete, ApiDocumentSnippet, ApiExplorer
 from common.db_service import DbSettings
 from common.minio_service import MinioSettings
 from indexer.indexer import Indexer
 from indexer.settings import Settings as IndexerSettings
 from main import app
-from typing import AsyncGenerator, Literal, Tuple
 
 
 # cf. https://anyio.readthedocs.io/en/stable/testing.html#using-async-fixtures-with-higher-scopes
-@pytest.fixture(scope='session')
-def anyio_backend():
-    return 'asyncio'
+@pytest.fixture(scope="session")
+def anyio_backend() -> Literal["asyncio"]:
+    return "asyncio"
 
 
 @pytest.fixture(scope="session")
-async def test_client(anyio_backend: Literal['asyncio']) -> AsyncGenerator[AsyncClient, None]:
+async def test_client(anyio_backend: Literal["asyncio"]) -> AsyncGenerator[AsyncClient, None]:
     postgres = PostgresContainer("postgres:17", driver="asyncpg")
     minio: MinioContainer = MinioContainer()
     sql_init_folder = str(Path(__file__).resolve().parent.parent.parent / "postgres_db/sql_init/")
@@ -59,11 +60,11 @@ async def test_client(anyio_backend: Literal['asyncio']) -> AsyncGenerator[Async
     )
 
     def get_test_app_settings() -> AppSettings:
-        base_settings = AppSettings()  # type: ignore[reportCallIssue] 
+        base_settings = AppSettings()  # type: ignore[reportCallIssue]
         settings_dict = base_settings.model_dump()
         settings_dict["db"] = db_settings
         settings_dict["minio"] = minio_settings
-        return AppSettings(**settings_dict) 
+        return AppSettings(**settings_dict)
 
     def get_test_indexer_settings() -> IndexerSettings:
         base_settings = IndexerSettings()  # type: ignore[reportCallIssue]
@@ -73,10 +74,11 @@ async def test_client(anyio_backend: Literal['asyncio']) -> AsyncGenerator[Async
         return IndexerSettings(**settings_dict)
 
     app.dependency_overrides[get_app_settings] = get_test_app_settings
-    
+
     indexer = Indexer(get_test_indexer_settings())
     indexed_task = asyncio.create_task(indexer.start())
-    sleep(1)
+    # wait for the indexer to be ready
+    await asyncio.sleep(1)
     try:
         # see; https://fastapi.tiangolo.com/advanced/async-tests/#in-detail
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -87,18 +89,12 @@ async def test_client(anyio_backend: Literal['asyncio']) -> AsyncGenerator[Async
         minio.stop()
 
 
-
-
 async def stop_indexer(indexed_task: asyncio.Task[None]) -> None:
     # Send cancellation signal
     indexed_task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         # Wait for the task to actually complete its cleanup and finish
         await indexed_task
-    except asyncio.CancelledError:
-        # Task has now fully completed its cancellation
-        pass
-        
 
 
 async def upload_file(test_client: AsyncClient, relative_path: str, file_content: bytes) -> None:
@@ -108,30 +104,28 @@ async def upload_file(test_client: AsyncClient, relative_path: str, file_content
     assert response.headers["Location"] == f"/files/{relative_path}"
 
 
-async def get_explorer(client: AsyncClient)-> list[ApiDocumentSnippet]:
+async def get_explorer(client: AsyncClient) -> list[ApiDocumentSnippet]:
     result = await client.get("/api/v1/explorer")
     json = result.json()
     explorer = ApiExplorer.model_validate(json)
     return explorer.documents
 
 
-def parse_event(event: str) -> Tuple[str, ApiDocumentSnippet | ApiDocumentDelete]:
+def parse_event(event: str) -> tuple[str, ApiDocumentSnippet | ApiDocumentDelete]:
     # Split into lines and extract event type and data
     lines = event.split("\n")
     event_type = lines[0].split(": ")[1]
     data = lines[1].split(": ")[1]
-    
+
     if event_type == "delete":
         return event_type, ApiDocumentDelete.model_validate_json(data)
-    else:
-        return event_type, ApiDocumentSnippet.model_validate_json(data)
+    return event_type, ApiDocumentSnippet.model_validate_json(data)
 
 
-
-async def listen_docs(client: AsyncClient, nb_events: int) -> list[Tuple[str, ApiDocumentSnippet | ApiDocumentDelete]]:
+async def listen_docs(client: AsyncClient, nb_events: int) -> list[tuple[str, ApiDocumentSnippet | ApiDocumentDelete]]:
     response = await client.get("/api/v1/document_events", params={"nb_events": nb_events})
     assert response.status_code == 200
-    events: list[Tuple[str, ApiDocumentSnippet | ApiDocumentDelete]] = []
+    events: list[tuple[str, ApiDocumentSnippet | ApiDocumentDelete]] = []
     for sse_line in response.text.split("\n\n"):
         if sse_line.startswith("event: "):
             event_type, event_data = parse_event(sse_line)
@@ -142,7 +136,6 @@ async def listen_docs(client: AsyncClient, nb_events: int) -> list[Tuple[str, Ap
 @pytest.mark.anyio
 async def test_upload_file(test_client: AsyncClient) -> None:
 
-    print("test_upload_file")
     # check the file does not exists already
     docs = await get_explorer(test_client)
     assert len(docs) == 0
@@ -154,8 +147,6 @@ async def test_upload_file(test_client: AsyncClient) -> None:
     result = await task
     assert len(result) == 3
     assert result[0][0] == "insert"
-
-
 
 
 # other test cases:

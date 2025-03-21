@@ -118,6 +118,8 @@ def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
             error_status_message=row_indexed_doc.error_status_message,
         ),
     )
+
+
 # https://docs.sqlalchemy.org/en/14/orm/extensions/asyncio.html#using-multiple-asyncio-event-loops
 class DbService:
 
@@ -133,7 +135,7 @@ class DbService:
             f"postgresql://{settings.username}:{settings.password}@{settings.host}:{settings.port}/{settings.database}"
         )
 
-        engine = create_async_engine(self.url, echo=True) # add connect_args={"timeout": 10} in production ?
+        engine = create_async_engine(self.url, echo=True)  # add connect_args={"timeout": 10} in production ?
         self.session_factory = async_sessionmaker(engine, class_=AsyncSession)
         self.subscribed_clients = set()
 

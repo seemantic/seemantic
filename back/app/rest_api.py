@@ -108,7 +108,7 @@ async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, 
 async def subscribe_to_indexed_documents_changes(
     db_service: DepDbService,
     request: Request,
-    nb_events: int | None = None
+    nb_events: int | None = None,
 ) -> StreamingResponse:
 
     async def event_generator() -> AsyncGenerator[str, None]:

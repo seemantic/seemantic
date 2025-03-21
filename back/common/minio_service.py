@@ -1,9 +1,8 @@
 import asyncio
 import logging
-import time
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from io import BytesIO
-from typing import Any, Generator
+from typing import Any
 
 from pydantic import BaseModel
 from urllib3 import BaseHTTPResponse
@@ -56,8 +55,7 @@ class MinioService:
         if not self._minio_client.bucket_exists(self._bucket_name):
             self._minio_client.make_bucket(self._bucket_name)
 
-
-    def _get_event(self, event: dict[str,Any]) -> Generator[PutMinioEvent | DeleteMinioEvent, None, None]:
+    def _get_event(self, event: dict[str, Any]) -> Generator[PutMinioEvent | DeleteMinioEvent, None, None]:
         for record in event["Records"]:
             key: str = str(record["s3"]["object"]["key"])
             event_name: str = str(record["eventName"])
@@ -83,14 +81,13 @@ class MinioService:
                     my_events = self._get_event(event)
                     for my_event in my_events:
                         yield my_event
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # noqa: PERF203. ok as it's not a nested loop.
                 break
-            except StopIteration:  # noqa: PERF203
+            except StopIteration:
                 break
-            except Exception as e:  # noqa: BLE001, PERF203
+            except Exception as e:  # noqa: BLE001
                 logging.warning(f"Error: {e}, Reconnecting in 5 seconds...")
-                time.sleep(5)  # Wait before reconnecting
-
+                await asyncio.sleep(5)  # Wait before reconnecting
 
     def create_or_update_document(self, key: str, file: BytesIO) -> None:
         self._minio_client.put_object(
