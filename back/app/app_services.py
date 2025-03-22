@@ -33,7 +33,7 @@ def get_search_engine(settings: DepSettings, db: DepDbService) -> SearchEngine:
     embedding_service = EmbeddingService(token=settings.jina_token)
     return SearchEngine(
         embedding_service=embedding_service,
-        vector_db=VectorDB(settings.minio, embedding_service.distance_metric(), settings.indexer_version),
+        vector_db=VectorDB(settings.lance_db, embedding_service.distance_metric(), settings.indexer_version),
         db=db,
         indexer_version=settings.indexer_version,
     )

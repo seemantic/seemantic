@@ -191,8 +191,18 @@ async def test_upload_file(test_client: AsyncClient) -> None:
 
     # 3. make a request
     response = await query(test_client, "what is seemantic?")
-    print(response.answer)
     assert "rag" in response.answer.lower()
+
+    # 4. updata and make a request
+    await upload_file(test_client, uri, b"# What is seemantic ? It's a webapp")
+    response = await query(test_client, "what is seemantic?")
+    # TODO: It's too fast..
+    assert "webapp" not in response.answer.lower()
+    assert "rag" in response.answer.lower()
+
+    await asyncio.sleep(5)
+    assert "webapp" in response.answer.lower()
+    assert "rag" not in response.answer.lower()
 
 
 # other test cases:

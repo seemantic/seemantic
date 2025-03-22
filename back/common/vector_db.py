@@ -18,7 +18,6 @@ class ChunkResult(BaseModel):
 
 
 class ParsedDocumentResult(BaseModel):
-
     parsed_document: ParsedDocument
     chunk_results: list[ChunkResult]
 
@@ -47,9 +46,13 @@ chunk_table_schema = pa.schema(
 )
 
 
-class VectorDB:
+class LanceDbSettings(BaseModel, frozen=True):
+    minio: MinioSettings
+    read_consistency_interval: float
 
-    _settings: MinioSettings
+
+class VectorDB:
+    _settings: LanceDbSettings
     _db: AsyncConnection
     _parsed_doc_table: lancedb.AsyncTable
     _chunk_table: lancedb.AsyncTable
@@ -58,7 +61,7 @@ class VectorDB:
     parsed_doc_table_name: str
     chunk_table_name: str
 
-    def __init__(self, settings: MinioSettings, distance_metric: DistanceMetric, indexer_version: int) -> None:
+    def __init__(self, settings: LanceDbSettings, distance_metric: DistanceMetric, indexer_version: int) -> None:
         self._settings = settings
         self.distance_metric = distance_metric
         self.parsed_doc_table_name = f"parsed_doc_v{indexer_version}"
@@ -67,16 +70,16 @@ class VectorDB:
     async def connect_if_needed(self) -> None:
         if self._connected:
             return
-
-        protocol = "https" if self._settings.use_tls else "http"
+        minio = self._settings.minio
+        protocol = "https" if minio.use_tls else "http"
         self._db = await lancedb.connect_async(
-            f"s3://{self._settings.bucket}/lancedb",
-            read_consistency_interval=timedelta(seconds=10),
+            f"s3://{minio.bucket}/lancedb",
+            read_consistency_interval=timedelta(seconds=self._settings.read_consistency_interval),
             storage_options={
-                "access_key_id": self._settings.access_key,
-                "secret_access_key": self._settings.secret_key,
-                "endpoint": f"{protocol}://{self._settings.endpoint}",
-                "allow_http": f"{not self._settings.use_tls}",
+                "access_key_id": minio.access_key,
+                "secret_access_key": minio.secret_key,
+                "endpoint": f"{protocol}://{minio.endpoint}",
+                "allow_http": f"{not minio.use_tls}",
             },
         )
 
@@ -163,12 +166,17 @@ class VectorDB:
             [parsed_content_hash_array, content_array],
             schema=parsed_doc_table_schema,
         )
-        await self._parsed_doc_table.merge_insert(
-            row_parsed_content_hash,
-        ).when_not_matched_insert_all().when_not_matched_by_source_delete(
-            f"{row_parsed_content_hash} = '{parsed_content_hash}'",
-        ).execute(
-            doc_table,
+        await (
+            self._parsed_doc_table.merge_insert(
+                row_parsed_content_hash,
+            )
+            .when_not_matched_insert_all()
+            .when_not_matched_by_source_delete(
+                f"{row_parsed_content_hash} = '{parsed_content_hash}'",
+            )
+            .execute(
+                doc_table,
+            )
         )
 
         embedding_array = pa.array([c.embedding.embedding for c in chunks])
@@ -180,11 +188,16 @@ class VectorDB:
             schema=chunk_table_schema,
         )
 
-        await self._chunk_table.merge_insert(
-            row_parsed_content_hash,
-        ).when_not_matched_insert_all().when_not_matched_by_source_delete(
-            f"{row_parsed_content_hash} = '{parsed_content_hash}'",
-        ).execute(
-            chunk_table,
+        await (
+            self._chunk_table.merge_insert(
+                row_parsed_content_hash,
+            )
+            .when_not_matched_insert_all()
+            .when_not_matched_by_source_delete(
+                f"{row_parsed_content_hash} = '{parsed_content_hash}'",
+            )
+            .execute(
+                chunk_table,
+            )
         )
         # indexing is not necessary up to 100k rows. cf. https://lancedb.github.io/lancedb/ann_indexes/#when-is-it-necessary-to-create-an-ann-vector-index

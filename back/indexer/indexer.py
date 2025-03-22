@@ -56,7 +56,7 @@ class Indexer:
 
     def __init__(self, settings: Settings) -> None:
         self.embedder = EmbeddingService(token=settings.jina_token)
-        self.vector_db = VectorDB(settings.minio, self.embedder.distance_metric(), settings.indexer_version)
+        self.vector_db = VectorDB(settings.lance_db, self.embedder.distance_metric(), settings.indexer_version)
         self.source = SeemanticDriveSource(settings=settings.minio)
         self.db = DbService(settings.db)
         self.docs_to_index_queue = asyncio.Queue(maxsize=10000)
