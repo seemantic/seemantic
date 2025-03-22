@@ -3,14 +3,14 @@ import asyncio
 import contextlib
 from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from testcontainers.minio import MinioContainer
 from testcontainers.postgres import PostgresContainer
 
-from app.rest_api import ApiDocumentDelete, ApiDocumentSnippet, ApiExplorer
+from app.rest_api import ApiDocumentDelete, ApiDocumentSnippet, ApiEventType, ApiExplorer
 from app.settings import Settings as AppSettings
 from app.settings import get_settings as get_app_settings
 from common.db_service import DbSettings
@@ -111,10 +111,13 @@ async def get_explorer(client: AsyncClient) -> list[ApiDocumentSnippet]:
     return explorer.documents
 
 
-def parse_event(event: str) -> tuple[str, ApiDocumentSnippet | ApiDocumentDelete]:
+DocEvent = tuple[ApiEventType | Literal["keep_alive"], ApiDocumentSnippet | ApiDocumentDelete | None]
+
+
+def parse_event(event: str) -> DocEvent:
     # Split into lines and extract event type and data
     lines = event.split("\n")
-    event_type = lines[0].split(": ")[1]
+    event_type = cast(ApiEventType, lines[0].split(": ")[1])
     data = lines[1].split(": ")[1]
 
     if event_type == "delete":
@@ -122,25 +125,35 @@ def parse_event(event: str) -> tuple[str, ApiDocumentSnippet | ApiDocumentDelete
     return event_type, ApiDocumentSnippet.model_validate_json(data)
 
 
-async def listen_docs(client: AsyncClient, nb_events: int) -> list[tuple[str, ApiDocumentSnippet | ApiDocumentDelete]]:
+async def listen_docs(client: AsyncClient, nb_events: int) -> list[DocEvent]:
     response = await client.get("/api/v1/document_events", params={"nb_events": nb_events})
     assert response.status_code == 200
-    events: list[tuple[str, ApiDocumentSnippet | ApiDocumentDelete]] = []
+    events: list[DocEvent] = []
     for sse_line in response.text.split("\n\n"):
         if sse_line.startswith("event: "):
             event_type, event_data = parse_event(sse_line)
             events.append((event_type, event_data))
+        elif sse_line.startswith(":ka"):
+            events.append(("keep_alive", None))
+
     return events
 
 
-def check_events_valid(uri: str, events: list[tuple[str, ApiDocumentSnippet | ApiDocumentDelete]]) -> None:
+def listen_docs_task(
+    test_client: AsyncClient,
+    nb_events: int,
+) -> asyncio.Task[list[DocEvent]]:
+    return asyncio.create_task(listen_docs(test_client, nb_events))
+
+
+def check_events_valid(uri: str, events: list[DocEvent]) -> None:
     assert len(events) == 3
 
     insert, val_pending = events[0]
     update, val_indexing = events[1]
     update_success, val_success = events[2]
 
-    assert insert == "insert"
+    assert insert == "update"
     assert update == "update"
     assert update_success == "update"
 
@@ -157,17 +170,20 @@ def check_events_valid(uri: str, events: list[tuple[str, ApiDocumentSnippet | Ap
 
 @pytest.mark.anyio
 async def test_upload_file(test_client: AsyncClient) -> None:
-
-    # check the file does not exists already
-    docs = await get_explorer(test_client)
-    assert len(docs) == 0
-
+    # 1. update a file, check we get the updates
     uri = "test/path/to/file.md"
-    task = asyncio.create_task(listen_docs(test_client, 3))
-    await upload_file(test_client, uri, b"# This is a test file content")
-    await asyncio.sleep(1)
+    task = listen_docs_task(test_client, 3)
+    await upload_file(test_client, uri, b"# What is seemantic ? It's a RAG")
     result = await task
     check_events_valid(uri, result)
+
+    # 2. update the same file, check we don't get any update
+    task = listen_docs_task(test_client, 1)
+    await upload_file(test_client, uri, b"# What is seemantic ? It's a RAG")
+    result = await task
+    assert result[0][0] == "keep_alive"
+
+    # 3. make a request
 
 
 # other test cases:

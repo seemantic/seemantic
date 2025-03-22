@@ -100,8 +100,11 @@ class DbDocument(BaseModel):
     last_indexing: datetime | None
 
 
+DbEventType = Literal["insert", "update", "delete"]
+
+
 class DbIndexedDocumentEvent(BaseModel):
-    event_type: Literal["insert", "update", "delete"]
+    event_type: DbEventType
     document: DbDocument
 
 

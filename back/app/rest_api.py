@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.app_services import DepDbService, DepGenerator, DepMinioService, DepSearchEngine
 from app.search_engine import SearchResult
 from app.settings import DepSettings
-from common.db_service import DbDocument, DbIndexedDocumentEvent
+from common.db_service import DbDocument, DbEventType, DbIndexedDocumentEvent
 
 router: APIRouter = APIRouter(prefix="/api/v1")
 logger = logging.getLogger(__name__)
@@ -67,7 +67,6 @@ class ApiExplorer(BaseModel):
 
 
 def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
-
     return ApiDocumentSnippet(
         uri=db_doc.uri,
         status=db_doc.status.status.value,
@@ -104,15 +103,21 @@ async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, 
     return QueryResponse(answer=answer, search_result=search_results, chunks_content=chunks_content)
 
 
+ApiEventType = Literal["update", "delete"]
+
+
+def _to_api_event_type(db_event_type: DbEventType) -> ApiEventType:
+    return "delete" if db_event_type == "delete" else "update"
+
+
 @router.get("/document_events")
 async def subscribe_to_indexed_documents_changes(
     db_service: DepDbService,
     request: Request,
     nb_events: int | None = None,
+    keep_alive_interval: float = 20.0,
 ) -> StreamingResponse:
-
     async def event_generator() -> AsyncGenerator[str, None]:
-        yield ":ka\n\n"
         event_queue: asyncio.Queue[DbIndexedDocumentEvent] = asyncio.Queue()
         await db_service.listen_to_indexed_documents_changes(event_queue, 1)
         events_sent = 0
@@ -126,17 +131,18 @@ async def subscribe_to_indexed_documents_changes(
 
                 # Wait for message with timeout to check for disconnects
                 try:
-                    message = await asyncio.wait_for(event_queue.get(), timeout=20.0)
+                    message = await asyncio.wait_for(event_queue.get(), timeout=keep_alive_interval)
                     api_event = (
                         _to_api_doc(message.document)
                         if message.event_type != "delete"
                         else ApiDocumentDelete(uri=message.document.uri)
                     )
-                    yield f"event: {message.event_type}\ndata: {api_event.model_dump_json()}\n\n"
+                    yield f"event: {_to_api_event_type(message.event_type)}\ndata: {api_event.model_dump_json()}\n\n"
                     events_sent += 1
                 except asyncio.TimeoutError:
                     # Send keep-alive comment, message starting swith ":" are ignored by the client, this prevents the connection from timing out
                     yield ":ka\n\n"
+                    events_sent += 1
         finally:
             # Clean up on disconnect
             await db_service.removed_listener_to_indexed_documents_changes(event_queue)
