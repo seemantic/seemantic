@@ -109,7 +109,6 @@ class DbIndexedDocumentEvent(BaseModel):
 
 
 def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
-
     return DbDocument(
         uri=row_indexed_doc.uri,
         indexed_document_id=row_indexed_doc.id,
@@ -125,7 +124,6 @@ def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
 
 # https://docs.sqlalchemy.org/en/14/orm/extensions/asyncio.html#using-multiple-asyncio-event-loops
 class DbService:
-
     indexer_version: int
     url: str
     session_factory: async_sessionmaker[AsyncSession]
@@ -276,7 +274,7 @@ class DbService:
     ) -> dict[str, DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableIndexedDocument)
+                select(TableIndexedDocument, TableIndexedContent)
                 .where(TableIndexedContent.parsed_hash.in_(parsed_hashes))
                 .where(TableIndexedContent.indexer_version == indexer_version)
                 .where(TableIndexedDocument.indexer_version == indexer_version)
@@ -284,12 +282,11 @@ class DbService:
             )
 
             table_rows = result.all()
-            plain_objs = {row[2].parsed_hash: to_doc(row[0]) for row in table_rows}
+            plain_objs = {row[1].parsed_hash: to_doc(row[0]) for row in table_rows}
 
             return plain_objs
 
     async def get_all_documents(self, indexer_version: int) -> list[DbDocument]:
-
         async with self.session_factory() as session:
             result = await session.execute(
                 select(TableIndexedDocument).where(TableIndexedDocument.indexer_version == indexer_version),
@@ -318,7 +315,6 @@ class DbService:
         queue: asyncio.Queue[DbIndexedDocumentEvent],
         _indexer_version: int,
     ) -> None:
-
         # Define callback function to process notifications
         def on_notification(_conn: asyncpg.Connection, _pid: int, _channel: str, payload: str) -> None:
             # deserialize payload

@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from testcontainers.minio import MinioContainer
 from testcontainers.postgres import PostgresContainer
 
-from app.rest_api import ApiDocumentDelete, ApiDocumentSnippet, ApiEventType, ApiExplorer
+from app.rest_api import ApiDocumentDelete, ApiDocumentSnippet, ApiEventType, ApiExplorer, QueryResponse
 from app.settings import Settings as AppSettings
 from app.settings import get_settings as get_app_settings
 from common.db_service import DbSettings
@@ -168,6 +168,12 @@ def check_events_valid(uri: str, events: list[DocEvent]) -> None:
     assert val_success.uri == uri
 
 
+async def query(client: AsyncClient, query: str) -> QueryResponse:
+    response = await client.post("/api/v1/queries", json={"query": query})
+    data = response.json()
+    return QueryResponse.model_validate(data)
+
+
 @pytest.mark.anyio
 async def test_upload_file(test_client: AsyncClient) -> None:
     # 1. update a file, check we get the updates
@@ -184,6 +190,9 @@ async def test_upload_file(test_client: AsyncClient) -> None:
     assert result[0][0] == "keep_alive"
 
     # 3. make a request
+    response = await query(test_client, "what is seemantic?")
+    print(response.answer)
+    assert "rag" in response.answer.lower()
 
 
 # other test cases:
