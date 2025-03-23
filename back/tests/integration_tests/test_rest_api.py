@@ -192,21 +192,21 @@ async def test_upload_file(test_client: AsyncClient) -> None:
     # 3. make a request
     response = await query(test_client, "what is seemantic?")
     assert "rag" in response.answer.lower()
+    explorer = await get_explorer(test_client)
+    assert len(explorer) == 1
+    doc = explorer[0]
+    assert doc.uri == uri
+    assert doc.status == "indexing_success"
 
     # 4. updata and make a request
     await upload_file(test_client, uri, b"# What is seemantic ? It's a webapp")
+    await asyncio.sleep(1)
     response = await query(test_client, "what is seemantic?")
-    # TODO: It's too fast..
-    assert "webapp" not in response.answer.lower()
-    assert "rag" in response.answer.lower()
-
-    await asyncio.sleep(5)
     assert "webapp" in response.answer.lower()
     assert "rag" not in response.answer.lower()
 
-
-# other test cases:
-# - update with same source_version does nothing
-# - update with different source_version but same hash only parse
-# - update with different hash re-index correctly, previous file can still be queried
-# - several indexer versions can work concurently
+    # 5. delete doc
+    await test_client.delete(f"/api/v1/files/{uri}")
+    await asyncio.sleep(1)
+    explorer = await get_explorer(test_client)
+    assert len(explorer) == 0
