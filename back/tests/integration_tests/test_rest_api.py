@@ -120,7 +120,7 @@ DocEvent = tuple[ApiEventType | Literal["keep_alive"], ApiDocumentSnippet | ApiD
 def parse_event(event: str) -> DocEvent:
     # Split into lines and extract event type and data
     lines = event.split("\n")
-    event_type = cast(ApiEventType, lines[0].split(": ")[1])
+    event_type = cast("ApiEventType", lines[0].split(": ")[1])
     data = lines[1].split(": ")[1]
 
     if event_type == "delete":

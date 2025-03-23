@@ -17,6 +17,8 @@ from uuid_utils.compat import (
     uuid7,
 )  # cf. https://pypi.org/project/uuid-utils/ compat so that instances are real UUIDs form std lib (else pydantic complains)
 
+logging = logging.getLogger(__name__)
+
 
 class DbSettings(BaseModel, frozen=True):
     username: str

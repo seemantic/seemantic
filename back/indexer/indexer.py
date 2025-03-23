@@ -16,6 +16,8 @@ from indexer.settings import Settings
 from indexer.source import Source, SourceDeleteEvent, SourceDocumentReference, SourceUpsertEvent
 from indexer.sources.seemantic_drive import SeemanticDriveSource
 
+logging = logging.getLogger(__name__)
+
 
 class RawDocIndexationResult(BaseModel):
     raw_content_hash: str
@@ -42,7 +44,6 @@ class DocToIndex(BaseModel, frozen=True):
 
 
 class Indexer:
-
     source: Source
     db: DbService
     parser: Parser = Parser()
@@ -101,7 +102,6 @@ class Indexer:
             self.docs_to_index_queue.task_done()
 
     async def index_and_store(self, doc_to_index: DocToIndex) -> None:
-
         # Update document status to indexing
         indexed_doc_id = doc_to_index.indexed_doc_id
         uri = doc_to_index.source_ref.uri
@@ -126,7 +126,7 @@ class Indexer:
             )
         else:
             logging.info(f"Parsing {uri}")
-            filetype = cast(ParsableFileType, source_doc.filetype)
+            filetype = cast("ParsableFileType", source_doc.filetype)
             parsed = self.parser.parse(uri, filetype, source_doc.content)
             if await self.vector_db.is_indexed(parsed.hash):
                 logging.info(f"parsed_hash already indexed, indexing skipped for {uri}")
@@ -205,7 +205,6 @@ class Indexer:
             await self.enqueue_doc_refs(docs_enqueued)
 
     async def start(self) -> None:
-
         logging.info("Starting indexer")
         await self._init_queue()
 

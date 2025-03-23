@@ -112,7 +112,7 @@ class VectorDB:
         # if no chunks are found, return empty list
         if chunk_table.num_rows == 0:
             return []
-        parsed_doc_hashes = cast(set[str], set(chunk_table[row_parsed_content_hash].to_pylist()))
+        parsed_doc_hashes = cast("set[str]", set(chunk_table[row_parsed_content_hash].to_pylist()))
         sql_in_str = ",".join([f"'{parsed_doc_hash}'" for parsed_doc_hash in parsed_doc_hashes])
 
         parsed_table = (
@@ -130,18 +130,18 @@ class VectorDB:
         results = []
 
         for _, parsed_row in parsed_df.iterrows():
-            parsed_hash = cast(str, parsed_row[row_parsed_content_hash])
-            content = cast(str, parsed_row[row_str_content])
+            parsed_hash = cast("str", parsed_row[row_parsed_content_hash])
+            content = cast("str", parsed_row[row_str_content])
             parsed_doc = ParsedDocument(hash=parsed_hash, markdown_content=content)
 
             # Retrieve chunks efficiently using groupby dictionary
             chunk_results = [
                 ChunkResult(
                     chunk=Chunk(
-                        start_index_in_doc=cast(int, chunk_row[row_start_index_in_doc]),
-                        end_index_in_doc=cast(int, chunk_row[row_end_index_in_doc]),
+                        start_index_in_doc=cast("int", chunk_row[row_start_index_in_doc]),
+                        end_index_in_doc=cast("int", chunk_row[row_end_index_in_doc]),
                     ),
-                    distance=cast(float, chunk_row["_distance"]),  # Placeholder for distance computation
+                    distance=cast("float", chunk_row["_distance"]),  # Placeholder for distance computation
                 )
                 for _, chunk_row in chunk_groups.get_group(parsed_hash).iterrows()
             ]

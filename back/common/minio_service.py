@@ -9,6 +9,8 @@ from urllib3 import BaseHTTPResponse
 
 from minio import Minio, S3Error
 
+logging = logging.getLogger(__name__)
+
 
 class MinioSettings(BaseModel, frozen=True):
     endpoint: str
@@ -37,7 +39,6 @@ class DeleteMinioEvent(BaseModel, frozen=True):
 
 
 class MinioService:
-
     _minio_client: Minio
     _bucket_name: str
     _exit_subscription: bool = False
@@ -68,7 +69,6 @@ class MinioService:
                 yield DeleteMinioEvent(key=key)
 
     async def async_listen_notifications(self, prefix: str) -> AsyncGenerator[PutMinioEvent | DeleteMinioEvent, None]:
-
         loop = asyncio.get_running_loop()
         while True:
             try:
@@ -81,7 +81,7 @@ class MinioService:
                     my_events = self._get_event(event)
                     for my_event in my_events:
                         yield my_event
-            except asyncio.CancelledError:  # noqa: PERF203. ok as it's not a nested loop.
+            except asyncio.CancelledError:  # noqa: PERF203
                 break
             except StopIteration:
                 break
@@ -98,7 +98,6 @@ class MinioService:
         )
 
     def get_document(self, object_name: str) -> MinioObjectContent | None:
-
         file: BaseHTTPResponse | None = None
         try:
             file = self._minio_client.get_object(
@@ -120,7 +119,6 @@ class MinioService:
                 file.release_conn()
 
     def get_all_documents(self, prefix: str) -> list[MinioObject]:
-
         return [
             MinioObject(key=str(obj.object_name), etag=str(obj.etag))
             for obj in self._minio_client.list_objects(
