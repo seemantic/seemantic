@@ -64,6 +64,7 @@ async def test_client(anyio_backend: Literal["asyncio"]) -> AsyncGenerator[Async
         settings_dict = base_settings.model_dump()
         settings_dict["db"] = db_settings
         settings_dict["minio"] = minio_settings
+        settings_dict["lance_db"]["minio"] = minio_settings
         return AppSettings(**settings_dict)
 
     def get_test_indexer_settings() -> IndexerSettings:
@@ -71,6 +72,8 @@ async def test_client(anyio_backend: Literal["asyncio"]) -> AsyncGenerator[Async
         settings_dict = base_settings.model_dump()
         settings_dict["db"] = db_settings
         settings_dict["minio"] = minio_settings
+        settings_dict["lance_db"]["minio"] = minio_settings
+
         return IndexerSettings(**settings_dict)
 
     app.dependency_overrides[get_app_settings] = get_test_app_settings
