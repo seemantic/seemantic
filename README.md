@@ -2,8 +2,10 @@
 
 ## Principles
 
-* Can be self-hosted, using either APIs or local llms / embeddings
-* In Saas mode, data is as secure and private as possible while maintaining practicity
+* Self-hostabled: using either APIs or local llms / embeddings / parsing
+* Simple: it shouldn't be harder to use than a consumer app like a search engine, a cloud drive, or a chatbot
+* Enterprise-ready: it should be scalable and follow zero-trust principles (authentication, encryption, RBAC...)
+* Pragmatic: the goal is to deliver the expected result, no AI-magic or purity.
 
 ## MVP Specifications
 
@@ -17,7 +19,6 @@
 
 ## Tasks
 
-TODO: add integration tests
 TODO: add front
 TODO: add prod setup script
 TODO: fix lancedb warning ([2025-03-02T15:43:14Z WARN  lance_table::io::commit] Using unsafe commit handler. Concurrent writes may result in data loss. Consider providing a commit handler that prevents conflicting writes.)
