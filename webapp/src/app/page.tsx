@@ -1,12 +1,13 @@
 import LeftPanel from "@/components/biz/left-panel";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import MainNewChat from "@/components/biz/main-newchat";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 export default function Home() {
   return (
-    <ResizablePanelGroup direction="horizontal">
-      <ResizablePanel minSize={10} defaultSize={30} maxSize={80}><LeftPanel /></ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel>Two</ResizablePanel>
-    </ResizablePanelGroup>
+    <SidebarProvider>
+      <LeftPanel />
+      <SidebarTrigger />
+      <MainNewChat />
+    </SidebarProvider>
   );
 }

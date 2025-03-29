@@ -12,32 +12,31 @@ const items = [
     }
 ]
 
+interface LeftPanelProps {
+    className?: string; // Optional className for custom styles
+}
 
-export default function LeftPanel() {
+export default function LeftPanel({ className }: LeftPanelProps) {
     return (
-        <SidebarProvider>
-            <Sidebar className={cn(
-                "h-full w-full flex flex-col overflow-hidden",
-            )} >
-                <SidebarContent>
-                    <SidebarGroup>
-                        <SidebarGroupLabel>Application</SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <SidebarMenu>
-                                {items.map((item) => (
-                                    <SidebarMenuItem key={item.title}>
-                                        <SidebarMenuButton asChild>
-                                            <a href={item.url}>
-                                                <span>{item.title}</span>
-                                            </a>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                ))}
-                            </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                </SidebarContent>
-            </Sidebar>
-        </SidebarProvider>
+        <Sidebar >
+            <SidebarContent>
+                <SidebarGroup>
+                    <SidebarGroupLabel>Application</SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            {items.map((item) => (
+                                <SidebarMenuItem key={item.title}>
+                                    <SidebarMenuButton asChild>
+                                        <a href={item.url}>
+                                            <span>{item.title}</span>
+                                        </a>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            ))}
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+            </SidebarContent>
+        </Sidebar>
     )
 }
