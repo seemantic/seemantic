@@ -81,7 +81,7 @@ class MinioService:
                     my_events = self._get_event(event)
                     for my_event in my_events:
                         yield my_event
-            except asyncio.CancelledError:  # noqa: PERF203
+            except asyncio.CancelledError:
                 break
             except StopIteration:
                 break

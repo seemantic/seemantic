@@ -1,6 +1,6 @@
 [tool.ruff]
 # Specify the target Python version
-target-version = "py310"  # Adjust for your Python version
+target-version = "py312"  # Adjust for your Python version
 
 
 lint.select = [
