@@ -1,17 +1,20 @@
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
+import { useQuery } from "@tanstack/react-query";
 import { use, useEffect, useState } from "react";
+import { fetchApi } from "@/utils/api";
 
-const items = [
-    {
-        title: "Home",
-        url: "#",
-    },
-    {
-        title: "very lon title blablabla holala holala holala",
-        url: "#",
-    }
-]
+
+export interface ApiDocumentSnippet {
+    uri: string; // Relative path within the source
+    status: "pending" | "indexing" | "indexing_success" | "indexing_error"; // Status of the document
+    error_status_message?: string | null; // Optional error message
+    last_indexing?: string | null; // ISO 8601 string for the last indexing timestamp
+}
+
+export interface ApiExplorer {
+    documents: ApiDocumentSnippet[]; // List of ApiDocumentSnippet objects
+}
 
 interface LeftPanelProps {
     className?: string; // Optional className for custom styles
@@ -19,23 +22,25 @@ interface LeftPanelProps {
 
 export default function LeftPanel({ className }: LeftPanelProps) {
 
-    const [serverData, setServerData] = useState<any>(null); // State to store received data
+    const { data, isLoading, error } = useQuery<ApiExplorer>({
+        queryKey: ["apiExplorer"],
+        queryFn: () => fetchApi<ApiExplorer>("explorer"),
+    });
 
-
-    useEffect(() => {
-        const eventSource = new EventSource("/api/sse");
-        eventSource.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            setServerData(data); // Update state with received data
-        };
-        eventSource.onerror = (error) => {
-            console.error("Error occurred:", error);
-            eventSource.close();
-        };
-        return () => {
-            eventSource.close();
-        };
-    }, []);
+    /*     useEffect(() => {
+            const eventSource = new EventSource("/api/sse");
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                setServerData(data); // Update state with received data
+            };
+            eventSource.onerror = (error) => {
+                console.error("Error occurred:", error);
+                eventSource.close();
+            };
+            return () => {
+                eventSource.close();
+            };
+        }, []); */
 
     return (
         <Sidebar >
