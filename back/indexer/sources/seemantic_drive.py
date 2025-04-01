@@ -61,7 +61,7 @@ class SeemanticDriveSource(Source):
             return SourceDocument(
                 doc_ref=SourceDocumentReference(uri=uri, source_version_id=object_content.object.etag),
                 content=object_content.content,
-                crawling_datetime=datetime.now(tz=dt.timezone.utc),
+                crawling_datetime=datetime.now(tz=dt.UTC),
                 filetype=kind,
             )
         return None

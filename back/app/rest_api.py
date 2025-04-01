@@ -139,7 +139,7 @@ async def subscribe_to_indexed_documents_changes(
                     )
                     yield f"event: {_to_api_event_type(message.event_type)}\ndata: {api_event.model_dump_json()}\n\n"
                     events_sent += 1
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Send keep-alive comment, message starting swith ":" are ignored by the client, this prevents the connection from timing out
                     yield ":ka\n\n"
                     events_sent += 1

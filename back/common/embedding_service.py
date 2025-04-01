@@ -1,11 +1,11 @@
 from http import HTTPStatus
-from typing import Any, Final, Literal, TypeAlias
+from typing import Any, Final, Literal
 
 import httpx
 
 from common.document import Chunk, EmbeddedChunk, Embedding, ParsedDocument
 
-DistanceMetric: TypeAlias = Literal["L2", "cosine", "dot"]
+type DistanceMetric = Literal["L2", "cosine", "dot"]
 
 
 class EmbeddingService:

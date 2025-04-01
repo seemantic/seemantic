@@ -149,7 +149,7 @@ class DbService:
             await session.commit()
 
     async def create_indexed_documents(self, uris: list[str], indexer_version: int) -> dict[str, UUID]:
-        now = datetime.now(tz=dt.timezone.utc)
+        now = datetime.now(tz=dt.UTC)
 
         uri_to_id: dict[str, UUID] = {}
         async with self.session_factory() as session, session.begin():
@@ -192,7 +192,7 @@ class DbService:
         status: TableIndexedDocumentStatusEnum,
         error_status_message: str | None,
     ) -> None:
-        now = datetime.now(tz=dt.timezone.utc)
+        now = datetime.now(tz=dt.UTC)
 
         async with self.session_factory() as session, session.begin():
             # see. https://docs.sqlalchemy.org/en/20/tutorial/data_update.html#update-from
@@ -252,7 +252,7 @@ class DbService:
         indexed_source_version: str | None,
         indexed_content_id: UUID,
     ) -> None:
-        now = datetime.now(tz=dt.timezone.utc)
+        now = datetime.now(tz=dt.UTC)
         async with self.session_factory() as session, session.begin():
             await session.execute(
                 update(TableIndexedDocument)
