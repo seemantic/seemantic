@@ -1,20 +1,8 @@
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "@/components/ui/sidebar"
-import { cn } from "@/lib/utils"
 import { useQuery } from "@tanstack/react-query";
-import { use, useEffect, useState } from "react";
-import { fetchApi } from "@/utils/api";
+import { get_explorer, ApiExplorer, ApiDocumentSnippet } from "@/utils/api";
 
 
-export interface ApiDocumentSnippet {
-    uri: string; // Relative path within the source
-    status: "pending" | "indexing" | "indexing_success" | "indexing_error"; // Status of the document
-    error_status_message?: string | null; // Optional error message
-    last_indexing?: string | null; // ISO 8601 string for the last indexing timestamp
-}
-
-export interface ApiExplorer {
-    documents: ApiDocumentSnippet[]; // List of ApiDocumentSnippet objects
-}
 
 interface LeftPanelProps {
     className?: string; // Optional className for custom styles
@@ -24,7 +12,7 @@ export default function LeftPanel({ className }: LeftPanelProps) {
 
     const { data, isLoading, error } = useQuery<ApiExplorer>({
         queryKey: ["apiExplorer"],
-        queryFn: () => fetchApi<ApiExplorer>("explorer"),
+        queryFn: get_explorer,
     });
 
     /*     useEffect(() => {
@@ -42,6 +30,8 @@ export default function LeftPanel({ className }: LeftPanelProps) {
             };
         }, []); */
 
+    const docs = data?.documents || [];
+
     return (
         <Sidebar >
             <SidebarContent>
@@ -49,11 +39,11 @@ export default function LeftPanel({ className }: LeftPanelProps) {
                     <SidebarGroupLabel>Application</SidebarGroupLabel>
                     <SidebarGroupContent>
                         <SidebarMenu>
-                            {items.map((item) => (
-                                <SidebarMenuItem key={item.title}>
+                            {docs.map((doc) => (
+                                <SidebarMenuItem key={doc.uri}>
                                     <SidebarMenuButton asChild>
-                                        <a href={item.url}>
-                                            <span>{item.title}</span>
+                                        <a href={doc.uri}>
+                                            <span>{doc.uri}</span>
                                         </a>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
