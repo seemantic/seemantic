@@ -1,3 +1,4 @@
+'use client'; // Mark as a Client Component
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "@/components/ui/sidebar"
 import { useQuery } from "@tanstack/react-query";
 import { get_explorer, ApiExplorer, ApiDocumentSnippet } from "@/utils/api";
