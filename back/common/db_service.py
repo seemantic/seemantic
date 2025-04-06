@@ -341,7 +341,7 @@ class DbService:
 
         self.subscribed_clients.add(queue)
         if not self.active_connection:
-            logging.info("First listener to indexed_documents_changes events removed, Start connection")
+            logging.info("First listener to indexed_documents_changes events, Start connection")
             connection: asyncpg.Connection = await asyncpg.connect(self.raw_url)  # type: ignore[reportUnknownVariableType]
             self.active_connection = connection
             await connection.add_listener("table_changes", on_notification)  # type: ignore[reportUnknownMemberType]

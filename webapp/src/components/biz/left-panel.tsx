@@ -1,8 +1,9 @@
 'use client'; // Mark as a Client Component
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "@/components/ui/sidebar"
 import { useQuery } from "@tanstack/react-query";
-import { get_explorer, ApiExplorer, ApiDocumentSnippet } from "@/utils/api";
-
+import { get_explorer, ApiExplorer, ApiDocumentSnippet, ApiDocumentDelete, subscribeToSSE } from "@/utils/api";
+import { useState, useEffect, use } from 'react';
+import { subscribe } from "diagnostics_channel";
 
 
 interface LeftPanelProps {
@@ -16,20 +17,14 @@ export default function LeftPanel({ className }: LeftPanelProps) {
         queryFn: get_explorer,
     });
 
-    /*     useEffect(() => {
-            const eventSource = new EventSource("/api/sse");
-            eventSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                setServerData(data); // Update state with received data
-            };
-            eventSource.onerror = (error) => {
-                console.error("Error occurred:", error);
-                eventSource.close();
-            };
-            return () => {
-                eventSource.close();
-            };
-        }, []); */
+    const [updates, setUpdates] = useState([]);
+
+    useEffect(() => {
+        return subscribeToSSE<ApiDocumentSnippet | ApiDocumentDelete>("document_events", (eventType, eventData) => {
+            console.log("Received event:", eventType, eventData);
+
+        })
+    }, []);
 
     const docs = data?.documents || [];
 
