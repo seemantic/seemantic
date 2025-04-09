@@ -165,4 +165,3 @@ cython_debug/
 braindump.md
 webapp/.react-router/
 .backup/
-webapp/src/routeTree.gen.ts
