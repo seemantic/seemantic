@@ -1,13 +1,15 @@
 {
   "framework": "react",
   "projectName": "webapp",
-  "mode": "file-router",
   "typescript": true,
   "tailwind": true,
-  "packageManager": "pnpm",
+  "packageManager": "npm",
   "toolchain": "eslint+prettier",
+  "mode": "file-router",
+  "git": false,
   "variableValues": {},
-  "git": true,
   "version": 1,
-  "existingAddOns": []
+  "existingAddOns": [
+    "shadcn"
+  ]
 }
