@@ -57,7 +57,7 @@
             "configurations": [
                 "Python Debugger: Indexer",
                 "Python Debugger: FastAPI",
-                "Webapp: debug client-side"
+                "Launch Chrome against Vite dev server"
             ]
         }
     ]
