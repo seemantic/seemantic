@@ -2,21 +2,14 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Next.js: debug server-side",
-            "type": "node-terminal",
-            "request": "launch",
-            "command": "npm run dev",
-            "cwd": "${workspaceFolder}/webapp",
-        },
-        {
-            "name": "Next.js: debug client-side",
+            "name": "Launch Chrome against Vite dev server",
             "type": "chrome",
             "request": "launch",
             "url": "http://localhost:3000",
-            "cwd": "${workspaceFolder}/webapp",
+            "webRoot": "${workspaceFolder}/webapp",
         },
         {
-            "name": "Next.js: debug client-side (Firefox)",
+            "name": "Webapp debug client-side (Firefox)",
             "type": "firefox",
             "request": "launch",
             "webRoot": "${workspaceFolder}/webapp",
@@ -28,27 +21,6 @@
                     "path": "${workspaceFolder}/webapp"
                 }
             ]
-        },
-        {
-            "name": "Next.js: debug full stack",
-            "type": "node",
-            "request": "launch",
-            "cwd": "${workspaceFolder}/webapp",
-            "program": "${workspaceFolder}/webapp/node_modules/.bin/next",
-            "runtimeExecutable": "/home/nicolas/.nvm/versions/node/v22.14.0/bin/node",
-            "runtimeArgs": [
-                "--inspect"
-            ],
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "serverReadyAction": {
-                "action": "debugWithChrome",
-                "killOnServerStop": true,
-                "pattern": "- Local:.+(https?://.+)",
-                "uriFormat": "%s",
-                "webRoot": "${workspaceFolder}/webapp"
-            }
         },
         {
             "name": "Python Debugger: Current File",
@@ -85,7 +57,7 @@
             "configurations": [
                 "Python Debugger: Indexer",
                 "Python Debugger: FastAPI",
-                "Next.js: debug full stack"
+                "Webapp: debug client-side"
             ]
         }
     ]
