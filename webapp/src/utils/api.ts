@@ -1,11 +1,12 @@
-// export const fetchApi = async <T>(route: string): Promise<T> => {
-//     const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/${route}`
-//     const response = await fetch(url);
-//     if (!response.ok) {
-//         throw new Error(`HTTP error! Status: ${response.status} - ${response.statusText}`);
-//     }
-//     return (await response.json()) as T;
-// };
+export const fetchApi = async <T>(route: string): Promise<T> => {
+
+    const url = `${import.meta.env.VITE_API_URL}/api/v1/${route}`
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status} - ${response.statusText}`);
+    }
+    return (await response.json()) as T;
+};
 
 // export const subscribeToSSE = <T>(route: string, callback: (eventType: string, data: T) => void): () => void => {
 //     const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/${route}`
@@ -23,7 +24,7 @@
 //     };
 // };
 
-type ApiEventType = "update" | "delete";
+// type ApiEventType = "update" | "delete";
 
 export interface ApiDocumentDelete {
     uri: string; // Relative path within the source
@@ -40,4 +41,4 @@ export interface ApiExplorer {
 }
 
 
-//export const get_explorer = (): Promise<ApiExplorer> => fetchApi<ApiExplorer>("explorer")
+export const get_explorer = (): Promise<ApiExplorer> => fetchApi<ApiExplorer>("explorer")
