@@ -4,7 +4,7 @@ import { getRouteApi } from '@tanstack/react-router'
 
 export default function LeftPanel() {
 
-    const route = getRouteApi("/")
+    const route = getRouteApi("/_app/")
     const data = route.useLoaderData()
     const docs = data.documents
 

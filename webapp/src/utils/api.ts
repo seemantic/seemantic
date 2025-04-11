@@ -42,3 +42,4 @@ export interface ApiExplorer {
 
 
 export const get_explorer = (): Promise<ApiExplorer> => fetchApi<ApiExplorer>("explorer")
+
