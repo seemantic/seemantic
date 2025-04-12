@@ -2,21 +2,11 @@ import React, { useState } from 'react';
 import { Input } from "@/components/ui/input"; // Adjust the import path based on your project structure
 import { Button } from '../ui/button';
 import { ChevronRight } from "lucide-react";
-import { useNavigate } from '@tanstack/react-router'; // Import useNavigate
+import { Link } from '@tanstack/react-router'; // Import Link
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 
 const MainNewChat: React.FC = () => {
     const [inputValue, setInputValue] = useState(""); // State for input value
-    const navigate = useNavigate(); // Initialize navigate function
-
-    const handleButtonClick = () => {
-        if (inputValue.trim()) {
-            navigate({
-                to: '/search', // Replace with your search route
-                search: { q: inputValue }, // Pass the input value as the "q" parameter
-            });
-        }
-    };
 
     return (
         <div className="flex justify-center items-center h-screen w-full">
@@ -33,9 +23,15 @@ const MainNewChat: React.FC = () => {
                         onChange={(e) => setInputValue(e.target.value)} // Update state on input change
                     />
                     <div className="ml-2">
-                        <Button variant="default" onClick={handleButtonClick}>
-                            <ChevronRight />
-                        </Button>
+                        <Link
+                            to="/search" // Replace with your search route
+                            search={{ q: inputValue }} // Pass the input value as the "q" parameter
+                            className="inline-flex"
+                        >
+                            <Button variant="default" disabled={!inputValue.trim()}>
+                                <ChevronRight />
+                            </Button>
+                        </Link>
                     </div>
                 </CardContent>
             </Card>
