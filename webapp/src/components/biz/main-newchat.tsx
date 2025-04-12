@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input"; // Adjust the import path based o
 import { Button } from '../ui/button';
 import { ChevronRight } from "lucide-react";
 import { useNavigate } from '@tanstack/react-router'; // Import useNavigate
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 
 const MainNewChat: React.FC = () => {
     const [inputValue, setInputValue] = useState(""); // State for input value
@@ -19,18 +20,25 @@ const MainNewChat: React.FC = () => {
 
     return (
         <div className="flex justify-center items-center h-screen w-full">
-            <Input
-                type="text"
-                placeholder="Talk to your documents"
-                className="w-120"
-                value={inputValue} // Bind input value to state
-                onChange={(e) => setInputValue(e.target.value)} // Update state on input change
-            />
-            <div className="ml-2">
-                <Button variant="default" onClick={handleButtonClick}>
-                    <ChevronRight />
-                </Button>
-            </div>
+            <Card>
+                <CardHeader className="text-center">
+                    <CardTitle>Talk to your documents</CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center">
+                    <Input
+                        type="text"
+                        placeholder="Question or search term"
+                        className="w-120"
+                        value={inputValue} // Bind input value to state
+                        onChange={(e) => setInputValue(e.target.value)} // Update state on input change
+                    />
+                    <div className="ml-2">
+                        <Button variant="default" onClick={handleButtonClick}>
+                            <ChevronRight />
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 };
