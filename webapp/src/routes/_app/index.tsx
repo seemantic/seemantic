@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import MainNewChat from "@/components/biz/main-newchat";
+import ChatCard from '@/components/biz/ChatCard';
 
 export const Route = createFileRoute('/_app/')({
   component: App
@@ -8,7 +8,9 @@ export const Route = createFileRoute('/_app/')({
 function App() {
 
   return (
-    <MainNewChat />
+    <div className="flex justify-center items-center h-screen w-full">
+      <ChatCard />
+    </div>
   )
 }
 

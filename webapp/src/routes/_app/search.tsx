@@ -17,5 +17,10 @@ const routeApi = getRouteApi('/_app/search')
 function RouteComponent() {
   const searchParams = routeApi.useSearch()
   const { q } = searchParams
+
+
+
+
+  
   return <div>{q}</div>
 }
