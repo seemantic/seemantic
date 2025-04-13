@@ -1,6 +1,10 @@
 import { createFileRoute, getRouteApi } from '@tanstack/react-router'
 import ChatCard from '../../components/biz/ChatCard' // Adjust the import path as needed
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@/components/ui/resizable'
 
 type SearchParams = {
   q: string
@@ -9,7 +13,7 @@ type SearchParams = {
 export const Route = createFileRoute('/_app/search')({
   component: RouteComponent,
   validateSearch: (search: Record<string, unknown>): SearchParams => {
-    return { q: search.q as string || '' }
+    return { q: (search.q as string) || '' }
   },
 })
 
@@ -20,14 +24,15 @@ function RouteComponent() {
   const { q } = searchParams
 
   return (
-
     <ResizablePanelGroup direction="horizontal">
-      <ResizablePanel>      <div className="flex justify-center items-center h-screen w-full">
-        <ChatCard />
-      </div></ResizablePanel>
+      <ResizablePanel>
+        {' '}
+        <div className="flex justify-center items-center h-screen w-full">
+          <ChatCard />
+        </div>
+      </ResizablePanel>
       <ResizableHandle />
       <ResizablePanel>Two</ResizablePanel>
     </ResizablePanelGroup>
-
   )
 }

@@ -11,5 +11,16 @@
     "editor.formatOnSave": true,
     "python.linting.enabled": true,
     "python.linting.pylintEnabled": true,
-    "python.linting.lintOnSave": true
+    "python.linting.lintOnSave": true,
+    "prettier.ignorePath": "webapp/.prettierignore",
+    "prettier.configPath": "webapp/prettier.config.js",
+  
+    "[typescript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescriptreact]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    }
+      
+      
 }
