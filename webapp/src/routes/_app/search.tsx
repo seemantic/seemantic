@@ -24,15 +24,19 @@ function RouteComponent() {
   const { q } = searchParams
 
   return (
-    <ResizablePanelGroup direction="horizontal">
-      <ResizablePanel>
-        {' '}
-        <div className="flex justify-center items-center h-screen w-full">
-          <ChatCard />
-        </div>
-      </ResizablePanel>
-      <ResizableHandle />
-      <ResizablePanel>Two</ResizablePanel>
-    </ResizablePanelGroup>
+    <div className="flex h-screen w-full">
+      <ResizablePanelGroup direction="horizontal">
+        <ResizablePanel>
+          <div className="flex flex-col h-full">
+            <div className="flex-1">{q}</div>
+            <div>
+              <ChatCard />
+            </div>
+          </div>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel>Two</ResizablePanel>
+      </ResizablePanelGroup>
+    </div>
   )
 }
