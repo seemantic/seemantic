@@ -1,5 +1,11 @@
 # seemantic
 
+## Installation
+
+You will need:
+* nvm
+* uv (with python 3.12)
+
 ## Principles
 
 * Self-hostabled: using either APIs or local llms / embeddings / parsing
