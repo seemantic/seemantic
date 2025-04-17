@@ -29,7 +29,7 @@ function RouteComponent() {
         <ResizablePanel>
           <div className="flex flex-col h-full">
             <div className="flex-1">{q}</div>
-            <div>
+            <div className="w-full flex justify-center">
               <ChatCard />
             </div>
           </div>
