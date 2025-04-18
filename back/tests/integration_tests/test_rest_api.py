@@ -10,7 +10,14 @@ from httpx import ASGITransport, AsyncClient
 from testcontainers.minio import MinioContainer
 from testcontainers.postgres import PostgresContainer
 
-from app.rest_api import ApiDocumentDelete, ApiDocumentSnippet, ApiEventType, ApiExplorer, QueryResponse
+from app.rest_api import (
+    ApiDocumentDelete,
+    ApiDocumentSnippet,
+    ApiEventType,
+    ApiExplorer,
+    ApiSearchResult,
+    QueryResponseUpdate,
+)
 from app.settings import Settings as AppSettings
 from app.settings import get_settings as get_app_settings
 from common.db_service import DbSettings
@@ -171,10 +178,23 @@ def check_events_valid(uri: str, events: list[DocEvent]) -> None:
     assert val_success.uri == uri
 
 
-async def query(client: AsyncClient, query: str) -> QueryResponse:
-    response = await client.post("/api/v1/queries", json={"query": query})
-    data = response.json()
-    return QueryResponse.model_validate(data)
+async def query(client: AsyncClient, query: str) -> QueryResponseUpdate:
+    response = await client.get("/api/v1/queries", params={"q": query})
+    assert response.status_code == 200
+
+    full_response_content: str = ""
+    search_results: list[ApiSearchResult] = []
+    # split will add en empty element after the last message, we remove it
+    for sse_line in response.text.split("\n\n")[:-1]:
+        json = sse_line.split(": ")[1]
+        update = QueryResponseUpdate.model_validate_json(json)
+        full_response_content += update.delta_answer or ""
+        if update.search_result:
+            search_results = update.search_result
+    return QueryResponseUpdate(
+        delta_answer=full_response_content,
+        search_result=search_results,
+    )
 
 
 @pytest.mark.anyio
@@ -194,7 +214,8 @@ async def test_upload_file(test_client: AsyncClient) -> None:
 
     # 3. make a request
     response = await query(test_client, "what is seemantic?")
-    assert "rag" in response.answer.lower()
+    assert response.delta_answer
+    assert "rag" in response.delta_answer.lower()
     explorer = await get_explorer(test_client)
     assert len(explorer) == 1
     doc = explorer[0]
@@ -205,8 +226,9 @@ async def test_upload_file(test_client: AsyncClient) -> None:
     await upload_file(test_client, uri, b"# What is seemantic ? It's a webapp")
     await asyncio.sleep(1)
     response = await query(test_client, "what is seemantic?")
-    assert "webapp" in response.answer.lower()
-    assert "rag" not in response.answer.lower()
+    assert response.delta_answer
+    assert "web" in response.delta_answer.lower()
+    assert "rag" not in response.delta_answer.lower()
 
     # 5. delete doc
     await test_client.delete(f"/api/v1/files/{uri}")

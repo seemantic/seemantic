@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator
+
 from mistralai import Mistral
 
 from app.search_engine import SearchResult
@@ -16,32 +18,30 @@ def on_result_context(search_result: SearchResult) -> str:
 
 
 def all_results_context(search_results: list[SearchResult]) -> str:
-
     return "\n\n".join([on_result_context(r) for r in search_results])
 
 
 class Generator:
-
     mistral_client: Mistral
     model = "mistral-small-latest"
 
     def __init__(self, mistral_api_key: str) -> None:
         self.mistral_client = Mistral(api_key=mistral_api_key)
 
-    def generate(self, user_query: str, search_result: list[SearchResult]) -> str:
-
+    async def generate(self, user_query: str, search_result: list[SearchResult]) -> AsyncGenerator[str, None]:
         prompt = f"""
         Context information is below.
         ---------------------
         {all_results_context(search_result)}
         ---------------------
-        Given the context information and not prior knowledge, answer the query.
+        Given the context infor/fixmation and not prior knowledge, answer the query.
         Query: {user_query}
         Answer:
         """
 
-        chat_response = self.mistral_client.chat.complete(
+        stream = await self.mistral_client.chat.stream_async(
             model=self.model,
+            stream=True,
             messages=[
                 {
                     "role": "user",
@@ -49,16 +49,9 @@ class Generator:
                 },
             ],
         )
-
-        choices = chat_response.choices
-        if not choices:
-            raise ValueError("No choices in response")
-
-        content = choices[0].message.content
-
-        if not content:
-            raise ValueError("No content in response")
-
-        if isinstance(content, str):
-            return content
-        raise ValueError("Content is not a string")
+        async for chunk in stream:
+            choices = chunk.data.choices
+            if choices:
+                chunk_content = choices[0].delta.content
+                if chunk_content is not None and isinstance(chunk_content, str):
+                    yield chunk_content

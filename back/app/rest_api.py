@@ -66,6 +66,16 @@ class ApiExplorer(BaseModel):
     documents: list[ApiDocumentSnippet]
 
 
+class ApiSearchResultChunk(BaseModel):
+    content: str
+    start_index_in_doc: int
+    end_index_in_doc: int
+
+class ApiSearchResult(BaseModel):
+    uri: str
+    chunks: list[ApiSearchResultChunk]
+
+
 def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
     return ApiDocumentSnippet(
         uri=db_doc.uri,
@@ -83,25 +93,50 @@ async def get_explorer(db_service: DepDbService, settings: DepSettings) -> ApiEx
     return ApiExplorer(documents=api_docs)
 
 
-class QueryResponse(BaseModel):
-    answer: str
-    search_result: list[SearchResult]
-    chunks_content: dict[str, float]  # to delete
+class QueryResponseUpdate(BaseModel):
+    # if not None, it's the continuation of the answer
+    # if None, keep the previous answer.
+    delta_answer: str | None
+    # if None, keep the previous result.
+    # if not None, it replace the previous search result
+    search_result: list[ApiSearchResult] | None
 
+def _to_api_search_result(search_result: SearchResult) -> ApiSearchResult:
+    return ApiSearchResult(
+        uri=search_result.db_document.uri,
+        chunks=[
+            ApiSearchResultChunk(
+                content=search_result.parsed_document[c.chunk],
+                start_index_in_doc=c.chunk.start_index_in_doc,
+                end_index_in_doc=c.chunk.end_index_in_doc,
+            )
+            for c in search_result.chunks
+        ],
+    )
 
-class QueryRequest(BaseModel):
-    query: str
+@router.get("/queries")
+async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, q: str) -> StreamingResponse:
 
+    async def event_generator() -> AsyncGenerator[str, None]:
+        search_results = await search_engine.search(q)
+        yield _to_untyped_sse_event(
+            QueryResponseUpdate(
+                delta_answer=None,
+                search_result=[
+                    _to_api_search_result(r) for r in search_results
+                ],
+            ),
+        )
+        answer_stream = generator.generate(q, search_results)
+        async for chunk in answer_stream:
+            yield _to_untyped_sse_event(
+                QueryResponseUpdate(
+                    delta_answer=chunk,
+                    search_result=None,
+                ),
+            )
 
-@router.post("/queries")
-async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, query: QueryRequest) -> QueryResponse:
-    search_results = await search_engine.search(query.query)
-    chunks_content = {
-        result.parsed_document[chunk.chunk]: chunk.distance for result in search_results for chunk in result.chunks
-    }
-    answer = generator.generate(query.query, search_results)
-    return QueryResponse(answer=answer, search_result=search_results, chunks_content=chunks_content)
-
+    return _to_streaming_response(event_generator())
 
 ApiEventType = Literal["update", "delete"]
 
@@ -109,6 +144,12 @@ ApiEventType = Literal["update", "delete"]
 def _to_api_event_type(db_event_type: DbEventType) -> ApiEventType:
     return "delete" if db_event_type == "delete" else "update"
 
+
+def _to_sse_event(event_type: str, data: BaseModel) -> str:
+    return f"event: {event_type}\ndata: {data.model_dump_json()}\n\n"
+
+def _to_untyped_sse_event(data: BaseModel) -> str:
+    return f"data: {data.model_dump_json()}\n\n"
 
 @router.get("/document_events")
 async def subscribe_to_indexed_documents_changes(
@@ -137,7 +178,7 @@ async def subscribe_to_indexed_documents_changes(
                         if message.event_type != "delete"
                         else ApiDocumentDelete(uri=message.document.uri)
                     )
-                    yield f"event: {_to_api_event_type(message.event_type)}\ndata: {api_event.model_dump_json()}\n\n"
+                    yield _to_sse_event(_to_api_event_type(message.event_type), api_event)
                     events_sent += 1
                 except TimeoutError:
                     # Send keep-alive comment, message starting swith ":" are ignored by the client, this prevents the connection from timing out
@@ -147,8 +188,13 @@ async def subscribe_to_indexed_documents_changes(
             # Clean up on disconnect
             await db_service.removed_listener_to_indexed_documents_changes(event_queue)
 
+    return _to_streaming_response(event_generator())
+
+def _to_streaming_response(
+    generator: AsyncGenerator[str, None],
+) -> StreamingResponse:
     return StreamingResponse(
-        event_generator(),
+        generator,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
