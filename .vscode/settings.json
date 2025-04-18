@@ -1,4 +1,11 @@
 {
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.ruff": "always", // General fix all (works with ESLint, Ruff, etc.)
+    "source.fixAll.eslint": "always",
+    "source.unusedImports": "always",
+    "source.organizeImports": "always" // Organize imports (for JS/TS, also works for Python with Ruff)
+  },
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
   // execution path to run pytest is the /back folder
@@ -7,15 +14,13 @@
     // from /back folder execution path, pytest config is at root (hence ".") inside the pyproject
     "."
   ],
-  "python.formatting.provider": "black",
-  "editor.formatOnSave": true,
-  "python.linting.enabled": true,
-  "python.linting.pylintEnabled": true,
-  "python.linting.lintOnSave": true,
   "prettier.ignorePath": "webapp/.prettierignore",
   "prettier.configPath": "webapp/prettier.config.js",
   "python.defaultInterpreterPath": "${workspaceFolder}/back/.venv/bin/python",
-  "python.venvPath": "${workspaceFolder}/back/.venv",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.python",
+    "editor.formatOnSave": true
+  },
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
