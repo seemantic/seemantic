@@ -114,9 +114,13 @@ def _to_api_search_result(search_result: SearchResult) -> ApiSearchResult:
         ],
     )
 
-@router.get("/queries")
-async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, q: str) -> StreamingResponse:
 
+class UserQuery(BaseModel):
+    query: str
+
+@router.post("/queries")
+async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, query: UserQuery) -> StreamingResponse:
+    q = query.query
     async def event_generator() -> AsyncGenerator[str, None]:
         search_results = await search_engine.search(q)
         yield _to_untyped_sse_event(

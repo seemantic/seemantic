@@ -17,6 +17,7 @@ from app.rest_api import (
     ApiExplorer,
     ApiSearchResult,
     QueryResponseUpdate,
+    UserQuery,
 )
 from app.settings import Settings as AppSettings
 from app.settings import get_settings as get_app_settings
@@ -179,7 +180,8 @@ def check_events_valid(uri: str, events: list[DocEvent]) -> None:
 
 
 async def query(client: AsyncClient, query: str) -> QueryResponseUpdate:
-    response = await client.get("/api/v1/queries", params={"q": query})
+    query_json = UserQuery(query=query).model_dump()
+    response = await client.post("/api/v1/queries", json=query_json)
     assert response.status_code == 200
 
     full_response_content: str = ""
