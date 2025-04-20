@@ -4,7 +4,7 @@
     "source.fixAll.ruff": "always", // General fix all (works with ESLint, Ruff, etc.)
     "source.fixAll.eslint": "always",
     "source.unusedImports": "always",
-    "source.organizeImports": "always" // Organize imports (for JS/TS, also works for Python with Ruff)
+    "source.organizeImports": "always"
   },
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
