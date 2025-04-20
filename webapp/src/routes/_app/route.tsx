@@ -1,5 +1,5 @@
 import LeftPanel from '@/components/biz/LeftPanel'
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/shadcn/sidebar'
+import { SidebarProvider, SidebarTrigger } from '@/shadcn/components/ui/sidebar'
 import { get_explorer } from '@/utils/api'
 import { Outlet, createFileRoute } from '@tanstack/react-router'
 

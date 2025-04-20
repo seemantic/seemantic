@@ -4,25 +4,25 @@ import { cva } from 'class-variance-authority'
 import { PanelLeftIcon } from 'lucide-react'
 import * as React from 'react'
 
-import { Button } from '@/components/ui/shadcn/button'
-import { Input } from '@/components/ui/shadcn/input'
-import { Separator } from '@/components/ui/shadcn/separator'
+import { Button } from '@/shadcn/components/ui/button'
+import { Input } from '@/shadcn/components/ui/input'
+import { Separator } from '@/shadcn/components/ui/separator'
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from '@/components/ui/shadcn/sheet'
-import { Skeleton } from '@/components/ui/shadcn/skeleton'
+} from '@/shadcn/components/ui/sheet'
+import { Skeleton } from '@/shadcn/components/ui/skeleton'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/shadcn/tooltip'
-import { useIsMobile } from '@/hooks/shadcn/use-mobile'
-import { cn } from '@/lib/shadcn/utils'
+} from '@/shadcn/components/ui/tooltip'
+import { useIsMobile } from '@/shadcn/hooks/use-mobile'
+import { cn } from '@/shadcn/lib/utils'
 
 const SIDEBAR_COOKIE_NAME = 'sidebar_state'
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7

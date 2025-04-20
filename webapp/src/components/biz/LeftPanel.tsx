@@ -7,7 +7,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from '@/components/ui/shadcn/sidebar'
+} from '@/shadcn/components/ui/sidebar'
 import { getRouteApi } from '@tanstack/react-router'
 
 export default function LeftPanel() {

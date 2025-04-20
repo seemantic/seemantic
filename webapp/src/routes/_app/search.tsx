@@ -2,7 +2,7 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '@/components/ui/shadcn/resizable'
+} from '@/shadcn/components/ui/resizable'
 import { createFileRoute, getRouteApi } from '@tanstack/react-router'
 import { createEventSource } from 'eventsource-client'
 import { useEffect } from 'react'
