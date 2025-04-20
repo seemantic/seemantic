@@ -1,5 +1,5 @@
 import { Outlet, createFileRoute } from '@tanstack/react-router'
-import LeftPanel from '@/components/biz/leftPanel'
+import LeftPanel from '@/components/biz/LeftPanel'
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { get_explorer } from '@/utils/api'
 
