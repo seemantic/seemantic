@@ -9,4 +9,4 @@ const disableImport = {
     },
 }
 
-export default [disableImport,...tanstackConfig]
+export default [...tanstackConfig, disableImport]
