@@ -1,7 +1,7 @@
-import { Outlet, createFileRoute } from '@tanstack/react-router'
 import LeftPanel from '@/components/biz/LeftPanel'
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/shadcn/sidebar'
 import { get_explorer } from '@/utils/api'
+import { Outlet, createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_app')({
   component: RouteComponent,
