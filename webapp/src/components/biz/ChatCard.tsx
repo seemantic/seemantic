@@ -1,8 +1,8 @@
+import { Button } from '@/shadcn/components/ui/button'
 import { Input } from '@/shadcn/components/ui/input' // Adjust the import path based on your project structure
 import { useNavigate } from '@tanstack/react-router' // Import useNavigate
 import { ChevronRight } from 'lucide-react'
 import React, { useState } from 'react'
-import { Button } from '../../shadcn/components/ui/button'
 
 const ChatCard: React.FC = () => {
   const [inputValue, setInputValue] = useState('') // State for input value
