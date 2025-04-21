@@ -1,4 +1,4 @@
-export const apiUrl = `${import.meta.env.VITE_API_URL}/api/v1/`
+export const apiUrl = `${import.meta.env.VITE_API_URL}/api/v1`
 
 export const fetchApi = async <T>(route: string): Promise<T> => {
   const url = `${apiUrl}/${route}`
@@ -11,23 +11,21 @@ export const fetchApi = async <T>(route: string): Promise<T> => {
   return (await response.json()) as T
 }
 
-// export const subscribeToSSE = <T>(route: string, callback: (eventType: string, data: T) => void): () => void => {
-//     const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/${route}`
-//     const eventSource = new EventSource(url);
-//     eventSource.addEventListener("update",(event) => {
-//         const data = JSON.parse(event.data);
-//         callback(event.type, data);
-//     });
-//     eventSource.onerror = (error) => {
-//         throw new Error(JSON.stringify(error));
-//         eventSource.close();
-//     };
-//     return () => {
-//         eventSource.close();
-//     };
-// };
+export interface QueryResponseUpdate {
+  delta_answer: string | null // If not null, it's the continuation of the answer. If null, keep the previous answer.
+  search_result: Array<ApiSearchResult> | null // If null, keep the previous result. If not null, it replaces the previous search result.
+}
 
-// type ApiEventType = "update" | "delete";
+export interface ApiSearchResultChunk {
+  content: string // Content of the chunk
+  start_index_in_doc: number // Start index in the document
+  end_index_in_doc: number // End index in the document
+}
+
+export interface ApiSearchResult {
+  uri: string // URI of the document
+  chunks: Array<ApiSearchResultChunk> // List of chunks in the document
+}
 
 export interface ApiDocumentDelete {
   uri: string // Relative path within the source

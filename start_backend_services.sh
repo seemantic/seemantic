@@ -11,7 +11,7 @@ ps ux | grep main_indexer | grep -v grep | awk '{print $2}' | xargs -r -I{} sh -
 ./back/minio/start.sh
 cd back
 python -m main_indexer &
-uvicorn main:app --reload &
+uvicorn main:app &
 cd ..
 cd webapp
 npm run start &
