@@ -2,11 +2,16 @@
 
 import { tanstackConfig } from '@tanstack/eslint-config'
 
-
 const disableImport = {
     rules: {
         "import/order": "off",
     },
 }
 
-export default [...tanstackConfig, disableImport]
+export default [
+    {
+        ignores: ["src/shadcn/**"],
+    },
+    ...tanstackConfig,
+    disableImport,
+]
