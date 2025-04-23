@@ -18,6 +18,9 @@ class PromptBuilder(BaseModel):
         content = parsed_document.markdown_content
         matches = self.header_pattern.finditer(content)
         start_sections: list[int] = [m.start() for m in matches]
+        # The begining of a document is always a section
+        if not start_sections or start_sections[0] != 0:
+            start_sections.insert(0, 0)
         start_sections.append(len(content))  # fictive section starting after the end of the document to simplify loop
         points: list[tuple[int, float]] = [(p.chunk.start_index_in_doc, p.distance) for p in chunks]
         points.extend((p.chunk.end_index_in_doc, p.distance) for p in chunks)
