@@ -1,4 +1,5 @@
 import type { QueryResponseUpdate } from '@/utils/api'
+import { apiUrl } from '@/utils/api'
 import { createEventSource } from 'eventsource-client'
 import React from 'react'
 
@@ -13,18 +14,22 @@ const StreamedResponsePanel: React.FC<StreamedResponsePanelProps> = ({
 
   const connect = async () => {
     const es = createEventSource({
-      url: '${apiUrl}/queries',
+      url: `${apiUrl}/queries`,
       method: 'POST',
       body: JSON.stringify({ query }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
     })
 
     for await (const { data } of es) {
-      const queryResponseUpdate: QueryResponseUpdate = JSON.parse(data)
+      const queryResponseUpdate: QueryResponseUpdate = 
+      JSON.parse(data)
       if (queryResponseUpdate.delta_answer) {
         setAnswer((prev: string) => prev + queryResponseUpdate.delta_answer)
       }
-      es.close()
     }
+    es.close()
   }
 
   React.useEffect(() => {
