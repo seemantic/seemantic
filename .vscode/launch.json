@@ -23,6 +23,18 @@
             ]
         },
         {
+            "type": "node",
+            "request": "launch",
+            "name": "Start Webapp (npm)",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "start"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/webapp"
+        },
+        {
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
@@ -57,6 +69,7 @@
             "configurations": [
                 "Python Debugger: Indexer",
                 "Python Debugger: FastAPI",
+                "Start Webapp (npm)",
                 "Launch Chrome against Vite dev server"
             ]
         }
