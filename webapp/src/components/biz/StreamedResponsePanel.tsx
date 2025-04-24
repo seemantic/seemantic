@@ -1,6 +1,6 @@
 import type { QueryResponseUpdate } from '@/utils/api'
 import { apiUrl } from '@/utils/api'
-import { createEventSource } from 'eventsource-client'
+import { fetchEventSource } from '@microsoft/fetch-event-source'
 import React from 'react'
 
 interface StreamedResponsePanelProps {
@@ -12,34 +12,39 @@ const StreamedResponsePanel: React.FC<StreamedResponsePanelProps> = ({
 }) => {
   const [answer, setAnswer] = React.useState<string>('')
 
-  const connect = async () => {
-    const es = createEventSource({
-      url: `${apiUrl}/queries`,
-      method: 'POST',
-      body: JSON.stringify({ query }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    for await (const { data } of es) {
-      const queryResponseUpdate: QueryResponseUpdate = 
-      JSON.parse(data)
-      if (queryResponseUpdate.delta_answer) {
-        setAnswer((prev: string) => prev + queryResponseUpdate.delta_answer)
-      }
-    }
-    es.close()
-  }
-
   React.useEffect(() => {
+    const abortController = new AbortController()
+
+    const connect = async () => {
+      await fetchEventSource(`${apiUrl}/queries`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json', // Use application/json for the request body
+          Accept: 'text/event-stream', // Specify we accept SSE
+        },
+        body: JSON.stringify({ query }),
+        signal: abortController.signal,
+        onmessage: (event) => {
+          const queryResponseUpdate: QueryResponseUpdate = JSON.parse(
+            event.data,
+          )
+          if (queryResponseUpdate.delta_answer) {
+            setAnswer((prev: string) => prev + queryResponseUpdate.delta_answer)
+          }
+        },
+      })
+    }
+
     connect()
-    return () => {}
+
+    // Cleanup function to abort the connection when the component unmounts or query changes
+    return () => {
+      abortController.abort()
+    }
   }, [query])
 
   return (
     <div className="streamed-response-panel">
-      <h2>{answer}</h2>
       <div className="content">{answer}</div>
     </div>
   )
