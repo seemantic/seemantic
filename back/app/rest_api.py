@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.app_services import DepDbService, DepGenerator, DepMinioService, DepSearchEngine
+from app.generator import ChatMessage
 from app.search_engine import SearchResult
 from app.settings import DepSettings
 from common.db_service import DbDocument, DbEventType, DbIndexedDocumentEvent
@@ -115,23 +116,41 @@ def _to_api_search_result(search_result: SearchResult) -> ApiSearchResult:
     )
 
 
-class UserQuery(BaseModel):
+class ApiMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+class ApiUserQuery(BaseModel):
     query: str
+    previous_messages: list[ApiMessage]
+
 
 @router.post("/queries")
-async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, query: UserQuery) -> StreamingResponse:
-    q = query.query
+async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, query: ApiUserQuery) -> StreamingResponse:
+
+    search_results = None
+    if not query.previous_messages:
+        search_results = await search_engine.search(query.query)
+
     async def event_generator() -> AsyncGenerator[str, None]:
-        search_results = await search_engine.search(q)
-        yield _to_untyped_sse_event(
-            QueryResponseUpdate(
-                delta_answer=None,
-                search_result=[
-                    _to_api_search_result(r) for r in search_results
+        if search_results:
+            yield _to_untyped_sse_event(
+                QueryResponseUpdate(
+                    delta_answer=None,
+                    search_result=[
+                        _to_api_search_result(r) for r in search_results
+                    ],
+                ),
+            )
+            answer_stream = generator.generate(query.query, search_results)
+        else:
+            answer_stream = generator.generate_from_conversation(
+                query.query,
+                [
+                    ChatMessage(role=message.role, content=message.content)
+                    for message in query.previous_messages
                 ],
-            ),
-        )
-        answer_stream = generator.generate(q, search_results)
+            )
         async for chunk in answer_stream:
             yield _to_untyped_sse_event(
                 QueryResponseUpdate(
@@ -141,6 +160,8 @@ async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, 
             )
 
     return _to_streaming_response(event_generator())
+
+    raise HTTPException(status_code=400, detail="Only one message is supported for now")
 
 ApiEventType = Literal["update", "delete"]
 
