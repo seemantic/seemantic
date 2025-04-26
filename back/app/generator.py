@@ -1,8 +1,7 @@
 from collections.abc import AsyncGenerator
-from typing import Literal, cast
+from typing import Literal, TypedDict, cast
 
 from mistralai import ChatCompletionStreamRequestMessagesTypedDict, Mistral
-from pydantic import BaseModel
 
 from app.search_engine import SearchResult
 
@@ -23,7 +22,7 @@ def all_results_context(search_results: list[SearchResult]) -> str:
     return "\n\n".join([on_result_context(r) for r in search_results])
 
 
-class ChatMessage(BaseModel):
+class ChatMessage(TypedDict):
     role: Literal["user", "assistant"]
     content: str
 
