@@ -72,6 +72,7 @@ class ApiSearchResultChunk(BaseModel):
     start_index_in_doc: int
     end_index_in_doc: int
 
+
 class ApiSearchResult(BaseModel):
     uri: str
     chunks: list[ApiSearchResultChunk]
@@ -102,6 +103,7 @@ class QueryResponseUpdate(BaseModel):
     # if not None, it replace the previous search result
     search_result: list[ApiSearchResult] | None
 
+
 def _to_api_search_result(search_result: SearchResult) -> ApiSearchResult:
     return ApiSearchResult(
         uri=search_result.db_document.uri,
@@ -120,13 +122,16 @@ class ApiMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str
 
+
 class ApiUserQuery(BaseModel):
     query: str
     previous_messages: list[ApiMessage]
 
 
 @router.post("/queries")
-async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, query: ApiUserQuery) -> StreamingResponse:
+async def create_query(
+    search_engine: DepSearchEngine, generator: DepGenerator, query: ApiUserQuery,
+) -> StreamingResponse:
 
     search_results = None
     if not query.previous_messages:
@@ -137,19 +142,14 @@ async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, 
             yield _to_untyped_sse_event(
                 QueryResponseUpdate(
                     delta_answer=None,
-                    search_result=[
-                        _to_api_search_result(r) for r in search_results
-                    ],
+                    search_result=[_to_api_search_result(r) for r in search_results],
                 ),
             )
             answer_stream = generator.generate(query.query, search_results)
         else:
             answer_stream = generator.generate_from_conversation(
                 query.query,
-                [
-                    ChatMessage(role=message.role, content=message.content)
-                    for message in query.previous_messages
-                ],
+                [ChatMessage(role=message.role, content=message.content) for message in query.previous_messages],
             )
         async for chunk in answer_stream:
             yield _to_untyped_sse_event(
@@ -163,6 +163,7 @@ async def create_query(search_engine: DepSearchEngine, generator: DepGenerator, 
 
     raise HTTPException(status_code=400, detail="Only one message is supported for now")
 
+
 ApiEventType = Literal["update", "delete"]
 
 
@@ -173,8 +174,10 @@ def _to_api_event_type(db_event_type: DbEventType) -> ApiEventType:
 def _to_sse_event(event_type: str, data: BaseModel) -> str:
     return f"event: {event_type}\ndata: {data.model_dump_json()}\n\n"
 
+
 def _to_untyped_sse_event(data: BaseModel) -> str:
     return f"data: {data.model_dump_json()}\n\n"
+
 
 @router.get("/document_events")
 async def subscribe_to_indexed_documents_changes(
@@ -214,6 +217,7 @@ async def subscribe_to_indexed_documents_changes(
             await db_service.removed_listener_to_indexed_documents_changes(event_queue)
 
     return _to_streaming_response(event_generator())
+
 
 def _to_streaming_response(
     generator: AsyncGenerator[str, None],

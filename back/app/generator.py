@@ -27,6 +27,7 @@ class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str
 
+
 class Generator:
     mistral_client: Mistral
     model = "mistral-small-latest"
@@ -34,10 +35,14 @@ class Generator:
     def __init__(self, mistral_api_key: str) -> None:
         self.mistral_client = Mistral(api_key=mistral_api_key)
 
-    async def generate_from_conversation(self, user_query: str, previous_messages: list[ChatMessage]) -> AsyncGenerator[str, None]:
+    async def generate_from_conversation(
+        self, user_query: str, previous_messages: list[ChatMessage],
+    ) -> AsyncGenerator[str, None]:
 
         messages = [cast("ChatCompletionStreamRequestMessagesTypedDict", m) for m in previous_messages]
-        messages.append(cast("ChatCompletionStreamRequestMessagesTypedDict", ChatMessage(role="user", content=user_query)))
+        messages.append(
+            cast("ChatCompletionStreamRequestMessagesTypedDict", ChatMessage(role="user", content=user_query)),
+        )
 
         stream = await self.mistral_client.chat.stream_async(
             model=self.model,
@@ -50,7 +55,6 @@ class Generator:
                 chunk_content = choices[0].delta.content
                 if chunk_content is not None and isinstance(chunk_content, str):
                     yield chunk_content
-
 
     async def generate(self, user_query: str, search_result: list[SearchResult]) -> AsyncGenerator[str, None]:
         prompt = f"""
