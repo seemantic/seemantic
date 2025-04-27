@@ -9,7 +9,7 @@ You will need:
 ## Principles
 
 * Self-hostabled: using either APIs or local llms / embeddings / parsing
-* Simple: it shouldn't be harder to use than a consumer app like a search engine, a cloud drive, or a chatbot
+* Simple: it shouldn't be harder to setup than a docker-compose or harder to use than a consumer app like a search engine, a cloud drive, or a chatbot.
 * Enterprise-ready: it should be scalable and follow zero-trust principles (authentication, encryption, RBAC...)
 * Pragmatic: the goal is to deliver the expected result, no AI-magic or purity.
 
@@ -23,11 +23,37 @@ You will need:
 * Works for pdf, md, docx (only text)
 
 
-## Tasks
+## Tech stack
 
-TODO: add front
-TODO: add prod setup script
-TODO: fix lancedb warning ([2025-03-02T15:43:14Z WARN  lance_table::io::commit] Using unsafe commit handler. Concurrent writes may result in data loss. Consider providing a commit handler that prevents conflicting writes.)
+Each componant with the following objectives in mind:
+* Open-source
+* Compatible with both self-hosting and cloud
+* Scalable
+* Multi-tenant compatible
+* Standard
+* Cost-efficient
+* Without vendor lock-in
+
+### Storage
+* Documents storage: S3-compatible (self-hosted MinIO by default).
+* Application Database: Postgres.
+* vector database: lanceDB.
+* Conversation history: Postgres?
+
+
+### backend
+* Web server: FastAPI.
+* Indexing: Python worker
+* Authentication: Zitadel
+* Right management: ?
+* Encryption: ?
+
+### frontend
+* Purely local (compatible with CDN)
+* Vite
+* Tanstack router
+* React
+* Dexie
 
 ## Security:
 
