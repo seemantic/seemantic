@@ -17,12 +17,14 @@
 * [Feat] Implement File-Tree
 * [Feat] Implemnt file view
 * [Feat] Display references
+* [CI] test conversation in rest api test
 * [CI] add unit tests, improve test coverage
 
 # DOING
 
 * [Feat] Stream answer.
-* [Bug] We make tons of requests to POST mistral https://api.mistral.ai/v1/chat/completions#stream
+* [Feat] manage conversation
+
 
 # DONE
 
