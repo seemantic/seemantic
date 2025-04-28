@@ -1,7 +1,13 @@
 from collections.abc import AsyncGenerator
-from typing import Literal, TypedDict, cast
+from typing import Literal
 
-from mistralai import ChatCompletionStreamRequestMessagesTypedDict, Mistral
+from mistralai import (
+    AssistantMessage,
+    ChatCompletionStreamRequestMessages,
+    Mistral,
+    UserMessage,
+)
+from pydantic import BaseModel
 
 from app.search_engine import SearchResult
 
@@ -22,7 +28,7 @@ def all_results_context(search_results: list[SearchResult]) -> str:
     return "\n\n".join([on_result_context(r) for r in search_results])
 
 
-class ChatMessage(TypedDict):
+class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str
 
@@ -34,19 +40,17 @@ class Generator:
     def __init__(self, mistral_api_key: str) -> None:
         self.mistral_client = Mistral(api_key=mistral_api_key)
 
-    async def generate_from_conversation(
-        self, user_query: str, previous_messages: list[ChatMessage],
-    ) -> AsyncGenerator[str, None]:
+    async def generate(self, messages: list[ChatMessage]) -> AsyncGenerator[str, None]:
 
-        messages = [cast("ChatCompletionStreamRequestMessagesTypedDict", m) for m in previous_messages]
-        messages.append(
-            cast("ChatCompletionStreamRequestMessagesTypedDict", ChatMessage(role="user", content=user_query)),
-        )
+        mistral_messages: list[ChatCompletionStreamRequestMessages] = [
+            AssistantMessage(content=message.content) if message.role == "assistant" else UserMessage(content=message.content)
+            for message in messages
+        ]
 
         stream = await self.mistral_client.chat.stream_async(
             model=self.model,
             stream=True,
-            messages=messages,
+            messages=mistral_messages,
         )
         async for chunk in stream:
             choices = chunk.data.choices
@@ -55,7 +59,7 @@ class Generator:
                 if chunk_content is not None and isinstance(chunk_content, str):
                     yield chunk_content
 
-    async def generate(self, user_query: str, search_result: list[SearchResult]) -> AsyncGenerator[str, None]:
+    def get_user_message(self, user_query: str, search_result: list[SearchResult]) -> ChatMessage:
         prompt = f"""
         Context information is below.
         ---------------------
@@ -65,6 +69,5 @@ class Generator:
         Query: {user_query}
         Answer:
         """
+        return ChatMessage(role="user", content=prompt)
 
-        async for chunk in self.generate_from_conversation(prompt, []):
-            yield chunk

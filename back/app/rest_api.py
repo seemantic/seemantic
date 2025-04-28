@@ -77,7 +77,9 @@ class ApiSearchResult(BaseModel):
     document_uri: str
     chunks: list[ApiSearchResultChunk]
 
-
+class ApiChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
 
 class ApiQueryResponseUpdate(BaseModel):
     # if not None, it's the continuation of the answer
@@ -86,14 +88,27 @@ class ApiQueryResponseUpdate(BaseModel):
     # if None, keep the previous result.
     # if not None, it replace the previous search result
     search_result: list[ApiSearchResult] | None
+    # if None, keep the previous chat messages
+    # if not None, it replace the previous chat messages
+    chat_messages_exchanged: list[ApiChatMessage] | None
 
 
 class ApiQueryResponseMessage(BaseModel):
     answer: str
     search_result: list[ApiSearchResult]
+    chat_messages_exchanged: list[ApiChatMessage]
 
 class ApiQueryMessage(BaseModel):
     content: str
+
+class ApiQueryReponsePair(BaseModel):
+    query: ApiQueryMessage
+    response: ApiQueryResponseMessage
+
+
+class ApiQuery(BaseModel):
+    query: ApiQueryMessage
+    previous_messages: list[ApiQueryReponsePair]
 
 
 def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
@@ -128,46 +143,64 @@ def _to_api_search_result(search_result: SearchResult) -> ApiSearchResult:
         ],
     )
 
-
-class ApiQuery(BaseModel):
-    last_user_message: ApiQueryMessage
-    previous_messages: list[ApiQueryMessage | ApiQueryResponseMessage]
-
-
 @router.post("/queries")
 async def create_query(
     search_engine: DepSearchEngine, generator: DepGenerator, query: ApiQuery,
 ) -> StreamingResponse:
 
-    search_results = None
-    if not query.previous_messages:
-        search_results = await search_engine.search(query.last_user_message.content)
-
     async def event_generator() -> AsyncGenerator[str, None]:
-        if search_results:
+        exchanged_messages: list[ChatMessage] = []
+        if not query.previous_messages:
+            search_results = await search_engine.search(query.query.content)
+            api_search_results = [_to_api_search_result(r) for r in search_results]
             yield _to_untyped_sse_event(
                 ApiQueryResponseUpdate(
                     delta_answer=None,
-                    search_result=[_to_api_search_result(r) for r in search_results],
+                    search_result=api_search_results,
+                    chat_messages_exchanged=None,
                 ),
             )
-            answer_stream = generator.generate(query.last_user_message.content, search_results)
+            user_chat_message = generator.get_user_message(query.query.content, search_results)
+            exchanged_messages.append(user_chat_message)
+            answer_stream = generator.generate([user_chat_message])
         else:
-            answer_stream = generator.generate_from_conversation(
-                query.last_user_message.content,
-                [ChatMessage(role=message.role, content=message.content) for message in query.previous_messages],
+            messages: list[ChatMessage] = []
+            for pair in query.previous_messages:
+                api_messages = pair.response.chat_messages_exchanged
+                messages.extend([
+                    ChatMessage(role=message.role, content=message.content) for message in api_messages
+                ])
+            user_chat_message = ChatMessage(
+                role="user",
+                content=query.query.content,
             )
+            exchanged_messages.append(user_chat_message)
+            messages.append(user_chat_message)
+            answer_stream = generator.generate(messages)
+        current_answer = ""
         async for chunk in answer_stream:
+            current_answer += chunk
             yield _to_untyped_sse_event(
                 ApiQueryResponseUpdate(
                     delta_answer=chunk,
                     search_result=None,
+                    chat_messages_exchanged=None,
                 ),
             )
+        exchanged_messages.append(
+            ChatMessage(
+                role="assistant",
+                content=current_answer,
+            ),
+        )
+        yield _to_untyped_sse_event(
+            ApiQueryResponseUpdate(
+                delta_answer=None,
+                search_result=None,
+                chat_messages_exchanged=[ApiChatMessage(role=m.role, content=m.content) for m in exchanged_messages]))
 
     return _to_streaming_response(event_generator())
 
-    raise HTTPException(status_code=400, detail="Only one message is supported for now")
 
 
 ApiEventType = Literal["update", "delete"]
