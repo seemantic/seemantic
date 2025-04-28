@@ -15,9 +15,9 @@ from app.rest_api import (
     ApiDocumentSnippet,
     ApiEventType,
     ApiExplorer,
+    ApiQueryMessage,
+    ApiQueryResponseUpdate,
     ApiSearchResult,
-    ApiUserQuery,
-    QueryResponseUpdate,
 )
 from app.settings import Settings as AppSettings
 from app.settings import get_settings as get_app_settings
@@ -179,8 +179,8 @@ def check_events_valid(uri: str, events: list[DocEvent]) -> None:
     assert val_success.uri == uri
 
 
-async def query(client: AsyncClient, query: str) -> QueryResponseUpdate:
-    query_json = ApiUserQuery(query=query, previous_messages=[]).model_dump()
+async def query(client: AsyncClient, query: str) -> ApiQueryResponseUpdate:
+    query_json = ApiQueryMessage(query=query, previous_messages=[]).model_dump()
     response = await client.post("/api/v1/queries", json=query_json)
     assert response.status_code == 200
 
@@ -189,11 +189,11 @@ async def query(client: AsyncClient, query: str) -> QueryResponseUpdate:
     # split will add en empty element after the last message, we remove it
     for sse_line in response.text.split("\n\n")[:-1]:
         json = sse_line.split(": ")[1]
-        update = QueryResponseUpdate.model_validate_json(json)
+        update = ApiQueryResponseUpdate.model_validate_json(json)
         full_response_content += update.delta_answer or ""
         if update.search_result:
             search_results = update.search_result
-    return QueryResponseUpdate(
+    return ApiQueryResponseUpdate(
         delta_answer=full_response_content,
         search_result=search_results,
     )

@@ -74,8 +74,26 @@ class ApiSearchResultChunk(BaseModel):
 
 
 class ApiSearchResult(BaseModel):
-    uri: str
+    document_uri: str
     chunks: list[ApiSearchResultChunk]
+
+
+
+class ApiQueryResponseUpdate(BaseModel):
+    # if not None, it's the continuation of the answer
+    # if None, keep the previous answer.
+    delta_answer: str | None
+    # if None, keep the previous result.
+    # if not None, it replace the previous search result
+    search_result: list[ApiSearchResult] | None
+
+
+class ApiQueryResponseMessage(BaseModel):
+    answer: str
+    search_result: list[ApiSearchResult]
+
+class ApiQueryMessage(BaseModel):
+    content: str
 
 
 def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
@@ -95,18 +113,11 @@ async def get_explorer(db_service: DepDbService, settings: DepSettings) -> ApiEx
     return ApiExplorer(documents=api_docs)
 
 
-class QueryResponseUpdate(BaseModel):
-    # if not None, it's the continuation of the answer
-    # if None, keep the previous answer.
-    delta_answer: str | None
-    # if None, keep the previous result.
-    # if not None, it replace the previous search result
-    search_result: list[ApiSearchResult] | None
 
 
 def _to_api_search_result(search_result: SearchResult) -> ApiSearchResult:
     return ApiSearchResult(
-        uri=search_result.db_document.uri,
+        document_uri=search_result.db_document.uri,
         chunks=[
             ApiSearchResultChunk(
                 content=search_result.parsed_document[c.chunk],
@@ -118,42 +129,37 @@ def _to_api_search_result(search_result: SearchResult) -> ApiSearchResult:
     )
 
 
-class ApiMessage(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str
-
-
-class ApiUserQuery(BaseModel):
-    query: str
-    previous_messages: list[ApiMessage]
+class ApiQuery(BaseModel):
+    last_user_message: ApiQueryMessage
+    previous_messages: list[ApiQueryMessage | ApiQueryResponseMessage]
 
 
 @router.post("/queries")
 async def create_query(
-    search_engine: DepSearchEngine, generator: DepGenerator, query: ApiUserQuery,
+    search_engine: DepSearchEngine, generator: DepGenerator, query: ApiQuery,
 ) -> StreamingResponse:
 
     search_results = None
     if not query.previous_messages:
-        search_results = await search_engine.search(query.query)
+        search_results = await search_engine.search(query.last_user_message.content)
 
     async def event_generator() -> AsyncGenerator[str, None]:
         if search_results:
             yield _to_untyped_sse_event(
-                QueryResponseUpdate(
+                ApiQueryResponseUpdate(
                     delta_answer=None,
                     search_result=[_to_api_search_result(r) for r in search_results],
                 ),
             )
-            answer_stream = generator.generate(query.query, search_results)
+            answer_stream = generator.generate(query.last_user_message.content, search_results)
         else:
             answer_stream = generator.generate_from_conversation(
-                query.query,
+                query.last_user_message.content,
                 [ChatMessage(role=message.role, content=message.content) for message in query.previous_messages],
             )
         async for chunk in answer_stream:
             yield _to_untyped_sse_event(
-                QueryResponseUpdate(
+                ApiQueryResponseUpdate(
                     delta_answer=chunk,
                     search_result=None,
                 ),
