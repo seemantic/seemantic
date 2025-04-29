@@ -1,5 +1,5 @@
-import type { QueryResponseUpdate } from '@/utils/api'
 import { apiUrl } from '@/utils/api'
+import type { ApiQueryResponseUpdate } from '@/utils/api_data'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import React from 'react'
 
@@ -22,10 +22,15 @@ const StreamedResponsePanel: React.FC<StreamedResponsePanelProps> = ({
           'Content-Type': 'application/json', // Use application/json for the request body
           Accept: 'text/event-stream', // Specify we accept SSE
         },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({
+          query: {
+            content: query,
+          },
+          previous_messages: [],
+        }), // Send the query as JSON
         signal: abortController.signal,
         onmessage: (event) => {
-          const queryResponseUpdate: QueryResponseUpdate = JSON.parse(
+          const queryResponseUpdate: ApiQueryResponseUpdate = JSON.parse(
             event.data,
           )
           if (queryResponseUpdate.delta_answer) {
