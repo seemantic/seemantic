@@ -14,7 +14,7 @@ import { Route as rootRoute } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app/route'
 import { Route as DashboardIndexImport } from './routes/dashboard/index'
 import { Route as AppIndexImport } from './routes/_app/index'
-import { Route as AppSearchImport } from './routes/_app/search'
+import { Route as AppConvConvIdImport } from './routes/_app/conv.$convId'
 
 // Create/Update Routes
 
@@ -35,9 +35,9 @@ const AppIndexRoute = AppIndexImport.update({
   getParentRoute: () => AppRouteRoute,
 } as any)
 
-const AppSearchRoute = AppSearchImport.update({
-  id: '/search',
-  path: '/search',
+const AppConvConvIdRoute = AppConvConvIdImport.update({
+  id: '/conv/$convId',
+  path: '/conv/$convId',
   getParentRoute: () => AppRouteRoute,
 } as any)
 
@@ -51,13 +51,6 @@ declare module '@tanstack/react-router' {
       fullPath: ''
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRoute
-    }
-    '/_app/search': {
-      id: '/_app/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof AppSearchImport
-      parentRoute: typeof AppRouteImport
     }
     '/_app/': {
       id: '/_app/'
@@ -73,19 +66,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexImport
       parentRoute: typeof rootRoute
     }
+    '/_app/conv/$convId': {
+      id: '/_app/conv/$convId'
+      path: '/conv/$convId'
+      fullPath: '/conv/$convId'
+      preLoaderRoute: typeof AppConvConvIdImport
+      parentRoute: typeof AppRouteImport
+    }
   }
 }
 
 // Create and export the route tree
 
 interface AppRouteRouteChildren {
-  AppSearchRoute: typeof AppSearchRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppConvConvIdRoute: typeof AppConvConvIdRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
-  AppSearchRoute: AppSearchRoute,
   AppIndexRoute: AppIndexRoute,
+  AppConvConvIdRoute: AppConvConvIdRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
@@ -94,31 +94,31 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 export interface FileRoutesByFullPath {
   '': typeof AppRouteRouteWithChildren
-  '/search': typeof AppSearchRoute
   '/': typeof AppIndexRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/conv/$convId': typeof AppConvConvIdRoute
 }
 
 export interface FileRoutesByTo {
-  '/search': typeof AppSearchRoute
   '/': typeof AppIndexRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/conv/$convId': typeof AppConvConvIdRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/_app': typeof AppRouteRouteWithChildren
-  '/_app/search': typeof AppSearchRoute
   '/_app/': typeof AppIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/_app/conv/$convId': typeof AppConvConvIdRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '' | '/search' | '/' | '/dashboard'
+  fullPaths: '' | '/' | '/dashboard' | '/conv/$convId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/search' | '/' | '/dashboard'
-  id: '__root__' | '/_app' | '/_app/search' | '/_app/' | '/dashboard/'
+  to: '/' | '/dashboard' | '/conv/$convId'
+  id: '__root__' | '/_app' | '/_app/' | '/dashboard/' | '/_app/conv/$convId'
   fileRoutesById: FileRoutesById
 }
 
@@ -149,13 +149,9 @@ export const routeTree = rootRoute
     "/_app": {
       "filePath": "_app/route.tsx",
       "children": [
-        "/_app/search",
-        "/_app/"
+        "/_app/",
+        "/_app/conv/$convId"
       ]
-    },
-    "/_app/search": {
-      "filePath": "_app/search.tsx",
-      "parent": "/_app"
     },
     "/_app/": {
       "filePath": "_app/index.tsx",
@@ -163,6 +159,10 @@ export const routeTree = rootRoute
     },
     "/dashboard/": {
       "filePath": "dashboard/index.tsx"
+    },
+    "/_app/conv/$convId": {
+      "filePath": "_app/conv.$convId.tsx",
+      "parent": "/_app"
     }
   }
 }

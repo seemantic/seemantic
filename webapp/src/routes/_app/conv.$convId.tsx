@@ -4,25 +4,31 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/shadcn/components/ui/resizable'
+import { db } from '@/utils/db'
 import { createFileRoute, getRouteApi } from '@tanstack/react-router'
 import ChatCard from '../../components/biz/ChatCard' // Adjust the import path as needed
 
-type SearchParams = {
-  q: string
-}
-
-export const Route = createFileRoute('/_app/search')({
+export const Route = createFileRoute('/_app/conv/$convId')({
   component: RouteComponent,
-  validateSearch: (search: Record<string, unknown>): SearchParams => {
-    return { q: (search.q as string) || '' }
+  loader: async ({ params }) => {
+    const { convId } = params
+    const conv = await db.conversations.get({ uuid: convId })
+    // if conv is undefined, throw a 404 error
+    if (!conv) {
+      throw new Response('Not Found', {
+        status: 404,
+        statusText: 'Not Found',
+      })
+    }
+    return conv
   },
 })
 
-const routeApi = getRouteApi('/_app/search')
+const routeApi = getRouteApi('/_app/conv/$convId')
 
 function RouteComponent() {
-  const searchParams = routeApi.useSearch()
-  const { q } = searchParams
+  const conv = routeApi.useLoaderData()
+  const query = conv.queryResponsePairs[0].query.content
 
   const handleSubmit = () => {}
 
@@ -31,8 +37,8 @@ function RouteComponent() {
       <ResizablePanelGroup direction="horizontal">
         <ResizablePanel>
           <div className="flex flex-col h-full">
-            <div className="flex-1">{q}</div>
-            <StreamedResponsePanel query={q} />
+            <div className="flex-1">{query}</div>
+            <StreamedResponsePanel query={query} />
             <div className="w-full flex justify-center">
               <ChatCard onSubmit={handleSubmit} />
             </div>
