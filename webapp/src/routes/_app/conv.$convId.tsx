@@ -4,8 +4,12 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/shadcn/components/ui/resizable'
-import { db } from '@/utils/db'
-import { createFileRoute, getRouteApi } from '@tanstack/react-router'
+import { createConversation, db } from '@/utils/db'
+import {
+  createFileRoute,
+  getRouteApi,
+  useNavigate,
+} from '@tanstack/react-router'
 import ChatCard from '../../components/biz/ChatCard' // Adjust the import path as needed
 
 export const Route = createFileRoute('/_app/conv/$convId')({
@@ -28,9 +32,16 @@ const routeApi = getRouteApi('/_app/conv/$convId')
 
 function RouteComponent() {
   const conv = routeApi.useLoaderData()
+  const { convId } = routeApi.useParams() // Get convId from params
   const query = conv.queryResponsePairs[0].query.content
+  const navigate = useNavigate()
 
-  const handleSubmit = () => {}
+  const handleChatSubmit = async (newQuery: string) => {
+    const uuid = await createConversation(newQuery)
+    navigate({
+      to: '/conv/' + uuid,
+    })
+  }
 
   return (
     <div className="flex h-screen w-full">
@@ -38,9 +49,10 @@ function RouteComponent() {
         <ResizablePanel>
           <div className="flex flex-col h-full">
             <div className="flex-1">{query}</div>
-            <StreamedResponsePanel query={query} />
+            {/* Add key prop */}
+            <StreamedResponsePanel key={convId} query={query} />
             <div className="w-full flex justify-center">
-              <ChatCard onSubmit={handleSubmit} />
+              <ChatCard onSubmit={handleChatSubmit} />
             </div>
           </div>
         </ResizablePanel>

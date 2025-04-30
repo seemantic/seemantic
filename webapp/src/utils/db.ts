@@ -29,3 +29,21 @@ class SeemanticDatabase extends Dexie {
 
 // Instantiate the database
 export const db = new SeemanticDatabase()
+
+export const createConversation = async (query: string): Promise<string> => {
+  const uuid = crypto.randomUUID() // Generate a unique identifier for the conversation
+  // insert a new entry in db
+  await db.conversations.add({
+    uuid: uuid, // Unique identifier for the conversation
+    label: query, // A user-defined label or generated title for the conversation
+    lastInteraction: new Date(), // Timestamp of the last interaction
+    queryResponsePairs: [
+      {
+        query: { content: query }, // The user's query
+        response: undefined, // Placeholder for the response, to be filled later
+      },
+    ], // Initialize with an empty array
+  })
+
+  return uuid
+}
