@@ -8,19 +8,26 @@ You will need:
 
 ## Principles
 
-* Self-hostabled: using either APIs or local llms / embeddings / parsing
-* Simple: it shouldn't be harder to setup than a docker-compose or harder to use than a consumer app like a search engine, a cloud drive, or a chatbot.
-* Enterprise-ready: it should be scalable and follow zero-trust principles (authentication, encryption, RBAC...)
-* Pragmatic: the goal is to deliver the expected result, no AI-magic or purity.
+* No vendor lock-in:
+    * 100% Open-source (no open-core)
+    * Easily self-hostable (CPU-only server + Postgres DB)
+    * Data is on user hardware
+* Production-ready for enterprise
+    * End-to-end solution (UI, storage)
+    * Scalable
+    * Secure (authentication, encryption, rights management)
+    * Collaborative
+* Pragmatic: deliver the expected result, no AI-magic or purity.
 
 ## MVP Specifications
 
-* Can be self-hosted o barebone server without GPU with a docker-compose command
+* A docker-compose command to setup the service
 * Ask a question, get an answer with references
 * add / remove files
 * Ability to update without loosing data
-* Integration tests to ensure reliability
 * Works for pdf, md, docx (only text)
+* Local conversation history
+* Compatible with Mistral API
 
 
 ## Tech stack
