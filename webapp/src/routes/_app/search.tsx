@@ -24,6 +24,8 @@ function RouteComponent() {
   const searchParams = routeApi.useSearch()
   const { q } = searchParams
 
+  const handleSubmit = () => {}
+
   return (
     <div className="flex h-screen w-full">
       <ResizablePanelGroup direction="horizontal">
@@ -32,7 +34,7 @@ function RouteComponent() {
             <div className="flex-1">{q}</div>
             <StreamedResponsePanel query={q} />
             <div className="w-full flex justify-center">
-              <ChatCard />
+              <ChatCard onSubmit={handleSubmit} />
             </div>
           </div>
         </ResizablePanel>
