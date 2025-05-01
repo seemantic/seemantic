@@ -22,9 +22,6 @@
 
 # DOING
 
-* [Feat] Stream answer.
-* [Feat] manage conversation
+* [Feat] Display references
 
-
-# DONE
 

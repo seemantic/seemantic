@@ -13,7 +13,7 @@ You will need:
     * Easily self-hostable (CPU-only server + Postgres DB)
     * Data is on user hardware
 * Production-ready for enterprise
-    * End-to-end solution (UI, storage)
+    * End-to-end solution (UI, storage...)
     * Scalable
     * Secure (authentication, encryption, rights management)
     * Collaborative

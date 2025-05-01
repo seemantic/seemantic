@@ -49,7 +49,6 @@ function RouteComponent() {
         <ResizablePanel>
           <div className="flex flex-col h-full">
             <div className="flex-1">{query}</div>
-            {/* Add key prop */}
             <StreamedResponsePanel key={convId} query={query} />
             <div className="w-full flex justify-center">
               <ChatCard onSubmit={handleChatSubmit} />

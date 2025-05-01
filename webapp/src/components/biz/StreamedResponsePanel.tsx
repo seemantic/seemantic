@@ -1,6 +1,5 @@
-import { apiUrl } from '@/utils/api'
+import { subscribeToQuery } from '@/utils/api'
 import type { ApiQueryResponseUpdate } from '@/utils/api_data'
-import { fetchEventSource } from '@microsoft/fetch-event-source'
 import React from 'react'
 
 interface StreamedResponsePanelProps {
@@ -16,28 +15,15 @@ const StreamedResponsePanel: React.FC<StreamedResponsePanelProps> = ({
     const abortController = new AbortController()
 
     const connect = async () => {
-      await fetchEventSource(`${apiUrl}/queries`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json', // Use application/json for the request body
-          Accept: 'text/event-stream', // Specify we accept SSE
-        },
-        body: JSON.stringify({
-          query: {
-            content: query,
-          },
-          previous_messages: [],
-        }), // Send the query as JSON
-        signal: abortController.signal,
-        onmessage: (event) => {
-          const queryResponseUpdate: ApiQueryResponseUpdate = JSON.parse(
-            event.data,
-          )
+      await subscribeToQuery(
+        query,
+        abortController,
+        (queryResponseUpdate: ApiQueryResponseUpdate) => {
           if (queryResponseUpdate.delta_answer) {
             setAnswer((prev: string) => prev + queryResponseUpdate.delta_answer)
           }
         },
-      })
+      )
     }
 
     connect()

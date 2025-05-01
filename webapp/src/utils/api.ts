@@ -1,4 +1,5 @@
-import type { ApiExplorer } from '@/utils/api_data'
+import type { ApiExplorer, ApiQueryResponseUpdate } from '@/utils/api_data'
+import { fetchEventSource } from '@microsoft/fetch-event-source'
 
 export const apiUrl = `${import.meta.env.VITE_API_URL}/api/v1`
 
@@ -15,3 +16,28 @@ export const fetchApi = async <T>(route: string): Promise<T> => {
 
 export const get_explorer = (): Promise<ApiExplorer> =>
   fetchApi<ApiExplorer>('explorer')
+
+export const subscribeToQuery = async (
+  query: string,
+  abortController: AbortController,
+  onUpdate: (update: ApiQueryResponseUpdate) => void,
+): Promise<void> => {
+  await fetchEventSource(`${apiUrl}/queries`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json', // Use application/json for the request body
+      Accept: 'text/event-stream', // Specify we accept SSE
+    },
+    body: JSON.stringify({
+      query: {
+        content: query,
+      },
+      previous_messages: [],
+    }), // Send the query as JSON
+    signal: abortController.signal,
+    onmessage: (event) => {
+      const queryResponseUpdate: ApiQueryResponseUpdate = JSON.parse(event.data)
+      onUpdate(queryResponseUpdate)
+    },
+  })
+}
