@@ -1,9 +1,9 @@
 import { subscribeToQuery } from '@/utils/api'
-import type { ApiQueryResponseUpdate } from '@/utils/api_data'
+import type { ApiQuery, ApiQueryResponseUpdate } from '@/utils/api_data'
 import React from 'react'
 
 interface StreamedResponsePanelProps {
-  query: string
+  query: ApiQuery
 }
 
 const StreamedResponsePanel: React.FC<StreamedResponsePanelProps> = ({
