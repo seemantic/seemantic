@@ -4,11 +4,12 @@
 
 Architecture goals:
 
-- Easy to self-host (on a small CPU server with a simple docker-compose)
-- Uncoupled from a specific vector store (separated from App DB)
-- Scale horizontally (in compute and storage)
-- Support Blue-Green Deployment (zero downtime)
-- Compatible with authentication, encryption, RBAC and multi-tenancy
+- Easy to self-host (on a CPU server using docker-compose)
+- hHorizontally scalable (both in compute and storage)
+- Support blue-green Deployment (zero downtime)
+- Decoupled from any specific vector store
+- Extensible with authentication, encryption, RBAC and multi-tenancy
+- Extensible to other document sources
 
 ```mermaid
 flowchart TD
@@ -62,37 +63,46 @@ flowchart TD
 
 Indexing process goals:
 
-- Minimize costly operations
+- Resynchronize with the source on cold start or after a process stop
+- Minimize expensive operations
 - Notify users in real time
 
 ```mermaid
 flowchart TD
+
+        UpdateStatusLegend["User notification"]
+        style UpdateStatusLegend stroke:green,stroke-width:2px
+
+        CostlyOp["Expensive operation"]
+        style UpdateStatusLegend stroke:red,stroke-width:2px
+
+        Startup(["Indexer started"]) --> ComputeDiff["Compute diffs Source <> DB"]
+        ComputeDiff --> NotifType
         Notif(["Doc update Notif"])
         Notif --> NotifType{"Upsert or Delete?"}
         NotifType --> |upsert| EnqueueOrNothing{"URI in queue?"}
         NotifType --> |delete| Delete["Delete from Document (cascade Indexed document)"]
-        style Delete fill:#99ff99
+        style Delete stroke:green,stroke-width:2px
         EnqueueOrNothing --> |Yes| DoNothing["Do nothing"]
         EnqueueOrNothing --> |No| UriInDb?{"URI in DB?"}
         UriInDb? --> |Yes| SourceVersionChange?{"Doc version changed?"}
         UriInDb? --> |No| UpsertInDb["Upsert doc in DB (pending)"]
         UpsertInDb --> EnqueueUri@{ shape: das, label: "Enqueue URI for indexing" }
-        style UpsertInDb fill:#99ff99
+        style UpsertInDb stroke:green,stroke-width:2px
         SourceVersionChange? --> |No| DoNothing2["Do nothing"]
         SourceVersionChange? --> |yes| UpsertInDb
-        style UpsertInDb fill:#99ff99
         EnqueueUri --> UpdateDocStatusIndexing["Update doc status in DB (indexing)"]
-        style UpdateDocStatusIndexing fill:#99ff99
+        style UpdateDocStatusIndexing stroke:green,stroke-width:2px
         UpdateDocStatusIndexing --> DownloadDocument["Download and hash raw doc"]
-        style DownloadDocument fill:#f9f
+        style DownloadDocument stroke:red,stroke-width:2px
         DownloadDocument --> HashExists?{"Hash in DB?"}
         HashExists? --> |Yes|UpdateDocStatusCompleted["Update doc and status (completed)"]
         HashExists? --> |No|ParseDocument["Parse doc and hash parsed doc"]
-        style ParseDocument fill:#f9f
+        style ParseDocument stroke:red,stroke-width:2px
         ParseDocument --> ParsedDocHashExists?{"parsed doc hash in Vector Store?"}
         ParsedDocHashExists? --> |Yes|UpdateDocStatusCompleted
         ParsedDocHashExists? --> |No|IndexDoc["Index (chunk, embed) and store in vector Store"]
-        style IndexDoc fill:#f9f
+        style IndexDoc stroke:red,stroke-width:2px
         IndexDoc --> UpdateDocStatusCompleted
-        style UpdateDocStatusCompleted fill:#99ff99
+        style UpdateDocStatusCompleted stroke:green,stroke-width:2px
 ```
