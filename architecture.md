@@ -5,8 +5,8 @@
 Architecture goals:
 
 - Easy to self-host (on a CPU server using docker-compose)
-- hHorizontally scalable (both in compute and storage)
-- Support blue-green Deployment (zero downtime)
+- Horizontally scalable (both in compute and storage)
+- Supports blue-green Deployment (zero downtime)
 - Decoupled from any specific vector store
 - Extensible with authentication, encryption, RBAC and multi-tenancy
 - Extensible to other document sources
