@@ -74,7 +74,7 @@ flowchart TD
         style UpdateStatusLegend stroke:green,stroke-width:2px
 
         CostlyOp["Expensive operation"]
-        style UpdateStatusLegend stroke:red,stroke-width:2px
+        style CostlyOp stroke:red,stroke-width:2px
 
         Startup(["Indexer started"]) --> ComputeDiff["Compute diffs Source <> DB"]
         ComputeDiff --> NotifType
