@@ -51,9 +51,13 @@ class Indexer:
     embedder: EmbeddingService
     vector_db: VectorDB
     docs_to_index_queue: asyncio.Queue[DocToIndex]
-    uris_in_queue: set[str]
-    queue_started: asyncio.Event
-    background_task_process_queue: asyncio.Task[None]  # so it's not garbage collected, cf. RUF006
+    uris_in_queue: set[
+        str
+    ]  # to not re-add uri to queue if already in it (cap queue size to the number of documents in source)
+    queue_started: asyncio.Event  # to signal that the queue is started
+    background_task_process_queue: asyncio.Task[
+        None
+    ]  # keep a ref to the queue processing task, so it's not garbage collected, cf. RUF006
 
     def __init__(self, settings: Settings) -> None:
         self.embedder = EmbeddingService(token=settings.jina_token)
@@ -65,7 +69,8 @@ class Indexer:
         self.queue_started = asyncio.Event()
         self.indexer_version = settings.indexer_version
 
-    async def _init_queue(self) -> None:
+    async def _start_queue_processing(self) -> None:
+        """Start the queue processing task, return only when the processing actually started"""
         self.background_task_process_queue = asyncio.create_task(self._process_queue())
         await self.queue_started.wait()
 
@@ -75,6 +80,7 @@ class Indexer:
         public_error: str,
         internal_error: Exception | None = None,
     ) -> None:
+        """set the document status to indexing error in case of error during indexing (parsing, embedding...)"""
         logging.warning(f"indexing error for document {indexed_doc_id}: {internal_error or public_error}")
         await self.db.update_indexed_documents_status(
             [indexed_doc_id],
@@ -83,6 +89,7 @@ class Indexer:
         )
 
     async def _process_queue(self) -> None:
+        """Infinite loop waiting for updated documents to index"""
         self.queue_started.set()
         logging.info("Indexing queue started")
         while True:
@@ -102,6 +109,7 @@ class Indexer:
             self.docs_to_index_queue.task_done()
 
     async def _index_and_store(self, doc_to_index: DocToIndex) -> None:
+        """indexing workflow for one enqeued document"""
         # Update document status to indexing
         indexed_doc_id = doc_to_index.indexed_doc_id
         uri = doc_to_index.source_ref.uri
@@ -120,11 +128,13 @@ class Indexer:
         raw_hash = hash_file_content(source_doc.content)
         indexed_content = await self.db.get_indexed_content_if_exists(raw_hash, self.indexer_version)
         if indexed_content:
+            # raw hash already indexed, no need to parse again
             indexed_content_id = indexed_content[0]
             logging.info(
                 f"content with raw_hash {raw_hash} already indexed for {uri} with id {indexed_content_id}, indexing skipped",
             )
         else:
+            # raw hash not found in indexed documents
             logging.info(f"Parsing {uri}")
             filetype = cast("ParsableFileType", source_doc.filetype)
             parsed = self.parser.parse(uri, filetype, source_doc.content)
@@ -162,6 +172,7 @@ class Indexer:
             self.docs_to_index_queue.put_nowait(ref)
 
     async def _manage_upserts(self, refs: list[SourceDocumentReference], uri_to_db_docs: dict[str, DbDocument]) -> None:
+        """Qualify documents to be indexed and enqueue them if needed"""
         docs_to_update: list[DocToIndex] = []
         docs_to_create: list[DocToIndex] = []
         new_doc_refs: list[SourceDocumentReference] = []
@@ -205,8 +216,12 @@ class Indexer:
             await self._enqueue_doc_refs(docs_enqueued)
 
     async def start(self) -> None:
+        """Start the indexer
+        1. Make a list of document diffs between source and db, process the diff
+        2. Listen to source events and process them as they come
+        """
         logging.info("Starting indexer")
-        await self._init_queue()
+        await self._start_queue_processing()
 
         source_doc_refs = await self.source.all_doc_refs()
         uri_to_doc_refs = {doc_ref.uri: doc_ref for doc_ref in source_doc_refs}
