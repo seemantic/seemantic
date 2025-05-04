@@ -10,7 +10,6 @@ class PromptBuilder(BaseModel):
 
     header_pattern: re.Pattern[str] = re.compile(r"^(#{1,6})\s+(.+)", re.MULTILINE)
 
-
     def merge_extend_passages(self, parsed_document: ParsedDocument, chunks: list[ChunkResult]) -> list[ChunkResult]:
         """
         extends passages to the document section, including the header
@@ -52,4 +51,3 @@ class PromptBuilder(BaseModel):
         ]
 
         return result
-

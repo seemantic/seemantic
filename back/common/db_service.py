@@ -49,6 +49,8 @@ class TableIndexedContent(Base):
 
 
 class TableDocument(Base):
+    """Document reference (to attach rights...)"""
+
     __tablename__ = "document"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -57,6 +59,9 @@ class TableDocument(Base):
 
 
 class TableIndexedDocument(Base):
+    """Document as view by an indexer.
+    Different indexer whill have different IndexedDocument"""
+
     __tablename__ = "indexed_document"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)

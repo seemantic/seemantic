@@ -43,7 +43,11 @@ class Generator:
     async def generate(self, messages: list[ChatMessage]) -> AsyncGenerator[str, None]:
 
         mistral_messages: list[ChatCompletionStreamRequestMessages] = [
-            AssistantMessage(content=message.content) if message.role == "assistant" else UserMessage(content=message.content)
+            (
+                AssistantMessage(content=message.content)
+                if message.role == "assistant"
+                else UserMessage(content=message.content)
+            )
             for message in messages
         ]
 
@@ -70,4 +74,3 @@ class Generator:
         Answer:
         """
         return ChatMessage(role="user", content=prompt)
-

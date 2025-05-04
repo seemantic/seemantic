@@ -61,7 +61,6 @@ async def get_file(relative_path: str, minio_service: DepMinioService) -> Stream
     raise HTTPException(status_code=404, detail=f"File {relative_path} not found")
 
 
-
 def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
     return ApiDocumentSnippet(
         uri=db_doc.uri,
@@ -79,8 +78,6 @@ async def get_explorer(db_service: DepDbService, settings: DepSettings) -> ApiEx
     return ApiExplorer(documents=api_docs)
 
 
-
-
 def _to_api_search_result(search_result: SearchResult) -> ApiSearchResult:
     return ApiSearchResult(
         document_uri=search_result.db_document.uri,
@@ -94,9 +91,12 @@ def _to_api_search_result(search_result: SearchResult) -> ApiSearchResult:
         ],
     )
 
+
 @router.post("/queries")
 async def create_query(
-    search_engine: DepSearchEngine, generator: DepGenerator, query: ApiQuery,
+    search_engine: DepSearchEngine,
+    generator: DepGenerator,
+    query: ApiQuery,
 ) -> StreamingResponse:
 
     async def event_generator() -> AsyncGenerator[str, None]:
@@ -118,9 +118,7 @@ async def create_query(
             messages: list[ChatMessage] = []
             for pair in query.previous_messages:
                 api_messages = pair.response.chat_messages_exchanged
-                messages.extend([
-                    ChatMessage(role=message.role, content=message.content) for message in api_messages
-                ])
+                messages.extend([ChatMessage(role=message.role, content=message.content) for message in api_messages])
             user_chat_message = ChatMessage(
                 role="user",
                 content=query.query.content,
@@ -148,10 +146,11 @@ async def create_query(
             ApiQueryResponseUpdate(
                 delta_answer=None,
                 search_result=None,
-                chat_messages_exchanged=[ApiChatMessage(role=m.role, content=m.content) for m in exchanged_messages]))
+                chat_messages_exchanged=[ApiChatMessage(role=m.role, content=m.content) for m in exchanged_messages],
+            )
+        )
 
     return _to_streaming_response(event_generator())
-
 
 
 ApiEventType = Literal["update", "delete"]

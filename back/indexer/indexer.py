@@ -66,7 +66,7 @@ class Indexer:
         self.indexer_version = settings.indexer_version
 
     async def _init_queue(self) -> None:
-        self.background_task_process_queue = asyncio.create_task(self.process_queue())
+        self.background_task_process_queue = asyncio.create_task(self._process_queue())
         await self.queue_started.wait()
 
     async def _set_indexing_error(
@@ -82,7 +82,7 @@ class Indexer:
             public_error,
         )
 
-    async def process_queue(self) -> None:
+    async def _process_queue(self) -> None:
         self.queue_started.set()
         logging.info("Indexing queue started")
         while True:
@@ -92,7 +92,7 @@ class Indexer:
             try:
                 self.uris_in_queue.remove(uri)  # uri can be re-added to queue as soon as processing starts
                 logging.info(f"Start indexing: {uri}")
-                await self.index_and_store(doc_to_index)
+                await self._index_and_store(doc_to_index)
             except IndexingError as e:
                 logging.exception(f"Error indexing {uri}")
                 await self._set_indexing_error(indexed_doc_id, e.public_error)
@@ -101,7 +101,7 @@ class Indexer:
                 await self._set_indexing_error(indexed_doc_id, "Unknown error")
             self.docs_to_index_queue.task_done()
 
-    async def index_and_store(self, doc_to_index: DocToIndex) -> None:
+    async def _index_and_store(self, doc_to_index: DocToIndex) -> None:
         # Update document status to indexing
         indexed_doc_id = doc_to_index.indexed_doc_id
         uri = doc_to_index.source_ref.uri
@@ -154,14 +154,14 @@ class Indexer:
         )
         logging.info(f"indexing process completed for {uri}")
 
-    async def enqueue_doc_refs(self, refs: list[DocToIndex]) -> None:
+    async def _enqueue_doc_refs(self, refs: list[DocToIndex]) -> None:
         for ref in refs:
             self.uris_in_queue.add(
                 ref.source_ref.uri,
             )  # when uri is added to queue, unique set should already be updated (so it can be removed)
             self.docs_to_index_queue.put_nowait(ref)
 
-    async def manage_upserts(self, refs: list[SourceDocumentReference], uri_to_db_docs: dict[str, DbDocument]) -> None:
+    async def _manage_upserts(self, refs: list[SourceDocumentReference], uri_to_db_docs: dict[str, DbDocument]) -> None:
         docs_to_update: list[DocToIndex] = []
         docs_to_create: list[DocToIndex] = []
         new_doc_refs: list[SourceDocumentReference] = []
@@ -202,7 +202,7 @@ class Indexer:
         if docs_to_update or docs_to_create:
             docs_enqueued = docs_to_update + docs_to_create
             logging.info(f"Enqueuing documents: {docs_enqueued}")
-            await self.enqueue_doc_refs(docs_enqueued)
+            await self._enqueue_doc_refs(docs_enqueued)
 
     async def start(self) -> None:
         logging.info("Starting indexer")
@@ -213,7 +213,7 @@ class Indexer:
         db_docs = await self.db.get_all_documents(indexer_version=self.indexer_version)
         uri_to_db = {doc.uri: doc for doc in db_docs}
 
-        await self.manage_upserts(source_doc_refs, uri_to_db)
+        await self._manage_upserts(source_doc_refs, uri_to_db)
         to_delete = set(uri_to_db.keys()) - set(uri_to_doc_refs.keys())
         if to_delete:
             await self.db.delete_documents(list(to_delete))
@@ -221,7 +221,7 @@ class Indexer:
         async for event in self.source.listen():
             if isinstance(event, SourceUpsertEvent):
                 uri_to_db = await self.db.get_documents([event.doc_ref.uri], self.indexer_version)
-                await self.manage_upserts([event.doc_ref], uri_to_db)
+                await self._manage_upserts([event.doc_ref], uri_to_db)
             else:
                 assert isinstance(event, SourceDeleteEvent)
                 await self.db.delete_documents([event.uri])

@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from typing import Literal
 
@@ -30,9 +29,11 @@ class ApiSearchResult(BaseModel):
     document_uri: str
     chunks: list[ApiSearchResultChunk]
 
+
 class ApiChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str
+
 
 class ApiQueryResponseUpdate(BaseModel):
     # if not None, it's the continuation of the answer
@@ -51,8 +52,10 @@ class ApiQueryResponseMessage(BaseModel):
     search_result: list[ApiSearchResult]
     chat_messages_exchanged: list[ApiChatMessage]
 
+
 class ApiQueryMessage(BaseModel):
     content: str
+
 
 class ApiQueryReponsePair(BaseModel):
     query: ApiQueryMessage

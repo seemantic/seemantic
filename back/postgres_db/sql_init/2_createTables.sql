@@ -26,7 +26,7 @@ CREATE TABLE seemantic_schema.document(
 CREATE TABLE seemantic_schema.indexed_document(
    id UUID PRIMARY KEY,
    document_id UUID REFERENCES seemantic_schema.document(id) ON DELETE CASCADE NOT NULL,
-   uri TEXT NOT NULL,
+   uri TEXT NOT NULL, -- Document URI, denormalized from document.uri to avoid joins
    indexer_version SMALLINT NOT NULL,
    indexed_source_version TEXT, -- info that can be retreived from source without loading content (last update timestamp, hash, version id...)
    indexed_content_id UUID REFERENCES seemantic_schema.indexed_content(id), -- set when status is indexing_success
