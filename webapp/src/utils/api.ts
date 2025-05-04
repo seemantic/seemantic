@@ -1,4 +1,6 @@
 import type {
+  ApiDocumentDelete,
+  ApiDocumentSnippet,
   ApiExplorer,
   ApiQuery,
   ApiQueryResponseUpdate,
@@ -37,6 +39,31 @@ export const subscribeToQuery = async (
     onmessage: (event) => {
       const queryResponseUpdate: ApiQueryResponseUpdate = JSON.parse(event.data)
       onUpdate(queryResponseUpdate)
+    },
+  })
+}
+
+export const subscribeToDocumentEvents = async (
+  query: ApiQuery,
+  abortController: AbortController,
+  onUpdate: (update: ApiDocumentSnippet) => void,
+  onDelete: (update: ApiDocumentDelete) => void,
+): Promise<void> => {
+  await fetchEventSource(`${apiUrl}/document_events`, {
+    method: 'GET',
+    headers: {
+      Accept: 'text/event-stream', // Specify we accept SSE
+    },
+    body: JSON.stringify(query), // Send the query as JSON
+    signal: abortController.signal,
+    onmessage: (event) => {
+      if (event.data === 'delete') {
+        const documentDelete: ApiDocumentDelete = JSON.parse(event.data)
+        onDelete(documentDelete)
+      } else {
+        const documentSnippet: ApiDocumentSnippet = JSON.parse(event.data)
+        onUpdate(documentSnippet)
+      }
     },
   })
 }
