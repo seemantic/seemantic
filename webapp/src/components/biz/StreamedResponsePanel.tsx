@@ -1,5 +1,10 @@
+import { Card, CardContent } from '@/shadcn/components/ui/card'
 import { subscribeToQuery } from '@/utils/api'
-import type { ApiQuery, ApiQueryResponseUpdate } from '@/utils/api_data'
+import type {
+  ApiQuery,
+  ApiQueryResponseUpdate,
+  ApiSearchResult,
+} from '@/utils/api_data'
 import React from 'react'
 
 interface StreamedResponsePanelProps {
@@ -10,6 +15,7 @@ const StreamedResponsePanel: React.FC<StreamedResponsePanelProps> = ({
   query,
 }) => {
   const [answer, setAnswer] = React.useState<string>('')
+  const [refs, setRefs] = React.useState<Array<ApiSearchResult>>([])
 
   React.useEffect(() => {
     const abortController = new AbortController()
@@ -21,6 +27,14 @@ const StreamedResponsePanel: React.FC<StreamedResponsePanelProps> = ({
         (queryResponseUpdate: ApiQueryResponseUpdate) => {
           if (queryResponseUpdate.delta_answer) {
             setAnswer((prev: string) => prev + queryResponseUpdate.delta_answer)
+          }
+          if (
+            queryResponseUpdate.search_result &&
+            queryResponseUpdate.search_result.length > 0
+          ) {
+            setRefs(
+              () => queryResponseUpdate.search_result as Array<ApiSearchResult>,
+            )
           }
         },
       )
@@ -36,6 +50,13 @@ const StreamedResponsePanel: React.FC<StreamedResponsePanelProps> = ({
 
   return (
     <div className="streamed-response-panel">
+      {refs.map((ref) => (
+        <Card>
+          <CardContent>
+            <p>{ref.document_uri}</p>
+          </CardContent>
+        </Card>
+      ))}
       <div className="content">{answer}</div>
     </div>
   )
