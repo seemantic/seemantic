@@ -64,9 +64,15 @@ export default function LeftPanel() {
             <SidebarMenu>
               {docs.map((doc) => (
                 <SidebarMenuItem key={doc.uri}>
-                  <SidebarMenuButton asChild>
-                    <a href={doc.uri}>
-                      <span>{doc.uri}</span>
+                  <SidebarMenuButton className="h-20">
+                    <a href={doc.uri} className="flex flex-col text-left">
+                      <span className="text-sm font-medium">{doc.uri}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {doc.status}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {doc.last_indexing}
+                      </span>
                     </a>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
