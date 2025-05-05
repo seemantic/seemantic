@@ -51,7 +51,7 @@ const StreamedResponsePanel: React.FC<StreamedResponsePanelProps> = ({
   return (
     <div className="streamed-response-panel">
       {refs.map((ref) => (
-        <Card>
+        <Card key={ref.document_uri} className="mb-2">
           <CardContent>
             <p>{ref.document_uri}</p>
           </CardContent>
