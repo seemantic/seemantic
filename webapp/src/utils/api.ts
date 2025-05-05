@@ -44,7 +44,6 @@ export const subscribeToQuery = async (
 }
 
 export const subscribeToDocumentEvents = async (
-  query: ApiQuery,
   abortController: AbortController,
   onUpdate: (update: ApiDocumentSnippet) => void,
   onDelete: (update: ApiDocumentDelete) => void,
@@ -54,10 +53,9 @@ export const subscribeToDocumentEvents = async (
     headers: {
       Accept: 'text/event-stream', // Specify we accept SSE
     },
-    body: JSON.stringify(query), // Send the query as JSON
     signal: abortController.signal,
     onmessage: (event) => {
-      if (event.data === 'delete') {
+      if (event.event === 'delete') {
         const documentDelete: ApiDocumentDelete = JSON.parse(event.data)
         onDelete(documentDelete)
       } else {
