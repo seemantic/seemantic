@@ -6,7 +6,6 @@ Architecture goals:
 
 - Easy to self-host (on a CPU server using docker-compose)
 - Horizontally scalable (both in compute and storage)
-- Support blue-green Deployment (zero downtime)
 - Extensible with authentication, encryption, RBAC and multi-tenancy
 - Extensible to other document sources
 - Extensible to other vector stores
@@ -67,6 +66,8 @@ Indexing process goals:
 - Minimize expensive operations
 - Notify users in real time
 - Ensure state remains consistent in case of an error during the indexing process
+- Support blue-green Deployment (zero downtime)
+
 
 ```mermaid
 flowchart TD
