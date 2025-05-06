@@ -44,7 +44,7 @@ DepSearchEngine = Annotated[SearchEngine, Depends(get_search_engine)]
 
 @lru_cache
 def get_generator_service(settings: DepSettings) -> Generator:
-    return Generator(mistral_api_key=settings.mistral_api_key)
+    return Generator(settings.generator)
 
 
 DepGenerator = Annotated[Generator, Depends(get_generator_service)]

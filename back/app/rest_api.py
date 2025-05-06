@@ -2,7 +2,6 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from io import BytesIO
-from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -14,6 +13,7 @@ from app.rest_api_data import (
     ApiChatMessage,
     ApiDocumentDelete,
     ApiDocumentSnippet,
+    ApiEventType,
     ApiExplorer,
     ApiQuery,
     ApiQueryResponseUpdate,
@@ -146,14 +146,11 @@ async def create_query(
             ApiQueryResponseUpdate(
                 delta_answer=None,
                 search_result=None,
-                chat_messages_exchanged=[ApiChatMessage(role=m.role, content=m.content) for m in exchanged_messages],
-            )
+                chat_messages_exchanged=[ApiChatMessage(role=m["role"], content=m["content"]) for m in exchanged_messages],
+            ),
         )
 
     return _to_streaming_response(event_generator())
-
-
-ApiEventType = Literal["update", "delete"]
 
 
 def _to_api_event_type(db_event_type: DbEventType) -> ApiEventType:

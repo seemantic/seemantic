@@ -65,3 +65,6 @@ class ApiQueryReponsePair(BaseModel):
 class ApiQuery(BaseModel):
     query: ApiQueryMessage
     previous_messages: list[ApiQueryReponsePair]
+
+
+ApiEventType = Literal["update", "delete"]

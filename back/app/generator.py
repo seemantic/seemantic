@@ -1,15 +1,15 @@
 from collections.abc import AsyncGenerator
-from typing import Literal
+from typing import Literal, TypedDict, cast
 
-from mistralai import (
-    AssistantMessage,
-    ChatCompletionStreamRequestMessages,
-    Mistral,
-    UserMessage,
-)
+from litellm import CustomStreamWrapper, acompletion  # type: ignore[reportUnknownVariableType]
 from pydantic import BaseModel
 
 from app.search_engine import SearchResult
+
+
+class GeneratorSettings(BaseModel, frozen=True):
+    litellm_api_key: str
+    litellm_model: str
 
 
 def on_result_context(search_result: SearchResult) -> str:
@@ -28,40 +28,26 @@ def all_results_context(search_results: list[SearchResult]) -> str:
     return "\n\n".join([on_result_context(r) for r in search_results])
 
 
-class ChatMessage(BaseModel):
+class ChatMessage(TypedDict):
     role: Literal["user", "assistant"]
     content: str
 
 
 class Generator:
-    mistral_client: Mistral
-    model = "mistral-small-latest"
+    settings: GeneratorSettings
 
-    def __init__(self, mistral_api_key: str) -> None:
-        self.mistral_client = Mistral(api_key=mistral_api_key)
+    def __init__(self, settings: GeneratorSettings) -> None:
+        self.settings = settings
 
     async def generate(self, messages: list[ChatMessage]) -> AsyncGenerator[str, None]:
 
-        mistral_messages: list[ChatCompletionStreamRequestMessages] = [
-            (
-                AssistantMessage(content=message.content)
-                if message.role == "assistant"
-                else UserMessage(content=message.content)
-            )
-            for message in messages
-        ]
+        response = await acompletion(self.settings.litellm_model, messages=messages, stream=True, api_key=self.settings.litellm_api_key)
+        stream_response: CustomStreamWrapper = cast("CustomStreamWrapper", response)
 
-        stream = await self.mistral_client.chat.stream_async(
-            model=self.model,
-            stream=True,
-            messages=mistral_messages,
-        )
-        async for chunk in stream:
-            choices = chunk.data.choices
-            if choices:
-                chunk_content = choices[0].delta.content
-                if chunk_content is not None and isinstance(chunk_content, str):
-                    yield chunk_content
+        async for chunk in stream_response:
+            chunk_content = chunk.choices[0].delta.content # type: ignore[reportunkownMemberType]
+            if isinstance(chunk_content, str):
+                yield chunk_content
 
     def get_user_message(self, user_query: str, search_result: list[SearchResult]) -> ChatMessage:
         prompt = f"""

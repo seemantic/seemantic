@@ -4,11 +4,12 @@ from typing import Annotated
 from fastapi import Depends
 from pydantic_settings import SettingsConfigDict
 
+from app.generator import GeneratorSettings
 from common.settings import CommonSettings
 
 
 class Settings(CommonSettings):
-    mistral_api_key: str
+    generator: GeneratorSettings
 
     # frozen=True makes it hashable so it can be used as an argument of other functions decorated with lru_cache
     model_config = SettingsConfigDict(

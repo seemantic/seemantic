@@ -44,5 +44,5 @@ anyio==4.9.0
 # to get uuid V1 (faster in DB)
 uuid-utils==0.10.0
 
-# llm
-mistralai==1.6.0
+# llm, embedding
+litellm==1.68.0

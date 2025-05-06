@@ -10,7 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from testcontainers.minio import MinioContainer
 from testcontainers.postgres import PostgresContainer
 
-from app.rest_api import (
+from app.rest_api_data import (
     ApiDocumentDelete,
     ApiDocumentSnippet,
     ApiEventType,
