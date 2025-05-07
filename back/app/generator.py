@@ -8,7 +8,6 @@ from app.search_engine import SearchResult
 
 
 class GeneratorSettings(BaseModel, frozen=True):
-    litellm_api_key: str
     litellm_model: str
 
 
@@ -35,13 +34,15 @@ class ChatMessage(TypedDict):
 
 class Generator:
     settings: GeneratorSettings
+    litellm_api_key: str
 
-    def __init__(self, settings: GeneratorSettings) -> None:
+    def __init__(self, settings: GeneratorSettings, litellm_api_key: str) -> None:
         self.settings = settings
+        self.litellm_api_key = litellm_api_key
 
     async def generate(self, messages: list[ChatMessage]) -> AsyncGenerator[str, None]:
 
-        response = await acompletion(self.settings.litellm_model, messages=messages, stream=True, api_key=self.settings.litellm_api_key)
+        response = await acompletion(self.settings.litellm_model, messages=messages, stream=True, api_key=self.litellm_api_key)
         stream_response: CustomStreamWrapper = cast("CustomStreamWrapper", response)
 
         async for chunk in stream_response:
