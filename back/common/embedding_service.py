@@ -2,6 +2,7 @@ from http import HTTPStatus
 from typing import Any, Final, Literal
 
 import httpx
+from litellm import aembedding
 
 from common.document import Chunk, EmbeddedChunk, Embedding, ParsedDocument
 
@@ -14,8 +15,11 @@ class EmbeddingService:
     _headers: Final[dict[str, str]]
     _max_chars: Final[int] = 15000  # heuristic because max is 8192 tokens
 
+    _token: str
+
     def __init__(self, token: str) -> None:
         self._headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
+        self._token = token
 
     async def _embed(self, task: str, content: list[str], *, late_chunking: bool) -> list[Embedding]:
         data: dict[str, Any] = {
@@ -26,6 +30,18 @@ class EmbeddingService:
             "embedding_type": "float",
             "input": content,
         }
+
+        # TODO HERE, check if litellm produces the same result
+        response_litellm = await aembedding(
+            model="jina_ai/jina-embeddings-v3",
+            input=content,
+            dimensions=1024,
+            api_key=self._token,
+            # kwargs
+            task=task,
+            late_chunking=late_chunking,
+        )
+
 
         async with httpx.AsyncClient() as client:
             response = await client.post(self._url, headers=self._headers, json=data, timeout=60)
