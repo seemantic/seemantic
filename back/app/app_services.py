@@ -30,7 +30,7 @@ DepDbService = Annotated[DbService, Depends(get_db_service)]
 
 @lru_cache
 def get_search_engine(settings: DepSettings, db: DepDbService) -> SearchEngine:
-    embedding_service = EmbeddingService(token=settings.jina_token)
+    embedding_service = EmbeddingService(settings.embedding, settings.embedding__litellm_api_key)
     return SearchEngine(
         embedding_service=embedding_service,
         vector_db=VectorDB(settings.lance_db, embedding_service.distance_metric(), settings.indexer_version),

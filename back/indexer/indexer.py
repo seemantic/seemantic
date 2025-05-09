@@ -60,7 +60,7 @@ class Indexer:
     ]  # keep a ref to the queue processing task, so it's not garbage collected, cf. RUF006
 
     def __init__(self, settings: Settings) -> None:
-        self.embedder = EmbeddingService(token=settings.jina_token)
+        self.embedder = EmbeddingService(settings.embedding, settings.embedding__litellm_api_key)
         self.vector_db = VectorDB(settings.lance_db, self.embedder.distance_metric(), settings.indexer_version)
         self.source = SeemanticDriveSource(settings=settings.minio)
         self.db = DbService(settings.db)
