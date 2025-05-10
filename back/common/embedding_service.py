@@ -3,20 +3,18 @@ from typing import Any, Final, Literal
 
 import httpx
 from litellm import aembedding  # type: ignore[reportUnknownVariableType]
+from pydantic import BaseModel
 
 from common.document import Chunk, EmbeddedChunk, Embedding, ParsedDocument
-from common.embedding_settings import EmbeddingSettings
+from common.settings_dict import SettingsDict
 
 type DistanceMetric = Literal["L2", "cosine", "dot"]
 type EmbeddingTask = Literal["document", "query"]
 
-
-
-
-#class EmbeddingSettings(BaseModel, frozen=True):
-#    litellm_model: str
-#    litellm_query_kwargs: dict[str, Any]
-#    litellm_document_kwargs: dict[str, Any]
+class EmbeddingSettings(BaseModel, frozen=True):
+    litellm_model: str
+    litellm_query_kwargs: SettingsDict
+    litellm_document_kwargs: SettingsDict
 
 
 class EmbeddingService:
@@ -51,7 +49,7 @@ class EmbeddingService:
             dimensions=1024,
             api_key=self.litellm_api_key,
             # kwargs
-            **self.settings.document_kwargs_as_dict if task == "document" else self.settings.query_kwargs_as_dict,
+            **(dict(self.settings.litellm_document_kwargs) if task == "document" else dict(self.settings.litellm_query_kwargs)),
         )
         vectors: list[dict[str,Any]] = response_litellm.data # type: ignore[reportUnknownVariableType]
         embeddings_litellm = [
