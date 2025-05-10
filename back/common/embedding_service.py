@@ -1,7 +1,5 @@
-from http import HTTPStatus
 from typing import Any, Final, Literal
 
-import httpx
 from litellm import aembedding  # type: ignore[reportUnknownVariableType]
 from pydantic import BaseModel
 
@@ -26,22 +24,17 @@ class EmbeddingService:
     _headers: Final[dict[str, str]]
     _max_chars: Final[int] = 15000  # heuristic because max is 8192 tokens
 
-    _token: str
+    _query_kwargs: dict[str, Any]
+    _document_kwargs: dict[str, Any]
 
     def __init__(self, settings: EmbeddingSettings, litellm_api_key: str) -> None:
         self.settings = settings
         self._headers = {"Content-Type": "application/json", "Authorization": f"Bearer {litellm_api_key}"}
         self.litellm_api_key = litellm_api_key
+        self._query_kwargs = dict(settings.litellm_query_kwargs)
+        self._document_kwargs = dict(settings.litellm_document_kwargs)
 
-    async def _embed(self, task: EmbeddingTask, content: list[str], *, late_chunking: bool) -> list[Embedding]:
-        data: dict[str, Any] = {
-            "model": "jina-embeddings-v3",
-            "task": "retrieval.passage" if task == "document" else "retrieval.query",
-            "late_chunking": late_chunking,
-            "dimensions": 1024,
-            "embedding_type": "float",
-            "input": content,
-        }
+    async def _embed(self, task: EmbeddingTask, content: list[str]) -> list[Embedding]:
 
         response_litellm =  await aembedding(
             model="jina_ai/jina-embeddings-v3",
@@ -49,31 +42,14 @@ class EmbeddingService:
             dimensions=1024,
             api_key=self.litellm_api_key,
             # kwargs
-            **(dict(self.settings.litellm_document_kwargs) if task == "document" else dict(self.settings.litellm_query_kwargs)),
+            **(self._document_kwargs if task == "document" else self._query_kwargs),
         )
         vectors: list[dict[str,Any]] = response_litellm.data # type: ignore[reportUnknownVariableType]
         embeddings_litellm = [
             Embedding(embedding=vector["embedding"]) for vector in vectors # type: ignore[reportUnknownVariableType]
         ]
 
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(self._url, headers=self._headers, json=data, timeout=60)
-
-        if response.status_code != HTTPStatus.OK:
-            message = f"Error embedding passage: {response.status_code} - {response.text}"
-            raise ValueError(message)
-        json = response.json()
-        embeddings = [Embedding(embedding=embedding["embedding"]) for embedding in json["data"]]
-
-        # TODO HERE, remove check if litellm produces the same result
-        # check if litellm and jina produce the same result
-        for i, i_embedding in enumerate(embeddings):
-            if not (i_embedding == embeddings_litellm[i]):
-                raise ValueError(f"Litellm and Jina produce different results for the same input: {i}")
-
-
-        return embeddings
+        return embeddings_litellm
 
     async def embed_document(self, document: ParsedDocument, chunks: list[Chunk]) -> list[EmbeddedChunk]:
         """
@@ -98,7 +74,7 @@ class EmbeddingService:
         results: list[EmbeddedChunk] = []
         for group in chunk_groups:
             chunk_contents = [document[chunk] for chunk in group]
-            embeddings = await self._embed("document", chunk_contents, late_chunking=False)
+            embeddings = await self._embed("document", chunk_contents)
             embedded_chunks = [
                 EmbeddedChunk(chunk=chunk, embedding=embedding)
                 for chunk, embedding in zip(group, embeddings, strict=True)
@@ -109,7 +85,7 @@ class EmbeddingService:
 
     async def embed_query(self, query: str) -> Embedding:
 
-        embeddings = await self._embed("query", [query], late_chunking=False)
+        embeddings = await self._embed("query", [query])
         embedding = embeddings[0]
         return embedding
 
