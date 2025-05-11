@@ -98,6 +98,22 @@ class VectorDB:
         )
         self._connected = True
 
+
+    async def get_document(self, parsed_content_hash: str) -> ParsedDocument | None:
+        await self.connect_if_needed()
+
+        parsed_table: pa.Table = (
+            await self._parsed_doc_table.query()
+            .where(f"{row_parsed_content_hash} = '{parsed_content_hash}'")
+            .to_arrow()
+        )
+
+        if parsed_table.num_rows == 0:
+            return None
+
+        markdown_content: str = parsed_table.column(row_str_content)[0].as_py()
+        return ParsedDocument(hash=parsed_content_hash, markdown_content=markdown_content)
+
     async def query(self, vector: list[float], nb_chunks_to_retrieve: int) -> list[ParsedDocumentResult]:
         await self.connect_if_needed()
 
