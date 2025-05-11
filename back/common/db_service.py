@@ -106,6 +106,9 @@ class DbDocument(BaseModel):
     status: DbDocumentStatus
     last_indexing: datetime | None
 
+class DbDocumentWithContent(DbDocument):
+    indexed_content: DbIndexedContent | None
+
 
 DbEventType = Literal["insert", "update", "delete"]
 
@@ -115,12 +118,13 @@ class DbIndexedDocumentEvent(BaseModel):
     document: DbDocument
 
 
-def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
-    return DbDocument(
+def to_doc(row_indexed_doc: TableIndexedDocument, row_indexed_content: TableIndexedContent | None) -> DbDocumentWithContent:
+    return DbDocumentWithContent(
         uri=row_indexed_doc.uri,
         indexed_document_id=row_indexed_doc.id,
         indexed_source_version=row_indexed_doc.indexed_source_version,
         last_indexing=row_indexed_doc.last_indexing,
+        indexed_content=DbIndexedContent(raw_hash=row_indexed_content.raw_hash, parsed_hash=row_indexed_content.parsed_hash) if row_indexed_content else None,
         status=DbDocumentStatus(
             status=row_indexed_doc.status,
             last_status_change=row_indexed_doc.last_status_change,
@@ -278,7 +282,7 @@ class DbService:
         self,
         parsed_hashes: list[str],
         indexer_version: int,
-    ) -> dict[str, DbDocument]:
+    ) -> dict[str, DbDocumentWithContent]:
         async with self.session_factory() as session:
             result = await session.execute(
                 select(TableIndexedDocument, TableIndexedContent)
@@ -289,31 +293,34 @@ class DbService:
             )
 
             table_rows = result.all()
-            plain_objs = {row[1].parsed_hash: to_doc(row[0]) for row in table_rows}
+            plain_objs = {row[1].parsed_hash: to_doc(row[0], row[1]) for row in table_rows}
 
             return plain_objs
 
-    async def get_all_documents(self, indexer_version: int) -> list[DbDocument]:
+    async def get_all_documents(self, indexer_version: int) -> list[DbDocumentWithContent]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableIndexedDocument).where(TableIndexedDocument.indexer_version == indexer_version),
+                select(TableIndexedDocument, TableIndexedContent)
+                .where(TableIndexedDocument.indexer_version == indexer_version)
+                .outerjoin(TableIndexedContent, TableIndexedDocument.indexed_content_id == TableIndexedContent.id),
             )
 
             table_rows = result.all()
-            plain_objs = [to_doc(row[0]) for row in table_rows]
+            plain_objs = [to_doc(row[0], row[1]) for row in table_rows]
 
             return plain_objs
 
-    async def get_documents(self, uris: list[str], indexer_version: int) -> dict[str, DbDocument]:
+    async def get_documents(self, uris: list[str], indexer_version: int) -> dict[str, DbDocumentWithContent]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableIndexedDocument)
+                select(TableIndexedDocument, TableIndexedContent)
                 .where(TableIndexedDocument.uri.in_(uris))
-                .where(TableIndexedDocument.indexer_version == indexer_version),
+                .where(TableIndexedDocument.indexer_version == indexer_version)
+                .outerjoin(TableIndexedContent, TableIndexedDocument.indexed_content_id == TableIndexedContent.id),
             )
 
             table_rows = result.all()
-            plain_objs = {row[0].uri: to_doc(row[0]) for row in table_rows}
+            plain_objs = {row[0].uri: to_doc(row[0], row[1]) for row in table_rows}
 
             return plain_objs
 
