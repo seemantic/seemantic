@@ -42,11 +42,16 @@ class Generator:
 
     async def generate(self, messages: list[ChatMessage]) -> AsyncGenerator[str, None]:
 
-        response = await acompletion(self.settings.litellm_model, messages=messages, stream=True, api_key=self.litellm_api_key)
+        response = await acompletion(
+            self.settings.litellm_model,
+            messages=messages,
+            stream=True,
+            api_key=self.litellm_api_key,
+        )
         stream_response: CustomStreamWrapper = cast("CustomStreamWrapper", response)
 
         async for chunk in stream_response:
-            chunk_content = chunk.choices[0].delta.content # type: ignore[reportunkownMemberType]
+            chunk_content = chunk.choices[0].delta.content  # type: ignore[reportunkownMemberType]
             if isinstance(chunk_content, str):
                 yield chunk_content
 

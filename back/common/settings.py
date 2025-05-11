@@ -14,4 +14,3 @@ class CommonSettings(BaseSettings):
     indexer_version: int
     embedding: EmbeddingSettings
     embedding__litellm_api_key: str  # flattened becayse nested settings are not supported if it comes from secrets_dir
-

@@ -9,6 +9,7 @@ from common.settings_dict import SettingsDict
 type DistanceMetric = Literal["L2", "cosine", "dot"]
 type EmbeddingTask = Literal["document", "query"]
 
+
 class EmbeddingSettings(BaseModel, frozen=True):
     litellm_model: str
     litellm_query_kwargs: SettingsDict
@@ -36,7 +37,7 @@ class EmbeddingService:
 
     async def _embed(self, task: EmbeddingTask, content: list[str]) -> list[Embedding]:
 
-        response_litellm =  await aembedding(
+        response_litellm = await aembedding(
             model="jina_ai/jina-embeddings-v3",
             input=content,
             dimensions=1024,
@@ -44,9 +45,9 @@ class EmbeddingService:
             # kwargs
             **(self._document_kwargs if task == "document" else self._query_kwargs),
         )
-        vectors: list[dict[str,Any]] = response_litellm.data # type: ignore[reportUnknownVariableType]
+        vectors: list[dict[str, Any]] = response_litellm.data  # type: ignore[reportUnknownVariableType]
         embeddings_litellm = [
-            Embedding(embedding=vector["embedding"]) for vector in vectors # type: ignore[reportUnknownVariableType]
+            Embedding(embedding=vector["embedding"]) for vector in vectors  # type: ignore[reportUnknownVariableType]
         ]
 
         return embeddings_litellm

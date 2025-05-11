@@ -1,30 +1,30 @@
 # app dependencies
 # fastapi
-fastapi[standard]==0.115.11
+fastapi[standard]==0.115.12
 python-multipart==0.0.20
-uvicorn[standard]==0.34.0
+uvicorn[standard]==0.34.2
 
 # external apis
 httpx==0.28.1
 
 # db
-sqlalchemy[asyncio]==2.0.39
+sqlalchemy[asyncio]==2.0.40
 asyncpg==0.30.0
 
 # utils
-unidecode==1.3.8
-pydantic-settings==2.8.1
-python-dotenv==1.0.1
+unidecode==1.4.0
+pydantic-settings==2.9.1
+python-dotenv==1.1.0
 
 # hashing content
 xxhash==3.5.0
 
 # vector store
-lancedb==0.21.1
-pyarrow-stubs==17.19
+lancedb==0.22.0
+pyarrow-stubs==19.3
 
 # parsing
-docling==2.28.0
+docling==2.31.0
 
 # minIO
 minio==7.2.15
@@ -36,8 +36,8 @@ filetype==1.2.0
 pytest==8.3.5
 black==25.1.0
 pyright==1.1.400
-ruff==0.11.2
-testcontainers[postgres,minio]==4.9.2
+ruff==0.11.9
+testcontainers[postgres,minio]==4.10.0
 pur==7.3.3
 anyio==4.9.0
 
@@ -45,4 +45,4 @@ anyio==4.9.0
 uuid-utils==0.10.0
 
 # llm, embedding
-litellm==1.68.0
+litellm==1.68.2

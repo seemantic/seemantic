@@ -1,5 +1,5 @@
 import json
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from pydantic import BeforeValidator, ValidationInfo
 
@@ -10,23 +10,23 @@ type _SettingsDict = tuple[SettingsDictEntry, ...]
 
 # --- Helper functions (can remain as they encapsulate the core logic) ---
 
-def _is_settings_dict_entry(
-    v: Any) -> bool:  # noqa: ANN401
+
+def _is_settings_dict_entry(v: Any) -> bool:  # noqa: ANN401
     if isinstance(v, tuple):
-        v_tuple: tuple[Any, ...] = v
-        return len(v_tuple) == 2 and isinstance(v_tuple[0], str)
+        v = cast("tuple[Any, ...]", v)
+        return len(v) == 2 and isinstance(v[0], str)  # noqa: PLR2004
     return False
 
-def _is_settings_dict(
-    v: Any) -> bool:  # noqa: ANN401
+
+def _is_settings_dict(v: Any) -> bool:  # noqa: ANN401
     if isinstance(v, tuple):
-        v_tuple: tuple[Any, ...] = v
-        return all(
-            _is_settings_dict_entry(item) for item in v_tuple
-        )
+        v = cast("tuple[Any, ...]", v)
+        return all(_is_settings_dict_entry(item) for item in v)
     return False
+
 
 # --- Reusable Pydantic V2 Validator Function ---
+
 
 def _settings_dict_validator(v: Any, info: ValidationInfo) -> _SettingsDict:  # noqa: ANN401
     """
@@ -38,7 +38,7 @@ def _settings_dict_validator(v: Any, info: ValidationInfo) -> _SettingsDict:  # 
     if isinstance(v, str):
         parsed_dict = json.loads(v)
     elif isinstance(v, dict):
-        parsed_dict = v
+        parsed_dict = cast("dict[str, Any]", v)
     elif _is_settings_dict(v):
         return v
     else:

@@ -146,7 +146,9 @@ async def create_query(
             ApiQueryResponseUpdate(
                 delta_answer=None,
                 search_result=None,
-                chat_messages_exchanged=[ApiChatMessage(role=m["role"], content=m["content"]) for m in exchanged_messages],
+                chat_messages_exchanged=[
+                    ApiChatMessage(role=m["role"], content=m["content"]) for m in exchanged_messages
+                ],
             ),
         )
 
