@@ -36,6 +36,10 @@ CREATE TABLE seemantic_schema.indexed_document(
    error_status_message TEXT, -- set when status is Error
    creation_datetime TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
 
+   -- fields copy-pasted from indexed_content
+   raw_hash_if_indexed CHAR(32), -- source independant hash of the raw content
+   parsed_hash_if_indexed CHAR(32), -- hash of the parsed content
+
    UNIQUE (document_id, indexer_version)
 );
 
@@ -75,6 +79,7 @@ FOR EACH ROW
 EXECUTE FUNCTION update_indexed_document_uri();
 
 
+
 -- Notify table changes
 
 CREATE OR REPLACE FUNCTION notify_table_changes()
@@ -100,3 +105,36 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER indexed_document_changes_trigger
 AFTER INSERT OR UPDATE OR DELETE ON seemantic_schema.indexed_document
 FOR EACH ROW EXECUTE FUNCTION notify_table_changes();
+
+
+-- Function to update raw_hash_if_indexed and parsed_hash_if_indexed
+-- in indexed_document when indexed_content_id changes.
+CREATE OR REPLACE FUNCTION sync_indexed_document_hashes()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.indexed_content_id IS NOT NULL THEN
+        SELECT ic.raw_hash, ic.parsed_hash
+        INTO NEW.raw_hash_if_indexed, NEW.parsed_hash_if_indexed
+        FROM seemantic_schema.indexed_content ic
+        WHERE ic.id = NEW.indexed_content_id;
+
+        -- If SELECT INTO does not find a row, target variables are set to NULL.
+        -- This handles cases where indexed_content_id might be invalid,
+        -- though FK constraints should prevent this.
+        IF NOT FOUND THEN
+            NEW.raw_hash_if_indexed := NULL;
+            NEW.parsed_hash_if_indexed := NULL;
+        END IF;
+    ELSE
+        NEW.raw_hash_if_indexed := NULL;
+        NEW.parsed_hash_if_indexed := NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to call sync_indexed_document_hashes
+CREATE TRIGGER trg_sync_indexed_document_hashes
+BEFORE INSERT OR UPDATE OF indexed_content_id ON seemantic_schema.indexed_document
+FOR EACH ROW
+EXECUTE FUNCTION sync_indexed_document_hashes();
