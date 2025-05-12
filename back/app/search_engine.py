@@ -1,3 +1,5 @@
+import logging
+
 from pydantic import BaseModel
 
 from app.prompt_builder import PromptBuilder
@@ -5,6 +7,8 @@ from common.db_service import DbDocument, DbService
 from common.document import ParsedDocument
 from common.embedding_service import EmbeddingService
 from common.vector_db import ChunkResult, VectorDB
+
+logger = logging.getLogger(__name__)
 
 
 class SearchResult(BaseModel):
@@ -57,3 +61,16 @@ class SearchEngine:
                 )
 
         return search_results
+
+    async def get_document(self, uri: str) -> ParsedDocument | None:
+        db_doc = await self.db.get_documents([uri], self.indexer_version)
+        if uri not in db_doc:
+            return None
+        db_doc = db_doc[uri]
+        if not db_doc.indexed_content:
+            return None
+        parsed_doc = await self.vector_db.get_document(db_doc.indexed_content.parsed_hash)
+        if not parsed_doc:
+            logger.warning(f"Inconsistent state: document {uri} is marked as indexed with parsed hash {db_doc.indexed_content.parsed_hash} but not found in vector db")
+            return None
+        return parsed_doc

@@ -10,10 +10,11 @@ class ApiDocumentSnippet(BaseModel):
     error_status_message: str | None
     last_indexing: datetime | None
 
+class ApiDocumentContent(BaseModel):
+    md: str
 
 class ApiDocumentDelete(BaseModel):
     uri: str
-
 
 class ApiExplorer(BaseModel):
     documents: list[ApiDocumentSnippet]

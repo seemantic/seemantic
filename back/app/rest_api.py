@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import urllib
+import urllib.parse
 from collections.abc import AsyncGenerator
 from io import BytesIO
 
@@ -11,6 +13,7 @@ from app.app_services import DepDbService, DepGenerator, DepMinioService, DepSea
 from app.generator import ChatMessage
 from app.rest_api_data import (
     ApiChatMessage,
+    ApiDocumentContent,
     ApiDocumentDelete,
     ApiDocumentSnippet,
     ApiEventType,
@@ -69,6 +72,16 @@ def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
         last_indexing=db_doc.last_indexing,
     )
 
+@router.get("/documents/{encoded_uri}/md}")
+async def get_document(encoded_uri: str, search_engine: DepSearchEngine) -> ApiDocumentContent:
+
+    # decode uri encoded with encodeURIComponent
+    decoded_uri = urllib.parse.unquote(encoded_uri)
+    db_doc = await search_engine.get_document(decoded_uri)
+    if db_doc:
+        return ApiDocumentContent(md=db_doc.markdown_content)
+
+    raise HTTPException(status_code=404, detail=f"Document {decoded_uri} not found")
 
 @router.get("/explorer")
 async def get_explorer(db_service: DepDbService, settings: DepSettings) -> ApiExplorer:

@@ -28,6 +28,8 @@ def get_db_service(settings: DepSettings) -> DbService:
 DepDbService = Annotated[DbService, Depends(get_db_service)]
 
 
+
+
 @lru_cache
 def get_search_engine(settings: DepSettings, db: DepDbService) -> SearchEngine:
     embedding_service = EmbeddingService(settings.embedding, settings.embedding__litellm_api_key)
