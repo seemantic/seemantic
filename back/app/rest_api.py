@@ -13,11 +13,12 @@ from app.app_services import DepDbService, DepGenerator, DepMinioService, DepSea
 from app.generator import ChatMessage
 from app.rest_api_data import (
     ApiChatMessage,
-    ApiDocumentContent,
     ApiDocumentDelete,
     ApiDocumentSnippet,
     ApiEventType,
     ApiExplorer,
+    ApiIndexedContentHash,
+    ApiParsedDocument,
     ApiQuery,
     ApiQueryResponseUpdate,
     ApiSearchResult,
@@ -70,16 +71,18 @@ def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
         status=db_doc.status.status.value,
         error_status_message=db_doc.status.error_status_message,
         last_indexing=db_doc.last_indexing,
+        indexed_content_hash=ApiIndexedContentHash(
+            parsed_hash=db_doc.indexed_content.parsed_hash, raw_hash=db_doc.indexed_content.raw_hash) if db_doc.indexed_content else None,
     )
 
 @router.get("/documents/{encoded_uri}/md}")
-async def get_document(encoded_uri: str, search_engine: DepSearchEngine) -> ApiDocumentContent:
+async def get_parsed_document(encoded_uri: str, search_engine: DepSearchEngine) -> ApiParsedDocument:
 
     # decode uri encoded with encodeURIComponent
     decoded_uri = urllib.parse.unquote(encoded_uri)
-    db_doc = await search_engine.get_document(decoded_uri)
-    if db_doc:
-        return ApiDocumentContent(md=db_doc.markdown_content)
+    parsed_doc = await search_engine.get_document(decoded_uri)
+    if parsed_doc:
+        return ApiParsedDocument(hash=parsed_doc.hash, markdown_content=parsed_doc.markdown_content)
 
     raise HTTPException(status_code=404, detail=f"Document {decoded_uri} not found")
 

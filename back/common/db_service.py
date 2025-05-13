@@ -4,7 +4,7 @@ import enum
 import json
 import logging
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 from uuid import UUID
 
 import asyncpg  # type: ignore[reportMissingTypesStubs]
@@ -77,6 +77,10 @@ class TableIndexedDocument(Base):
         nullable=True,
     )  # updated when indexed_content_id is updated
 
+    # content, copy of TableIndexedContent
+    raw_hash_if_indexed: Mapped[str | None] = mapped_column(nullable=True)
+    parsed_hash_if_indexed: Mapped[str | None] = mapped_column(nullable=True)
+
     # status
     status: Mapped[TableIndexedDocumentStatusEnum] = mapped_column(
         Enum(TableIndexedDocumentStatusEnum, name="document_status"),
@@ -92,12 +96,10 @@ class DbIndexedContent(BaseModel):
     raw_hash: str
     parsed_hash: str
 
-
 class DbDocumentStatus(BaseModel):
     status: TableIndexedDocumentStatusEnum
     last_status_change: datetime
     error_status_message: str | None
-
 
 class DbDocument(BaseModel):
     uri: str
@@ -105,8 +107,6 @@ class DbDocument(BaseModel):
     indexed_source_version: str | None
     status: DbDocumentStatus
     last_indexing: datetime | None
-
-class DbDocumentWithContent(DbDocument):
     indexed_content: DbIndexedContent | None
 
 
@@ -118,13 +118,18 @@ class DbIndexedDocumentEvent(BaseModel):
     document: DbDocument
 
 
-def to_doc(row_indexed_doc: TableIndexedDocument, row_indexed_content: TableIndexedContent | None) -> DbDocumentWithContent:
-    return DbDocumentWithContent(
+def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
+
+    indexed_content = DbIndexedContent(
+        raw_hash=cast("str", row_indexed_doc.raw_hash_if_indexed),
+        parsed_hash=cast("str", row_indexed_doc.parsed_hash_if_indexed)) if row_indexed_doc.indexed_content_id else None
+
+    return DbDocument(
         uri=row_indexed_doc.uri,
         indexed_document_id=row_indexed_doc.id,
         indexed_source_version=row_indexed_doc.indexed_source_version,
         last_indexing=row_indexed_doc.last_indexing,
-        indexed_content=DbIndexedContent(raw_hash=row_indexed_content.raw_hash, parsed_hash=row_indexed_content.parsed_hash) if row_indexed_content else None,
+        indexed_content=indexed_content,
         status=DbDocumentStatus(
             status=row_indexed_doc.status,
             last_status_change=row_indexed_doc.last_status_change,
@@ -282,10 +287,10 @@ class DbService:
         self,
         parsed_hashes: list[str],
         indexer_version: int,
-    ) -> dict[str, DbDocumentWithContent]:
+    ) -> dict[str, DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableIndexedDocument, TableIndexedContent)
+                select(TableIndexedDocument)
                 .where(TableIndexedContent.parsed_hash.in_(parsed_hashes))
                 .where(TableIndexedContent.indexer_version == indexer_version)
                 .where(TableIndexedDocument.indexer_version == indexer_version)
@@ -293,34 +298,32 @@ class DbService:
             )
 
             table_rows = result.all()
-            plain_objs = {row[1].parsed_hash: to_doc(row[0], row[1]) for row in table_rows}
+            plain_objs = {row[0].parsed_hash_if_indexed: to_doc(row[0]) for row in table_rows}
 
             return plain_objs
 
-    async def get_all_documents(self, indexer_version: int) -> list[DbDocumentWithContent]:
+    async def get_all_documents(self, indexer_version: int) -> list[DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableIndexedDocument, TableIndexedContent)
-                .where(TableIndexedDocument.indexer_version == indexer_version)
-                .outerjoin(TableIndexedContent, TableIndexedDocument.indexed_content_id == TableIndexedContent.id),
+                select(TableIndexedDocument)
+                .where(TableIndexedDocument.indexer_version == indexer_version),
             )
 
             table_rows = result.all()
-            plain_objs = [to_doc(row[0], row[1]) for row in table_rows]
+            plain_objs = [to_doc(row[0]) for row in table_rows]
 
             return plain_objs
 
-    async def get_documents(self, uris: list[str], indexer_version: int) -> dict[str, DbDocumentWithContent]:
+    async def get_documents(self, uris: list[str], indexer_version: int) -> dict[str, DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableIndexedDocument, TableIndexedContent)
+                select(TableIndexedDocument)
                 .where(TableIndexedDocument.uri.in_(uris))
-                .where(TableIndexedDocument.indexer_version == indexer_version)
-                .outerjoin(TableIndexedContent, TableIndexedDocument.indexed_content_id == TableIndexedContent.id),
+                .where(TableIndexedDocument.indexer_version == indexer_version),
             )
 
             table_rows = result.all()
-            plain_objs = {row[0].uri: to_doc(row[0], row[1]) for row in table_rows}
+            plain_objs = {row[0].uri: to_doc(row[0]) for row in table_rows}
 
             return plain_objs
 
@@ -345,6 +348,12 @@ class DbService:
                     last_status_change=db_indexed_doc_json["last_status_change"],
                     error_status_message=db_indexed_doc_json["error_status_message"],
                 ),
+                indexed_content=DbIndexedContent(
+                    raw_hash=db_indexed_doc_json["raw_hash_if_indexed"],
+                    parsed_hash=db_indexed_doc_json["parsed_hash_if_indexed"],
+                )
+                if db_indexed_doc_json["indexed_content_id"]
+                else None,
             )
             doc_event = DbIndexedDocumentEvent(event_type=event_type, document=doc)
             for client_queue in self.subscribed_clients:

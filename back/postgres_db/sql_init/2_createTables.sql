@@ -138,3 +138,30 @@ CREATE TRIGGER trg_sync_indexed_document_hashes
 BEFORE INSERT OR UPDATE OF indexed_content_id ON seemantic_schema.indexed_document
 FOR EACH ROW
 EXECUTE FUNCTION sync_indexed_document_hashes();
+
+
+-- in normal cases, indexed_content is immutable, but it can be updated if several indexers run in parallel
+-- on the same raw content and for some reason the parsed content is different (the seconf one will be an upsert)
+-- Function to update indexed_document.parsed_hash_if_indexed
+-- when indexed_content.parsed_hash changes.
+CREATE OR REPLACE FUNCTION sync_parsed_hash_to_indexed_document()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Check if this is an UPDATE operation and if parsed_hash actually changed.
+    -- NEW.id refers to the id of the row in indexed_content that was updated.
+    IF (TG_OP = 'UPDATE' AND NEW.parsed_hash IS DISTINCT FROM OLD.parsed_hash) THEN
+        UPDATE seemantic_schema.indexed_document
+        SET parsed_hash_if_indexed = NEW.parsed_hash
+        WHERE indexed_content_id = NEW.id;
+    END IF;
+    RETURN NULL; -- The return value for an AFTER trigger is ignored.
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to call sync_parsed_hash_to_indexed_document
+-- when parsed_hash in indexed_content is updated.
+CREATE TRIGGER trg_sync_parsed_hash_to_indexed_document
+AFTER UPDATE OF parsed_hash ON seemantic_schema.indexed_content
+FOR EACH ROW
+EXECUTE FUNCTION sync_parsed_hash_to_indexed_document();
+

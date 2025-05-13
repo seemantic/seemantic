@@ -202,6 +202,7 @@ async def query(client: AsyncClient, query: str) -> ApiQueryResponseUpdate:
     )
 
 
+
 @pytest.mark.anyio
 async def test_upload_file(test_client: AsyncClient) -> None:
     # 1. update a file, check we get the updates
@@ -210,6 +211,7 @@ async def test_upload_file(test_client: AsyncClient) -> None:
     await upload_file(test_client, uri, b"# What is seemantic ? It's a RAG")
     result = await task
     check_events_valid(uri, result)
+
 
     # 2. update the same file, check we don't get any update
     task = listen_docs_task(test_client, 1)
@@ -229,7 +231,7 @@ async def test_upload_file(test_client: AsyncClient) -> None:
 
     # 4. updata and make a request
     await upload_file(test_client, uri, b"# What is seemantic ? It's a webapp")
-    await asyncio.sleep(1)
+    await asyncio.sleep(2)
     response = await query(test_client, "what is seemantic?")
     assert response.delta_answer
     assert "web" in response.delta_answer.lower()
