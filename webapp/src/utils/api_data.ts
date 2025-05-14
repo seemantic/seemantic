@@ -54,3 +54,8 @@ export interface ApiQuery {
   query: ApiQueryMessage
   previous_messages: Array<ApiQueryReponsePair>
 }
+
+export interface ApiParsedDocument {
+  hash: string
+  markdown_content: string
+}

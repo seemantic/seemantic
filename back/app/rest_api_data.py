@@ -8,6 +8,7 @@ class ApiIndexedContentHash(BaseModel):
     parsed_hash: str
     raw_hash: str
 
+
 class ApiDocumentSnippet(BaseModel):
     uri: str  # relative path within source
     status: Literal["pending", "indexing", "indexing_success", "indexing_error"]
@@ -15,12 +16,15 @@ class ApiDocumentSnippet(BaseModel):
     last_indexing: datetime | None
     indexed_content_hash: ApiIndexedContentHash | None
 
+
 class ApiParsedDocument(BaseModel):
     hash: str
     markdown_content: str
 
+
 class ApiDocumentDelete(BaseModel):
     uri: str
+
 
 class ApiExplorer(BaseModel):
     documents: list[ApiDocumentSnippet]

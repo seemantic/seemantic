@@ -71,6 +71,8 @@ class SearchEngine:
             return None
         parsed_doc = await self.vector_db.get_document(db_doc.indexed_content.parsed_hash)
         if not parsed_doc:
-            logger.warning(f"Inconsistent state: document {uri} is marked as indexed with parsed hash {db_doc.indexed_content.parsed_hash} but not found in vector db")
+            logger.warning(
+                f"Inconsistent state: document {uri} is marked as indexed with parsed hash {db_doc.indexed_content.parsed_hash} but not found in vector db",
+            )
             return None
         return parsed_doc

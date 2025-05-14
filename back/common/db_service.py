@@ -96,10 +96,12 @@ class DbIndexedContent(BaseModel):
     raw_hash: str
     parsed_hash: str
 
+
 class DbDocumentStatus(BaseModel):
     status: TableIndexedDocumentStatusEnum
     last_status_change: datetime
     error_status_message: str | None
+
 
 class DbDocument(BaseModel):
     uri: str
@@ -120,9 +122,14 @@ class DbIndexedDocumentEvent(BaseModel):
 
 def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
 
-    indexed_content = DbIndexedContent(
-        raw_hash=cast("str", row_indexed_doc.raw_hash_if_indexed),
-        parsed_hash=cast("str", row_indexed_doc.parsed_hash_if_indexed)) if row_indexed_doc.indexed_content_id else None
+    indexed_content = (
+        DbIndexedContent(
+            raw_hash=cast("str", row_indexed_doc.raw_hash_if_indexed),
+            parsed_hash=cast("str", row_indexed_doc.parsed_hash_if_indexed),
+        )
+        if row_indexed_doc.indexed_content_id
+        else None
+    )
 
     return DbDocument(
         uri=row_indexed_doc.uri,
@@ -305,8 +312,7 @@ class DbService:
     async def get_all_documents(self, indexer_version: int) -> list[DbDocument]:
         async with self.session_factory() as session:
             result = await session.execute(
-                select(TableIndexedDocument)
-                .where(TableIndexedDocument.indexer_version == indexer_version),
+                select(TableIndexedDocument).where(TableIndexedDocument.indexer_version == indexer_version),
             )
 
             table_rows = result.all()
@@ -348,12 +354,14 @@ class DbService:
                     last_status_change=db_indexed_doc_json["last_status_change"],
                     error_status_message=db_indexed_doc_json["error_status_message"],
                 ),
-                indexed_content=DbIndexedContent(
-                    raw_hash=db_indexed_doc_json["raw_hash_if_indexed"],
-                    parsed_hash=db_indexed_doc_json["parsed_hash_if_indexed"],
-                )
-                if db_indexed_doc_json["indexed_content_id"]
-                else None,
+                indexed_content=(
+                    DbIndexedContent(
+                        raw_hash=db_indexed_doc_json["raw_hash_if_indexed"],
+                        parsed_hash=db_indexed_doc_json["parsed_hash_if_indexed"],
+                    )
+                    if db_indexed_doc_json["indexed_content_id"]
+                    else None
+                ),
             )
             doc_event = DbIndexedDocumentEvent(event_type=event_type, document=doc)
             for client_queue in self.subscribed_clients:

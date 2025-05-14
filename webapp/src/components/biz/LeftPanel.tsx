@@ -10,7 +10,7 @@ import {
 } from '@/shadcn/components/ui/sidebar'
 import { subscribeToDocumentEvents } from '@/utils/api'
 import type { ApiDocumentDelete, ApiDocumentSnippet } from '@/utils/api_data'
-import { getRouteApi } from '@tanstack/react-router'
+import { Link, getRouteApi } from '@tanstack/react-router'
 import React from 'react'
 
 export default function LeftPanel() {
@@ -63,19 +63,25 @@ export default function LeftPanel() {
           <SidebarGroupContent>
             <SidebarMenu>
               {docs.map((doc) => (
-                <SidebarMenuItem key={doc.uri}>
-                  <SidebarMenuButton className="h-20">
-                    <a href={doc.uri} className="flex flex-col text-left">
-                      <span className="text-sm font-medium">{doc.uri}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {doc.status}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {doc.last_indexing}
-                      </span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <Link
+                  to="/doc/$docUri"
+                  params={{ docUri: encodeURIComponent(doc.uri) }}
+                  key={doc.uri}
+                >
+                  <SidebarMenuItem key={doc.uri}>
+                    <SidebarMenuButton className="h-20">
+                      <a href={doc.uri} className="flex flex-col text-left">
+                        <span className="text-sm font-medium">{doc.uri}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {doc.status}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {doc.last_indexing}
+                        </span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </Link>
               ))}
             </SidebarMenu>
           </SidebarGroupContent>

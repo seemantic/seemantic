@@ -71,11 +71,17 @@ def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
         status=db_doc.status.status.value,
         error_status_message=db_doc.status.error_status_message,
         last_indexing=db_doc.last_indexing,
-        indexed_content_hash=ApiIndexedContentHash(
-            parsed_hash=db_doc.indexed_content.parsed_hash, raw_hash=db_doc.indexed_content.raw_hash) if db_doc.indexed_content else None,
+        indexed_content_hash=(
+            ApiIndexedContentHash(
+                parsed_hash=db_doc.indexed_content.parsed_hash, raw_hash=db_doc.indexed_content.raw_hash,
+            )
+            if db_doc.indexed_content
+            else None
+        ),
     )
 
-@router.get("/documents/{encoded_uri}/md}")
+
+@router.get("/documents/{encoded_uri}/parsed")
 async def get_parsed_document(encoded_uri: str, search_engine: DepSearchEngine) -> ApiParsedDocument:
 
     # decode uri encoded with encodeURIComponent
@@ -85,6 +91,7 @@ async def get_parsed_document(encoded_uri: str, search_engine: DepSearchEngine) 
         return ApiParsedDocument(hash=parsed_doc.hash, markdown_content=parsed_doc.markdown_content)
 
     raise HTTPException(status_code=404, detail=f"Document {decoded_uri} not found")
+
 
 @router.get("/explorer")
 async def get_explorer(db_service: DepDbService, settings: DepSettings) -> ApiExplorer:

@@ -98,7 +98,6 @@ class VectorDB:
         )
         self._connected = True
 
-
     async def get_document(self, parsed_content_hash: str) -> ParsedDocument | None:
         await self.connect_if_needed()
 

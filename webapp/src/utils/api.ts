@@ -2,6 +2,7 @@ import type {
   ApiDocumentDelete,
   ApiDocumentSnippet,
   ApiExplorer,
+  ApiParsedDocument,
   ApiQuery,
   ApiQueryResponseUpdate,
 } from '@/utils/api_data'
@@ -22,6 +23,11 @@ export const fetchApi = async <T>(route: string): Promise<T> => {
 
 export const get_explorer = (): Promise<ApiExplorer> =>
   fetchApi<ApiExplorer>('explorer')
+
+export const getParsedDocument = (
+  encoded_uri: string,
+): Promise<ApiParsedDocument> =>
+  fetchApi<ApiParsedDocument>(`documents/${encoded_uri}/parsed`)
 
 export const subscribeToQuery = async (
   query: ApiQuery,

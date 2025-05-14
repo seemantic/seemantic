@@ -14,6 +14,7 @@ import { Route as rootRoute } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app/route'
 import { Route as DashboardIndexImport } from './routes/dashboard/index'
 import { Route as AppIndexImport } from './routes/_app/index'
+import { Route as AppDocDocUriImport } from './routes/_app/doc.$docUri'
 import { Route as AppConvConvIdImport } from './routes/_app/conv.$convId'
 
 // Create/Update Routes
@@ -32,6 +33,12 @@ const DashboardIndexRoute = DashboardIndexImport.update({
 const AppIndexRoute = AppIndexImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+
+const AppDocDocUriRoute = AppDocDocUriImport.update({
+  id: '/doc/$docUri',
+  path: '/doc/$docUri',
   getParentRoute: () => AppRouteRoute,
 } as any)
 
@@ -73,6 +80,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConvConvIdImport
       parentRoute: typeof AppRouteImport
     }
+    '/_app/doc/$docUri': {
+      id: '/_app/doc/$docUri'
+      path: '/doc/$docUri'
+      fullPath: '/doc/$docUri'
+      preLoaderRoute: typeof AppDocDocUriImport
+      parentRoute: typeof AppRouteImport
+    }
   }
 }
 
@@ -81,11 +95,13 @@ declare module '@tanstack/react-router' {
 interface AppRouteRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppConvConvIdRoute: typeof AppConvConvIdRoute
+  AppDocDocUriRoute: typeof AppDocDocUriRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppConvConvIdRoute: AppConvConvIdRoute,
+  AppDocDocUriRoute: AppDocDocUriRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
@@ -97,12 +113,14 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/dashboard': typeof DashboardIndexRoute
   '/conv/$convId': typeof AppConvConvIdRoute
+  '/doc/$docUri': typeof AppDocDocUriRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/dashboard': typeof DashboardIndexRoute
   '/conv/$convId': typeof AppConvConvIdRoute
+  '/doc/$docUri': typeof AppDocDocUriRoute
 }
 
 export interface FileRoutesById {
@@ -111,14 +129,21 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/_app/conv/$convId': typeof AppConvConvIdRoute
+  '/_app/doc/$docUri': typeof AppDocDocUriRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '' | '/' | '/dashboard' | '/conv/$convId'
+  fullPaths: '' | '/' | '/dashboard' | '/conv/$convId' | '/doc/$docUri'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/conv/$convId'
-  id: '__root__' | '/_app' | '/_app/' | '/dashboard/' | '/_app/conv/$convId'
+  to: '/' | '/dashboard' | '/conv/$convId' | '/doc/$docUri'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/_app/'
+    | '/dashboard/'
+    | '/_app/conv/$convId'
+    | '/_app/doc/$docUri'
   fileRoutesById: FileRoutesById
 }
 
@@ -150,7 +175,8 @@ export const routeTree = rootRoute
       "filePath": "_app/route.tsx",
       "children": [
         "/_app/",
-        "/_app/conv/$convId"
+        "/_app/conv/$convId",
+        "/_app/doc/$docUri"
       ]
     },
     "/_app/": {
@@ -162,6 +188,10 @@ export const routeTree = rootRoute
     },
     "/_app/conv/$convId": {
       "filePath": "_app/conv.$convId.tsx",
+      "parent": "/_app"
+    },
+    "/_app/doc/$docUri": {
+      "filePath": "_app/doc.$docUri.tsx",
       "parent": "/_app"
     }
   }
