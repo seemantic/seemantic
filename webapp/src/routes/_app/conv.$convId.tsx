@@ -5,6 +5,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/shadcn/components/ui/resizable'
+import { getParsedDocument } from '@/utils/api'
 import { db } from '@/utils/db'
 import { createFileRoute } from '@tanstack/react-router'
 
@@ -25,7 +26,13 @@ export const Route = createFileRoute('/_app/conv/$convId')({
   }),
   loader: async ({ params, deps: { docUri } }) => {
     const { convId } = params
-    const conv = await db.conversations.get({ uuid: convId })
+
+    // Load conv and doc in parallel
+    const [conv, doc] = await Promise.all([
+      db.conversations.get({ uuid: convId }),
+      docUri ? getParsedDocument(docUri) : Promise.resolve(null),
+    ])
+
     // if conv is undefined, throw a 404 error
     if (!conv) {
       throw new Response('Not Found', {
@@ -33,23 +40,35 @@ export const Route = createFileRoute('/_app/conv/$convId')({
         statusText: 'Not Found',
       })
     }
-    return { conv, docUri }
+
+    return { conv, doc }
   },
 })
 
 function RouteComponent() {
-  return (
-    <div className="flex h-screen w-full">
-      <ResizablePanelGroup direction="horizontal">
-        <ResizablePanel>
-          {/* Use the new ConvPanel component */}
-          <ConvPanel />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel>
-          <DocPanel doc={null}></DocPanel>
-        </ResizablePanel>
-      </ResizablePanelGroup>
-    </div>
-  )
+  // Get the route params and search params
+  const { conv, doc } = Route.useLoaderData()
+
+  if (doc === null) {
+    return (
+      <div className="flex h-screen w-full">
+        <ConvPanel conv={conv} />
+      </div>
+    )
+  } else {
+    return (
+      <div className="flex h-screen w-full">
+        <ResizablePanelGroup direction="horizontal">
+          <ResizablePanel>
+            {/* Use the new ConvPanel component */}
+            <ConvPanel conv={conv} />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel>
+            <DocPanel doc={doc}></DocPanel>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+    )
+  }
 }

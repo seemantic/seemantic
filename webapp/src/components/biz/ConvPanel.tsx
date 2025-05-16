@@ -1,18 +1,16 @@
 import ChatCard from '@/components/biz/ChatCard' // Adjust the import path as needed
 import StreamedResponsePanel from '@/components/biz/StreamedResponsePanel'
 import type { ApiQuery } from '@/utils/api_data'
+import type { ConversationEntry } from '@/utils/db'
 import { createConversation } from '@/utils/db'
-import { getRouteApi, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 
-// Assuming the route API is accessible here, otherwise props need to be passed
-const routeApi = getRouteApi('/_app/conv/$convId')
+type ConvPanelProps = {
+  conv: ConversationEntry
+}
 
-// TODO: passer un UID (path) et la query str (search)
-// c'est ce composant qui va storer en base
-
-export default function ConvPanel() {
-  const conv = routeApi.useLoaderData()
-  const { convId } = routeApi.useParams() // Get convId from params
+export default function ConvPanel(props: ConvPanelProps) {
+  const { conv } = props
   const queryMessage = conv.queryResponsePairs.at(-1)?.query
   // raise error if queryMessage is undefined
   if (queryMessage === undefined) {
@@ -36,7 +34,7 @@ export default function ConvPanel() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1">{queryMessage.content}</div>
-      <StreamedResponsePanel key={convId} query={apiQuery} />
+      <StreamedResponsePanel key={conv.uuid} query={apiQuery} />
       <div className="w-full flex justify-center">
         <ChatCard onSubmit={handleChatSubmit} />
       </div>

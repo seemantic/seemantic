@@ -5,6 +5,7 @@ import type {
   ApiQueryResponseUpdate,
   ApiSearchResult,
 } from '@/utils/api_data'
+import { Link } from '@tanstack/react-router'
 import React from 'react'
 
 interface StreamedResponsePanelProps {
@@ -51,11 +52,17 @@ const StreamedResponsePanel: React.FC<StreamedResponsePanelProps> = ({
   return (
     <div className="streamed-response-panel">
       {refs.map((ref) => (
-        <Card key={ref.document_uri} className="mb-2">
-          <CardContent>
-            <p>{ref.document_uri}</p>
-          </CardContent>
-        </Card>
+        <Link
+          to="."
+          search={{ docUri: ref.document_uri }}
+          key={ref.document_uri}
+        >
+          <Card key={ref.document_uri} className="mb-2">
+            <CardContent>
+              <p>{ref.document_uri}</p>
+            </CardContent>
+          </Card>
+        </Link>
       ))}
       <div className="content">{answer}</div>
     </div>
