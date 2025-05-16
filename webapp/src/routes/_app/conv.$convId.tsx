@@ -1,4 +1,5 @@
 import ConvPanel from '@/components/biz/ConvPanel' // Import the new component
+import DocPanel from '@/components/biz/DocPanel'
 import {
   ResizableHandle,
   ResizablePanel,
@@ -7,9 +8,22 @@ import {
 import { db } from '@/utils/db'
 import { createFileRoute } from '@tanstack/react-router'
 
+type ConvSearchParams = {
+  docUri?: string
+}
+
 export const Route = createFileRoute('/_app/conv/$convId')({
   component: RouteComponent,
-  loader: async ({ params }) => {
+  validateSearch: (search: Record<string, unknown>): ConvSearchParams => {
+    const { docUri } = search
+    return {
+      docUri: typeof docUri === 'string' ? docUri : undefined,
+    }
+  },
+  loaderDeps: ({ search }: { search: ConvSearchParams }) => ({
+    docUri: search.docUri,
+  }),
+  loader: async ({ params, deps: { docUri } }) => {
     const { convId } = params
     const conv = await db.conversations.get({ uuid: convId })
     // if conv is undefined, throw a 404 error
@@ -19,7 +33,7 @@ export const Route = createFileRoute('/_app/conv/$convId')({
         statusText: 'Not Found',
       })
     }
-    return conv
+    return { conv, docUri }
   },
 })
 
@@ -32,7 +46,9 @@ function RouteComponent() {
           <ConvPanel />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel>Two</ResizablePanel>
+        <ResizablePanel>
+          <DocPanel doc={null}></DocPanel>
+        </ResizablePanel>
       </ResizablePanelGroup>
     </div>
   )
