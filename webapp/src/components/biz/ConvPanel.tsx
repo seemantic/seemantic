@@ -1,8 +1,8 @@
 import ChatCard from '@/components/biz/ChatCard' // Adjust the import path as needed
 import StreamedResponsePanel from '@/components/biz/StreamedResponsePanel'
-import type { ApiQuery } from '@/utils/api_data'
+import type { ApiQuery, ApiSearchResult } from '@/utils/api_data'
 import type { ConversationEntry } from '@/utils/db'
-import { createConversation } from '@/utils/db'
+import { insertConversation, insertResponse } from '@/utils/db'
 import { useNavigate } from '@tanstack/react-router'
 
 type ConvPanelProps = {
@@ -25,16 +25,22 @@ export default function ConvPanel(props: ConvPanelProps) {
   const navigate = useNavigate()
 
   const handleChatSubmit = async (query: string) => {
-    const uuid = await createConversation(query)
+    const uuid = await insertConversation(query)
     navigate({
       to: '/conv/' + uuid,
     })
   }
 
+  const onReponseCompleted = async (
+    response: ApiQueryResponseMessage,
+  ) => {
+    // update the conversation with the new response
+    await insertResponse(conv.uuid, response)
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1">{queryMessage.content}</div>
-      <StreamedResponsePanel key={conv.uuid} query={apiQuery} />
+      <StreamedResponsePanel key={conv.uuid} query={apiQuery} onReponseCompleted={onAnswerCompleted} />
       <div className="w-full flex justify-center">
         <ChatCard onSubmit={handleChatSubmit} />
       </div>

@@ -1,7 +1,9 @@
 import { Card, CardContent } from '@/shadcn/components/ui/card'
 import { subscribeToQuery } from '@/utils/api'
 import type {
+  ApiChatMessage,
   ApiQuery,
+  ApiQueryResponseMessage,
   ApiQueryResponseUpdate,
   ApiSearchResult,
 } from '@/utils/api_data'
@@ -10,13 +12,18 @@ import React from 'react'
 
 interface StreamedResponsePanelProps {
   query: ApiQuery
+  onResponseCompleted: (response: ApiQueryResponseMessage) => void
 }
 
 const StreamedResponsePanel: React.FC<StreamedResponsePanelProps> = ({
   query,
+  onResponseCompleted,
 }) => {
   const [answer, setAnswer] = React.useState<string>('')
   const [refs, setRefs] = React.useState<Array<ApiSearchResult>>([])
+  const [chatMessagesExchanged, setChatMessagesExchanged] = React.useState<
+    Array<ApiChatMessage>
+  >([])
 
   React.useEffect(() => {
     const abortController = new AbortController()
@@ -37,6 +44,22 @@ const StreamedResponsePanel: React.FC<StreamedResponsePanelProps> = ({
               () => queryResponseUpdate.search_result as Array<ApiSearchResult>,
             )
           }
+          if (
+            queryResponseUpdate.chat_messages_exchanged &&
+            queryResponseUpdate.chat_messages_exchanged.length > 0
+          ) {
+            setChatMessagesExchanged(
+              () =>
+                queryResponseUpdate.chat_messages_exchanged as Array<ApiChatMessage>,
+            )
+          }
+        },
+        () => {
+          onResponseCompleted({
+            answer: answer,
+            search_result: refs,
+            chat_messages_exchanged: chatMessagesExchanged,
+          })
         },
       )
     }

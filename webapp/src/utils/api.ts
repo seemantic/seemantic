@@ -33,6 +33,7 @@ export const subscribeToQuery = async (
   query: ApiQuery,
   abortController: AbortController,
   onUpdate: (update: ApiQueryResponseUpdate) => void,
+  onClose: () => void
 ): Promise<void> => {
   await fetchEventSource(`${apiUrl}/queries`, {
     method: 'POST',
@@ -46,8 +47,8 @@ export const subscribeToQuery = async (
       const queryResponseUpdate: ApiQueryResponseUpdate = JSON.parse(event.data)
       onUpdate(queryResponseUpdate)
     },
-  })
-}
+    onclose: onClose
+})}
 
 export const subscribeToDocumentEvents = async (
   abortController: AbortController,

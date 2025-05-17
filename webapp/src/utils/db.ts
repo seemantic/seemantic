@@ -30,7 +30,7 @@ class SeemanticDatabase extends Dexie {
 // Instantiate the database
 export const db = new SeemanticDatabase()
 
-export const createConversation = async (query: string): Promise<string> => {
+export const insertConversation = async (query: string): Promise<string> => {
   const uuid = crypto.randomUUID() // Generate a unique identifier for the conversation
   // insert a new entry in db
   await db.conversations.add({
@@ -46,4 +46,24 @@ export const createConversation = async (query: string): Promise<string> => {
   })
 
   return uuid
+}
+
+export const insertResponse = async (
+  convId: string,
+  response: ApiQueryResponseMessage,
+): Promise<void> => {
+
+  const conv = await db.conversations.get({ uuid: convId })
+  if (!conv) {
+    throw new Error('Conversation not found for ID: ' + convId)
+  }
+
+  const lastPair = conv.queryResponsePairs.at(-1)
+  if (!lastPair) {
+    throw new Error('No query-response pair found in the conversation')
+  }
+  lastPair.response = response
+  conv.lastInteraction = new Date()
+
+  await db.conversations.put(conv)
 }
