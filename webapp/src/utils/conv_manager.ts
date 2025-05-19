@@ -21,7 +21,7 @@ export interface ConversationStoreState {
 
 export interface ConversationStoreActions {
   createConversation: () => string
-  appendApiQueryResponsePair: (convId: string, query: ApiQueryMessage) => string // init an new pair with an empty Response
+  appendApiQueryResponsePair: (convId: string, query: ApiQueryMessage) => void // init an new pair with an empty Response
 
   updateResponse: (
     convId: string,
@@ -30,7 +30,7 @@ export interface ConversationStoreActions {
   ) => void
 }
 
-export const userStore = create<
+export const userConvStore = create<
   ConversationStoreState & ConversationStoreActions
 >()(
   immer((set, get) => ({
@@ -99,7 +99,7 @@ export const userStore = create<
       }
 
       // Asynchronously subscribe to query updates
-      const storeActions = userStore.getState()
+      const storeActions = userConvStore.getState()
 
       subscribeToQuery(
         apiQuery,
@@ -123,8 +123,6 @@ export const userStore = create<
           storeActions.updateResponse(convId, pairId, accumulatedResponse)
         },
       )
-
-      return pairId // Return user message ID immediately
     },
   })),
 )
