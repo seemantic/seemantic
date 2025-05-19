@@ -18,7 +18,7 @@ export interface ConversationStoreActions {
     convId: string,
     message: ApiQueryMessage | ApiQueryResponseMessage,
   ) => string
-  updateResponse: (
+  updateMessage: (
     convId: string,
     messageId: string,
     message: ApiQueryResponseMessage,
@@ -27,65 +27,46 @@ export interface ConversationStoreActions {
 
 export const userStore = create<
   ConversationStoreState & ConversationStoreActions
->((set) => ({
-  conversations: {},
-  createConversation: (userMessage: string) => {
-    const convId = crypto.randomUUID()
-    set((state) => ({
-      conversations: {
-        ...state.conversations,
-        [convId]: {
+>()(
+  immer((set) => ({
+    conversations: {},
+    createConversation: (userMessage: string) => {
+      const convId = crypto.randomUUID()
+      set((state) => {
+        state.conversations[convId] = {
           messages: {
             [convId]: { content: userMessage },
           },
           messageKeys: [convId],
-        },
-      },
-    }))
-    return convId
-  },
-  appendMessage: (
-    convId: string,
-    message: ApiQueryMessage | ApiQueryResponseMessage,
-  ) => {
-    const messageId = crypto.randomUUID()
-    set((state) => {
-      const conversation = state.conversations[convId]
-      return {
-        conversations: {
-          ...state.conversations,
-          [convId]: {
-            ...conversation,
-            messages: {
-              ...conversation.messages,
-              [messageId]: message,
-            },
-            messageKeys: [...conversation.messageKeys, messageId],
-          },
-        },
-      }
-    })
-    return messageId
-  },
-  updateResponse: (
-    convId: string,
-    messageId: string,
-    message: ApiQueryResponseMessage,
-  ) => {
-    set((state) => {
-      const conversation = state.conversations[convId]
-      return {
-        conversations: {
-          ...state.conversations,
-          [convId]: {
-            ...conversation,
-            messages: {
-              ...conversation.messages,
-              [messageId]: message,
-            },
-          },
-        },
-      }
-    })
-  },
-}))
+        }
+      })
+      return convId
+    },
+    appendMessage: (
+      convId: string,
+      message: ApiQueryMessage | ApiQueryResponseMessage,
+    ) => {
+      const messageId = crypto.randomUUID()
+      set((state) => {
+        const conversation = state.conversations[convId]
+        if (conversation) {
+          conversation.messages[messageId] = message
+          conversation.messageKeys.push(messageId)
+        }
+      })
+      return messageId
+    },
+    updateMessage: (
+      convId: string,
+      messageId: string,
+      message: ApiQueryMessage | ApiQueryResponseMessage,
+    ) => {
+      set((state) => {
+        const conversation = state.conversations[convId]
+        if (conversation && conversation.messages[messageId]) {
+          conversation.messages[messageId] = message
+        }
+      })
+    },
+  })),
+)
