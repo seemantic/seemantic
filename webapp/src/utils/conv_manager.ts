@@ -1,11 +1,18 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 
-import type { ApiQueryMessage, ApiQueryResponseMessage } from './api_data'
+import { subscribeToQuery } from './api'
+import type {
+  ApiQuery,
+  ApiQueryMessage,
+  ApiQueryReponsePair,
+  ApiQueryResponseMessage,
+  ApiQueryResponseUpdate,
+} from './api_data'
 
 export interface Conversation {
-  messages: Record<string, ApiQueryMessage | ApiQueryResponseMessage>
-  messageKeys: Array<string>
+  queryResponsePairs: Record<string, ApiQueryReponsePair>
+  queryResponsePairKeys: Array<string>
 }
 
 export interface ConversationStoreState {
@@ -13,14 +20,12 @@ export interface ConversationStoreState {
 }
 
 export interface ConversationStoreActions {
-  createConversation: (userMessage: string) => string
-  appendMessage: (
+  createConversation: () => string
+  appendApiQueryResponsePair: (convId: string, query: ApiQueryMessage) => string // init an new pair with an empty Response
+
+  updateResponse: (
     convId: string,
-    message: ApiQueryMessage | ApiQueryResponseMessage,
-  ) => string
-  updateMessage: (
-    convId: string,
-    messageId: string,
+    pairId: string,
     message: ApiQueryResponseMessage,
   ) => void
 }
@@ -28,45 +33,98 @@ export interface ConversationStoreActions {
 export const userStore = create<
   ConversationStoreState & ConversationStoreActions
 >()(
-  immer((set) => ({
+  immer((set, get) => ({
     conversations: {},
-    createConversation: (userMessage: string) => {
+    createConversation: () => {
       const convId = crypto.randomUUID()
       set((state) => {
         state.conversations[convId] = {
-          messages: {
-            [convId]: { content: userMessage },
-          },
-          messageKeys: [convId],
+          queryResponsePairs: {},
+          queryResponsePairKeys: [],
         }
       })
       return convId
     },
-    appendMessage: (
+
+    updateResponse: (
       convId: string,
-      message: ApiQueryMessage | ApiQueryResponseMessage,
+      pairId: string,
+      message: ApiQueryResponseMessage,
     ) => {
-      const messageId = crypto.randomUUID()
       set((state) => {
         const conversation = state.conversations[convId]
         if (conversation) {
-          conversation.messages[messageId] = message
-          conversation.messageKeys.push(messageId)
+          const pair = conversation.queryResponsePairs[pairId]
+          if (pair) {
+            pair.response = message
+          }
         }
       })
-      return messageId
     },
-    updateMessage: (
-      convId: string,
-      messageId: string,
-      message: ApiQueryMessage | ApiQueryResponseMessage,
-    ) => {
+
+    appendApiQueryResponsePair: (convId: string, query: ApiQueryMessage) => {
+      const pairId = crypto.randomUUID()
+      const currentConversation = get().conversations[convId]
+      const previousMessages = currentConversation.queryResponsePairKeys.map(
+        (key) => currentConversation.queryResponsePairs[key],
+      )
+
+      // Add user message to store
       set((state) => {
         const conversation = state.conversations[convId]
-        if (conversation && conversation.messages[messageId]) {
-          conversation.messages[messageId] = message
+        if (conversation) {
+          conversation.queryResponsePairs[pairId] = {
+            query,
+            response: {
+              answer: '',
+              search_result: [],
+              chat_messages_exchanged: [],
+            },
+          }
+          conversation.queryResponsePairKeys.push(pairId)
         }
       })
+
+      // Prepare ApiQuery
+      const apiQuery: ApiQuery = {
+        query: query,
+        previous_messages: previousMessages,
+      }
+
+      const abortController = new AbortController()
+      const accumulatedResponse: ApiQueryResponseMessage = {
+        answer: '',
+        search_result: [],
+        chat_messages_exchanged: [],
+      }
+
+      // Asynchronously subscribe to query updates
+      const storeActions = userStore.getState()
+
+      subscribeToQuery(
+        apiQuery,
+        abortController,
+        (update: ApiQueryResponseUpdate) => {
+          if (update.delta_answer) {
+            accumulatedResponse.answer += update.delta_answer
+          }
+          if (update.search_result && update.search_result.length > 0) {
+            accumulatedResponse.search_result = update.search_result
+          }
+          if (
+            update.chat_messages_exchanged &&
+            update.chat_messages_exchanged.length > 0
+          ) {
+            accumulatedResponse.chat_messages_exchanged =
+              update.chat_messages_exchanged
+          }
+
+          // Subsequent updates: update the existing assistant's message
+          storeActions.updateResponse(convId, pairId, accumulatedResponse)
+        },
+      )
+
+      return pairId // Return user message ID immediately
     },
   })),
 )
