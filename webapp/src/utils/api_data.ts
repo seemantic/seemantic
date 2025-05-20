@@ -31,13 +31,13 @@ export interface ApiChatMessage {
 
 export interface ApiQueryResponseUpdate {
   delta_answer: string | null
-  search_result: Array<ApiSearchResult> | null
+  search_results: Array<ApiSearchResult> | null
   chat_messages_exchanged: Array<ApiChatMessage> | null
 }
 
 export interface ApiQueryResponseMessage {
   answer: string
-  search_result: Array<ApiSearchResult>
+  search_results: Array<ApiSearchResult>
   chat_messages_exchanged: Array<ApiChatMessage>
 }
 

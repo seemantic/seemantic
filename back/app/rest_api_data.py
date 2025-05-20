@@ -52,7 +52,7 @@ class ApiQueryResponseUpdate(BaseModel):
     delta_answer: str | None
     # if None, keep the previous result.
     # if not None, it replace the previous search result
-    search_result: list[ApiSearchResult] | None
+    search_results: list[ApiSearchResult] | None
     # if None, keep the previous chat messages
     # if not None, it replace the previous chat messages
     chat_messages_exchanged: list[ApiChatMessage] | None

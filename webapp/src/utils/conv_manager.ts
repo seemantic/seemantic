@@ -12,7 +12,7 @@ import type {
 
 export interface Conversation {
   queryResponsePairs: Record<string, ApiQueryReponsePair>
-  queryResponsePairKeys: Array<string>
+  queryResponsePairIds: Array<string>
 }
 
 export interface ConversationStoreState {
@@ -40,7 +40,7 @@ export const userConvStore = create<
       set((state) => {
         state.conversations[convId] = {
           queryResponsePairs: {},
-          queryResponsePairKeys: [],
+          queryResponsePairIds: [],
         }
       })
       return convId
@@ -65,7 +65,7 @@ export const userConvStore = create<
     appendApiQueryResponsePair: (convId: string, query: ApiQueryMessage) => {
       const pairId = crypto.randomUUID()
       const currentConversation = get().conversations[convId]
-      const previousMessages = currentConversation.queryResponsePairKeys.map(
+      const previousMessages = currentConversation.queryResponsePairIds.map(
         (key) => currentConversation.queryResponsePairs[key],
       )
 
@@ -77,11 +77,11 @@ export const userConvStore = create<
             query,
             response: {
               answer: '',
-              search_result: [],
+              search_results: [],
               chat_messages_exchanged: [],
             },
           }
-          conversation.queryResponsePairKeys.push(pairId)
+          conversation.queryResponsePairIds.push(pairId)
         }
       })
 
@@ -94,7 +94,7 @@ export const userConvStore = create<
       const abortController = new AbortController()
       const accumulatedResponse: ApiQueryResponseMessage = {
         answer: '',
-        search_result: [],
+        search_results: [],
         chat_messages_exchanged: [],
       }
 
@@ -108,8 +108,8 @@ export const userConvStore = create<
           if (update.delta_answer) {
             accumulatedResponse.answer += update.delta_answer
           }
-          if (update.search_result && update.search_result.length > 0) {
-            accumulatedResponse.search_result = update.search_result
+          if (update.search_results && update.search_results.length > 0) {
+            accumulatedResponse.search_results = update.search_results
           }
           if (
             update.chat_messages_exchanged &&

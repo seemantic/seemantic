@@ -193,11 +193,11 @@ async def query(client: AsyncClient, query: str) -> ApiQueryResponseUpdate:
         json = sse_line.removeprefix("data: ")
         update = ApiQueryResponseUpdate.model_validate_json(json)
         full_response_content += update.delta_answer or ""
-        if update.search_result:
-            search_results = update.search_result
+        if update.search_results:
+            search_results = update.search_results
     return ApiQueryResponseUpdate(
         delta_answer=full_response_content,
-        search_result=search_results,
+        search_results=search_results,
         chat_messages_exchanged=None,
     )
 

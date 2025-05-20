@@ -6,7 +6,6 @@ import {
   ResizablePanelGroup,
 } from '@/shadcn/components/ui/resizable'
 import { getParsedDocument } from '@/utils/api'
-import { db } from '@/utils/db'
 import { createFileRoute } from '@tanstack/react-router'
 
 type ConvSearchParams = {
@@ -24,35 +23,22 @@ export const Route = createFileRoute('/_app/conv/$convId')({
   loaderDeps: ({ search }: { search: ConvSearchParams }) => ({
     docUri: search.docUri,
   }),
-  loader: async ({ params, deps: { docUri } }) => {
-    const { convId } = params
+  loader: async ({ deps: { docUri } }) => {
+    const doc = docUri ? await getParsedDocument(docUri) : null
 
-    // Load conv and doc in parallel
-    const [conv, doc] = await Promise.all([
-      db.conversations.get({ uuid: convId }),
-      docUri ? getParsedDocument(docUri) : Promise.resolve(null),
-    ])
-
-    // if conv is undefined, throw a 404 error
-    if (!conv) {
-      throw new Response('Not Found', {
-        status: 404,
-        statusText: 'Not Found',
-      })
-    }
-
-    return { conv, doc }
+    return { doc }
   },
 })
 
 function RouteComponent() {
   // Get the route params and search params
-  const { conv, doc } = Route.useLoaderData()
+  const { doc } = Route.useLoaderData()
+  const { convId } = Route.useParams()
 
   if (doc === null) {
     return (
       <div className="flex h-screen w-full">
-        <ConvPanel conv={conv} />
+        <ConvPanel convId={convId} />
       </div>
     )
   } else {
@@ -61,7 +47,7 @@ function RouteComponent() {
         <ResizablePanelGroup direction="horizontal">
           <ResizablePanel>
             {/* Use the new ConvPanel component */}
-            <ConvPanel conv={conv} />
+            <ConvPanel convId={convId} />
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel>

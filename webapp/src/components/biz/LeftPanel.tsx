@@ -69,16 +69,14 @@ export default function LeftPanel() {
                   key={doc.uri}
                 >
                   <SidebarMenuItem key={doc.uri}>
-                    <SidebarMenuButton className="h-20">
-                      <a href={doc.uri} className="flex flex-col text-left">
-                        <span className="text-sm font-medium">{doc.uri}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {doc.status}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {doc.last_indexing}
-                        </span>
-                      </a>
+                    <SidebarMenuButton className="h-20 flex flex-col text-left">
+                      <span className="text-sm font-medium">{doc.uri}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {doc.status}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {doc.last_indexing}
+                      </span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </Link>
