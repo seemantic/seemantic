@@ -14,7 +14,7 @@ function App() {
     (state) => state.appendApiQueryResponsePair,
   )
 
-  const handleChatSubmit = async (query: string) => {
+  const handleChatSubmit = (query: string) => {
     const uuid = createConversation()
     appendApiQueryResponsePair(uuid, {
       content: query,

@@ -119,8 +119,11 @@ export const userConvStore = create<
               update.chat_messages_exchanged
           }
 
+          // Create a new object for the store update to ensure change detection
+          const responseForStore = { ...accumulatedResponse }
+
           // Subsequent updates: update the existing assistant's message
-          storeActions.updateResponse(convId, pairId, accumulatedResponse)
+          storeActions.updateResponse(convId, pairId, responseForStore)
         },
       )
     },

@@ -15,9 +15,18 @@ export default function ConvPanel(props: ConvPanelProps) {
     (state) => state.conversations[convId].queryResponsePairIds,
   )
 
-  const handleChatSubmit = async (query: string) => {
+  const createConversation = userConvStore((state) => state.createConversation)
+  const appendApiQueryResponsePair = userConvStore(
+    (state) => state.appendApiQueryResponsePair,
+  )
+
+  const handleChatSubmit = (query: string) => {
+    const newConvId = createConversation()
+    appendApiQueryResponsePair(newConvId, {
+      content: query,
+    })
     navigate({
-      to: '/conv/' + convId,
+      to: '/conv/' + newConvId,
     })
   }
 
