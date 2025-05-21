@@ -64,7 +64,6 @@ Each componant with the following objectives in mind:
 - Vite
 - Tanstack router
 - React
-- Dexie
 
 ## Security:
 

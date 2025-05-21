@@ -130,7 +130,7 @@ async def create_query(
             yield _to_untyped_sse_event(
                 ApiQueryResponseUpdate(
                     delta_answer=None,
-                    search_result=api_search_results,
+                    search_results=api_search_results,
                     chat_messages_exchanged=None,
                 ),
             )
@@ -155,7 +155,7 @@ async def create_query(
             yield _to_untyped_sse_event(
                 ApiQueryResponseUpdate(
                     delta_answer=chunk,
-                    search_result=None,
+                    search_results=None,
                     chat_messages_exchanged=None,
                 ),
             )
@@ -168,7 +168,7 @@ async def create_query(
         yield _to_untyped_sse_event(
             ApiQueryResponseUpdate(
                 delta_answer=None,
-                search_result=None,
+                search_results=None,
                 chat_messages_exchanged=[
                     ApiChatMessage(role=m["role"], content=m["content"]) for m in exchanged_messages
                 ],
