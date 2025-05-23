@@ -1,5 +1,6 @@
 //  @ts-check
 
+import js from "@eslint/js"; // Add this line to import js
 import { tanstackConfig } from '@tanstack/eslint-config';
 // It's good practice to include base JS rules if not already handled by tanstackConfig
 
@@ -21,8 +22,8 @@ export default [
         ],
     },
 
-    // 2. Apply base JavaScript rules (optional, check if tanstackConfig includes this)
-    // js.configs.recommended, // Uncomment if needed
+    // 2. Apply base JavaScript rules
+    js.configs.recommended,
 
     // 3. Apply Tanstack config (likely includes TS rules with parserOptions.project)
     ...tanstackConfig,
@@ -38,6 +39,8 @@ export default [
                     peerDependencies: true,
                 },
             ],
+            "eqeqeq": "error", // Enforce strict equality
+            "no-console": "warn", // Warn about console.log statements
             // Add other project-specific rule overrides here if needed
         }
     }

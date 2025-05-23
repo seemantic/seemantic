@@ -9,7 +9,7 @@ import { getParsedDocument } from '@/utils/api'
 import { createFileRoute } from '@tanstack/react-router'
 
 type ConvSearchParams = {
-  docUri?: string
+  docUri: string | null
 }
 
 export const Route = createFileRoute('/_app/conv/$convId')({
@@ -17,7 +17,7 @@ export const Route = createFileRoute('/_app/conv/$convId')({
   validateSearch: (search: Record<string, unknown>): ConvSearchParams => {
     const { docUri } = search
     return {
-      docUri: typeof docUri === 'string' ? docUri : undefined,
+      docUri: typeof docUri === 'string' ? docUri : null,
     }
   },
   loaderDeps: ({ search }: { search: ConvSearchParams }) => ({
