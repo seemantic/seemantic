@@ -15,6 +15,8 @@ export default [
             "eslint.config.js",     // Ignore this ESLint config file
             "prettier.config.js",   // Ignore Prettier config
             "vite.config.js",       // Ignore Vite config
+            "vitest.workspace.js", // Ignore Vitest workspace config
+            ".storybook/**",      // Ignore Storybook config
             // Add other root config files like tailwind.config.js, postcss.config.js if they exist
         ],
     },
