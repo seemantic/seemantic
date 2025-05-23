@@ -4,18 +4,9 @@ import {
   syncDataLoaderFeature,
 } from '@headless-tree/core'
 import { useTree } from '@headless-tree/react'
-import type { Meta } from '@storybook/react'
 import cn from 'classnames'
 
-const meta = {
-  title: 'React/General/Simple Example',
-  tags: ['homepage'],
-} satisfies Meta
-
-export default meta
-
-// story-start
-export const SimpleExample = () => {
+export const FileTree = () => {
   const tree = useTree<string>({
     initialState: { expandedItems: ['folder-1'] },
     rootItemId: 'folder',

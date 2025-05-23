@@ -53,12 +53,8 @@ export const userConvStore = create<
     ) => {
       set((state) => {
         const conversation = state.conversations[convId]
-        if (conversation) {
-          const pair = conversation.queryResponsePairs[pairId]
-          if (pair) {
-            pair.response = message
-          }
-        }
+        const pair = conversation.queryResponsePairs[pairId]
+        pair.response = message
       })
     },
 
@@ -72,17 +68,15 @@ export const userConvStore = create<
       // Add user message to store
       set((state) => {
         const conversation = state.conversations[convId]
-        if (conversation) {
-          conversation.queryResponsePairs[pairId] = {
-            query,
-            response: {
-              answer: '',
-              search_results: [],
-              chat_messages_exchanged: [],
-            },
-          }
-          conversation.queryResponsePairIds.push(pairId)
+        conversation.queryResponsePairs[pairId] = {
+          query,
+          response: {
+            answer: '',
+            search_results: [],
+            chat_messages_exchanged: [],
+          },
         }
+        conversation.queryResponsePairIds.push(pairId)
       })
 
       // Prepare ApiQuery

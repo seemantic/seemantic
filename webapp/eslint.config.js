@@ -29,6 +29,13 @@ export default [
     {
         rules: {
             ...disableImportRules,
+            "import/no-extraneous-dependencies": [
+                "error",
+                {
+                    devDependencies: ["**/*.stories.tsx", "**/*.stories.ts"],
+                    peerDependencies: true,
+                },
+            ],
             // Add other project-specific rule overrides here if needed
         }
     }
