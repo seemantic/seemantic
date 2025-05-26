@@ -12,6 +12,7 @@ import { subscribeToDocumentEvents } from '@/utils/api'
 import type { ApiDocumentDelete, ApiDocumentSnippet } from '@/utils/api_data'
 import { Link, getRouteApi } from '@tanstack/react-router'
 import React from 'react'
+import { FileTree } from './FileTree'
 
 export default function LeftPanel() {
   const route = getRouteApi('/_app')
@@ -62,6 +63,7 @@ export default function LeftPanel() {
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              <FileTree />
               {docs.map((doc) => (
                 <Link
                   to="/doc/$docUri"
