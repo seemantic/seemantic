@@ -63,7 +63,7 @@ export default function LeftPanel() {
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <FileTree />
+              <FileTree docs={docs} />
               {docs.map((doc) => (
                 <Link
                   to="/doc/$docUri"
