@@ -38,36 +38,39 @@ function uriToItem(
   })
 
   for (const doc of docs) {
-    const fileUri = doc.uri.startsWith('/') ? doc.uri : `/${doc.uri}`
+    const docUri = doc.uri
 
-    // Find the last separator to identify the parent folder.
-    const lastSlashIndex = fileUri.lastIndexOf('/')
-
-    // Determine the parent folder's URI.
-    const folderUri =
-      lastSlashIndex === 0 ? '/' : fileUri.substring(0, lastSlashIndex)
-
-    // Create a new entry for the folder if it doesn't exist.
-    if (!folderMap.has(folderUri)) {
-      folderMap.set(folderUri, {
-        uri: folderUri,
-        name: folderUri.split('/').pop()!,
-        type: 'folder',
-        childrenUris: [],
-      })
+    // extract all folders uris from the file URI
+    // e.g. /folder1/folder2/file.txt -> ['/', '/folder1', '/folder1/folder2']
+    const fileParts = docUri.split('/')
+    let currentNodeUri = ''
+    for (const part of fileParts) {
+      const parentFolderUri = currentNodeUri || '/'
+      currentNodeUri += `/${part}`
+      // add the current folder to the map if it doesn't exist
+      if (!folderMap.has(currentNodeUri)) {
+        if (currentNodeUri === docUri) {
+          folderMap.set(docUri, {
+            uri: docUri,
+            name: part,
+            type: 'file',
+            doc: doc,
+            childrenUris: [], // Files do not have children
+          })
+        } else {
+          folderMap.set(currentNodeUri, {
+            uri: currentNodeUri,
+            name: part,
+            type: 'folder',
+            childrenUris: [],
+          })
+        }
+      }
+      // associate the folder with its parent, we know it exists
+      ;(folderMap.get(parentFolderUri) as FolderItem).childrenUris.push(
+        currentNodeUri,
+      )
     }
-
-    // Add the child to its parent's list, only if the parent is a folder.
-    ;(folderMap.get(folderUri) as FolderItem).childrenUris.push(fileUri)
-
-    // Ensure the file itself is also a key in the map.
-    folderMap.set(fileUri, {
-      uri: fileUri,
-      name: fileUri.split('/').pop()!,
-      type: 'file',
-      doc: doc,
-      childrenUris: [], // Files do not have children
-    })
   }
 
   return folderMap
