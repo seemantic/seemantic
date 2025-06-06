@@ -65,11 +65,11 @@ function uriToItem(
             childrenUris: [],
           })
         }
+        // associate the folder with its parent, we know it exists
+        ;(folderMap.get(parentFolderUri) as FolderItem).childrenUris.push(
+          currentNodeUri,
+        )
       }
-      // associate the folder with its parent, we know it exists
-      ;(folderMap.get(parentFolderUri) as FolderItem).childrenUris.push(
-        currentNodeUri,
-      )
     }
   }
 
@@ -93,7 +93,6 @@ export const FileTree = (props: FileTreeProps) => {
       getItem: (itemId) => itemsMap.get(itemId)!,
       getChildren: (itemId) => itemsMap.get(itemId)!.childrenUris,
     },
-    indent: 10,
     features: [syncDataLoaderFeature, selectionFeature, hotkeysCoreFeature],
   })
 
