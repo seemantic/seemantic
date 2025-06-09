@@ -9,16 +9,14 @@ import { useTree } from '@headless-tree/react'
 import cn from 'classnames'
 
 type TreeItem = {
-  uri: string
   name: string
   type: 'file' | 'folder'
-  childrenUris: Array<string>
+  childrenPaths: Array<string>
 }
 
 type FileItem = TreeItem & {
   type: 'file'
   doc: ApiDocumentSnippet
-  childrenUris: [] // alaways empty for files
 }
 
 type FolderItem = TreeItem & {
@@ -32,10 +30,9 @@ function uriToItem(
 
   // Add the root folder to the map.
   folderMap.set('/', {
-    uri: '/',
     name: 'root',
     type: 'folder',
-    childrenUris: [],
+    childrenPaths: [],
   })
 
   for (const doc of docs) {
@@ -43,32 +40,30 @@ function uriToItem(
 
     // extract all folders uris from the file URI
     // e.g. /folder1/folder2/file.txt -> ['/', '/folder1', '/folder1/folder2']
-    const fileParts = docUri.split('/')
-    let currentNodeUri = ''
+    const fileParts = doc.uri.split('/')
+    let currentNodePath = ''
     for (const part of fileParts) {
-      const parentFolderUri = currentNodeUri || '/'
-      currentNodeUri += `/${part}`
+      const parentFolderPath = currentNodePath || '/'
+      currentNodePath = `${currentNodePath}/${part}`
       // add the current folder to the map if it doesn't exist
-      if (!folderMap.has(currentNodeUri)) {
-        if (currentNodeUri === docUri) {
-          folderMap.set(docUri, {
-            uri: docUri,
+      if (!folderMap.has(currentNodePath)) {
+        if (currentNodePath === `/${docUri}`) {
+          folderMap.set(currentNodePath, {
             name: part,
             type: 'file',
             doc: doc,
-            childrenUris: [], // Files do not have children
+            childrenPaths: [], // Files do not have children
           })
         } else {
-          folderMap.set(currentNodeUri, {
-            uri: currentNodeUri,
+          folderMap.set(currentNodePath, {
             name: part,
             type: 'folder',
-            childrenUris: [],
+            childrenPaths: [],
           })
         }
         // associate the folder with its parent, we know it exists
-        ;(folderMap.get(parentFolderUri) as FolderItem).childrenUris.push(
-          currentNodeUri,
+        ;(folderMap.get(parentFolderPath) as FolderItem).childrenPaths.push(
+          currentNodePath,
         )
       }
     }
@@ -92,7 +87,7 @@ export const FileTree = (props: FileTreeProps) => {
     isItemFolder: (item) => item.getItemData().type === 'folder',
     dataLoader: {
       getItem: (itemId) => itemsMap.get(itemId)!,
-      getChildren: (itemId) => itemsMap.get(itemId)!.childrenUris,
+      getChildren: (itemId) => itemsMap.get(itemId)!.childrenPaths,
     },
     features: [syncDataLoaderFeature, selectionFeature, hotkeysCoreFeature],
   })
