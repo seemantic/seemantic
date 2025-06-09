@@ -1,3 +1,4 @@
+import '@/components/biz/FileTree.css' // Assuming you have a CSS file for styles
 import type { ApiDocumentSnippet } from '@/utils/api_data'
 import {
   hotkeysCoreFeature,
@@ -104,8 +105,8 @@ export const FileTree = (props: FileTreeProps) => {
           key={item.getId()}
           style={{
             paddingLeft: `${item.getItemMeta().level * 20}px`,
-            display: 'block',
             width: '100%',
+            textAlign: 'left',
           }}
         >
           <div
