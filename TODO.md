@@ -12,7 +12,6 @@
 ## TODO
 
 - [QA] Check ESLint config
-- [QA] Fix linters
 - [CI] run linters in CI
 - [Feat] Implement File-Tree
 - [Feat] Implemnt file view
@@ -23,8 +22,11 @@
 - [UI] make it pretty
 - [Feat] add authent
 - [Bug] If user changes litellm embedding settings, it should change the indexer version
+- [Bug] display grow as the answer is written when a doc is not displayed (no splitter)
 
 # DOING
 
-- [Ref] Use Encoded uri instead of ":" path in rest API.
-- [Feat] Display references
+# DONE
+
+- [Bug] on refresh, the conv message is restreamed instead of loaded from db
+- [QA] Fix linters
