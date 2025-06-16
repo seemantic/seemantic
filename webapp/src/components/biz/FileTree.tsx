@@ -6,6 +6,7 @@ import {
   syncDataLoaderFeature,
 } from '@headless-tree/core'
 import { useTree } from '@headless-tree/react'
+import { useNavigate } from '@tanstack/react-router'
 import cn from 'classnames'
 
 type TreeItem = {
@@ -77,6 +78,7 @@ type FileTreeProps = {
 }
 
 export const FileTree = (props: FileTreeProps) => {
+  const navigate = useNavigate()
   const docs: Array<ApiDocumentSnippet> = props.docs
 
   const itemsMap = uriToItem(docs)
@@ -90,6 +92,15 @@ export const FileTree = (props: FileTreeProps) => {
       getChildren: (itemId) => itemsMap.get(itemId)!.childrenPaths,
     },
     features: [syncDataLoaderFeature, selectionFeature, hotkeysCoreFeature],
+    onPrimaryAction(item) {
+      if (!item.isFolder()) {
+        const doc = (item.getItemData() as FileItem).doc
+        navigate({
+          to: '/doc/$docUri',
+          params: { docUri: encodeURIComponent(doc.uri) },
+        })
+      }
+    },
   })
 
   return (

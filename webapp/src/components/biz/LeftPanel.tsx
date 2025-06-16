@@ -5,12 +5,10 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
 } from '@/shadcn/components/ui/sidebar'
 import { subscribeToDocumentEvents } from '@/utils/api'
 import type { ApiDocumentDelete, ApiDocumentSnippet } from '@/utils/api_data'
-import { Link, getRouteApi } from '@tanstack/react-router'
+import { getRouteApi } from '@tanstack/react-router'
 import React from 'react'
 import { FileTree } from './FileTree'
 
@@ -64,25 +62,6 @@ export default function LeftPanel() {
           <SidebarGroupContent>
             <SidebarMenu>
               <FileTree docs={docs} />
-              {docs.map((doc) => (
-                <Link
-                  to="/doc/$docUri"
-                  params={{ docUri: encodeURIComponent(doc.uri) }}
-                  key={doc.uri}
-                >
-                  <SidebarMenuItem key={doc.uri}>
-                    <SidebarMenuButton className="h-20 flex flex-col text-left">
-                      <span className="text-sm font-medium">{doc.uri}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {doc.status}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {doc.last_indexing}
-                      </span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </Link>
-              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
