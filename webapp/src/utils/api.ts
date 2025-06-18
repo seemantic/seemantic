@@ -27,7 +27,7 @@ export const get_explorer = (): Promise<ApiExplorer> =>
 export const getParsedDocument = (
   encoded_uri: string,
 ): Promise<ApiParsedDocument> =>
-  fetchApi<ApiParsedDocument>(`documents/${encoded_uri}/parsed`)
+  fetchApi<ApiParsedDocument>(`documents/${encoded_uri}?format=parsed`)
 
 export const subscribeToQuery = async (
   query: ApiQuery,

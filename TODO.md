@@ -13,7 +13,6 @@
 
 - [QA] Check ESLint config
 - [CI] run linters in CI
-- [Feat] Implement File-Tree
 - [Feat] Implemnt file view
 - [QA] test conversation in rest api test
 - [QA] add unit tests, improve test coverage
@@ -26,7 +25,11 @@
 
 # DOING
 
+- [Feat] add / delete / rename files and folders in file tree
+
 # DONE
 
 - [Bug] on refresh, the conv message is restreamed instead of loaded from db
 - [QA] Fix linters
+- [Bug] app crash when user click on nested link
+- [Feat] Implement File-Tree

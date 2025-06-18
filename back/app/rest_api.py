@@ -4,8 +4,9 @@ import urllib
 import urllib.parse
 from collections.abc import AsyncGenerator
 from io import BytesIO
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Request, Response, UploadFile, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -81,16 +82,24 @@ def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
     )
 
 
-@router.get("/documents/{encoded_uri}/parsed")
-async def get_parsed_document(encoded_uri: str, search_engine: DepSearchEngine) -> ApiParsedDocument:
-
+@router.get("/documents/{encoded_uri:path}")
+async def get_document(
+    encoded_uri: str,
+    search_engine: DepSearchEngine,
+    doc_format: Annotated[Literal["parsed", "raw"], Query(alias="format")],
+) -> ApiParsedDocument:
     # decode uri encoded with encodeURIComponent
     decoded_uri = urllib.parse.unquote(encoded_uri)
-    parsed_doc = await search_engine.get_document(decoded_uri)
-    if parsed_doc:
-        return ApiParsedDocument(hash=parsed_doc.hash, markdown_content=parsed_doc.markdown_content)
-
-    raise HTTPException(status_code=404, detail=f"Document {decoded_uri} not found")
+    if doc_format == "parsed":
+        parsed_doc = await search_engine.get_document(decoded_uri)
+        if parsed_doc:
+            return ApiParsedDocument(hash=parsed_doc.hash, markdown_content=parsed_doc.markdown_content)
+        raise HTTPException(status_code=404, detail=f"Document {decoded_uri} not found")
+    if doc_format == "raw":
+        # ...implement logic to return the original format if needed...
+        raise HTTPException(status_code=501, detail="raw format not implemented")
+    # ... handle other formats or default behavior ...
+    raise HTTPException(status_code=400, detail="Unsupported or missing format")
 
 
 @router.get("/explorer")
