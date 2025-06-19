@@ -58,7 +58,7 @@ export default function LeftPanel() {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
+          <SidebarGroupLabel>Seemantic</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <FileTree docs={docs} />

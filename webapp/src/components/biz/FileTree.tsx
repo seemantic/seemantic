@@ -8,6 +8,7 @@ import {
 import { useTree } from '@headless-tree/react'
 import { useNavigate } from '@tanstack/react-router'
 import cn from 'classnames'
+import { Check, CircleX, LoaderCircle } from 'lucide-react'
 
 type TreeItem = {
   name: string
@@ -95,10 +96,12 @@ export const FileTree = (props: FileTreeProps) => {
     onPrimaryAction(item) {
       if (!item.isFolder()) {
         const doc = (item.getItemData() as FileItem).doc
-        navigate({
-          to: '/doc/$docUri',
-          params: { docUri: encodeURIComponent(doc.uri) },
-        })
+        if (doc.last_indexing !== null) {
+          navigate({
+            to: '/doc/$docUri',
+            params: { docUri: encodeURIComponent(doc.uri) },
+          })
+        }
       }
     },
   })
@@ -122,7 +125,23 @@ export const FileTree = (props: FileTreeProps) => {
               selected: item.isSelected(),
               folder: item.isFolder(),
             })}
+            style={{ display: 'flex', alignItems: 'center' }} // <-- add flex row
           >
+            {/* Show icon only for files, and select icon by doc.status */}
+            {!item.isFolder() &&
+              (() => {
+                const doc = (item.getItemData() as FileItem).doc
+                if (doc.status === 'indexing_success') {
+                  return <Check color="green" />
+                } else if (
+                  doc.status === 'indexing' ||
+                  doc.status === 'pending'
+                ) {
+                  return <LoaderCircle color="orange" />
+                } else {
+                  return <CircleX color="red" />
+                }
+              })()}
             {item.getItemName()}
           </div>
         </button>
