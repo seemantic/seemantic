@@ -157,7 +157,19 @@ export const FileTree = (props: FileTreeProps) => {
                       return <CircleX color="red" style={{ marginRight: 8 }} />
                     }
                   })()}
-                {item.getItemName()}
+                <span
+                  style={{
+                    display: 'inline-block',
+                    maxWidth: 180,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    verticalAlign: 'bottom',
+                  }}
+                  title={item.getItemName()}
+                >
+                  {item.getItemName()}
+                </span>
               </div>
             </button>
           </HoverCardTrigger>
