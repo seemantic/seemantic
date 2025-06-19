@@ -1,4 +1,9 @@
 import '@/components/biz/FileTree.css' // Assuming you have a CSS file for styles
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/shadcn/components/ui/hover-card'
 import type { ApiDocumentSnippet } from '@/utils/api_data'
 import {
   hotkeysCoreFeature,
@@ -11,6 +16,7 @@ import cn from 'classnames'
 import { Check, CircleX, LoaderCircle } from 'lucide-react'
 
 type TreeItem = {
+  uri: string
   name: string
   type: 'file' | 'folder'
   childrenPaths: Array<string>
@@ -32,6 +38,7 @@ function uriToItem(
 
   // Add the root folder to the map.
   folderMap.set('/', {
+    uri: '/',
     name: 'root',
     type: 'folder',
     childrenPaths: [],
@@ -51,6 +58,7 @@ function uriToItem(
       if (!folderMap.has(currentNodePath)) {
         if (currentNodePath === `/${docUri}`) {
           folderMap.set(currentNodePath, {
+            uri: docUri,
             name: part,
             type: 'file',
             doc: doc,
@@ -58,6 +66,7 @@ function uriToItem(
           })
         } else {
           folderMap.set(currentNodePath, {
+            uri: currentNodePath,
             name: part,
             type: 'folder',
             childrenPaths: [],
@@ -109,42 +118,65 @@ export const FileTree = (props: FileTreeProps) => {
   return (
     <div {...tree.getContainerProps()} className="tree">
       {tree.getItems().map((item) => (
-        <button
-          {...item.getProps()}
-          key={item.getId()}
-          style={{
-            paddingLeft: `${item.getItemMeta().level * 20}px`,
-            width: '100%',
-            textAlign: 'left',
-          }}
-        >
-          <div
-            className={cn('treeitem', {
-              focused: item.isFocused(),
-              expanded: item.isExpanded(),
-              selected: item.isSelected(),
-              folder: item.isFolder(),
-            })}
-            style={{ display: 'flex', alignItems: 'center' }} // <-- add flex row
+        <HoverCard key={item.getId()} openDelay={200} closeDelay={0}>
+          <HoverCardTrigger asChild>
+            <button
+              {...item.getProps()}
+              style={{
+                paddingLeft: `${item.getItemMeta().level * 20}px`,
+                width: '100%',
+                textAlign: 'left',
+              }}
+            >
+              <div
+                className={cn('treeitem', {
+                  focused: item.isFocused(),
+                  expanded: item.isExpanded(),
+                  selected: item.isSelected(),
+                  folder: item.isFolder(),
+                })}
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
+                {/* Show icon only for files, and select icon by doc.status */}
+                {!item.isFolder() &&
+                  (() => {
+                    const doc = (item.getItemData() as FileItem).doc
+                    if (doc.status === 'indexing_success') {
+                      return <Check color="green" style={{ marginRight: 8 }} />
+                    } else if (
+                      doc.status === 'indexing' ||
+                      doc.status === 'pending'
+                    ) {
+                      return (
+                        <LoaderCircle
+                          color="orange"
+                          style={{ marginRight: 8 }}
+                        />
+                      )
+                    } else {
+                      return <CircleX color="red" style={{ marginRight: 8 }} />
+                    }
+                  })()}
+                {item.getItemName()}
+              </div>
+            </button>
+          </HoverCardTrigger>
+          <HoverCardContent
+            style={{
+              whiteSpace: 'nowrap',
+              overflow: 'visible',
+              paddingTop: 4,
+              paddingBottom: 4,
+              width: 'auto',
+              minWidth: 'unset',
+              maxWidth: 'none',
+            }}
           >
-            {/* Show icon only for files, and select icon by doc.status */}
-            {!item.isFolder() &&
-              (() => {
-                const doc = (item.getItemData() as FileItem).doc
-                if (doc.status === 'indexing_success') {
-                  return <Check color="green" />
-                } else if (
-                  doc.status === 'indexing' ||
-                  doc.status === 'pending'
-                ) {
-                  return <LoaderCircle color="orange" />
-                } else {
-                  return <CircleX color="red" />
-                }
-              })()}
-            {item.getItemName()}
-          </div>
-        </button>
+            <span style={{ fontFamily: 'monospace' }}>
+              {item.getItemData().uri}
+            </span>
+          </HoverCardContent>
+        </HoverCard>
       ))}
     </div>
   )
