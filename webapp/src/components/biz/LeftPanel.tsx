@@ -6,53 +6,13 @@ import {
   SidebarGroupLabel,
   SidebarMenu,
 } from '@/shadcn/components/ui/sidebar'
-import { subscribeToDocumentEvents } from '@/utils/api'
-import type { ApiDocumentDelete, ApiDocumentSnippet } from '@/utils/api_data'
-import { getRouteApi } from '@tanstack/react-router'
-import React from 'react'
+import { userConvStore } from '@/utils/conv_manager'
 import { FileTree } from './FileTree'
 
 export default function LeftPanel() {
-  const route = getRouteApi('/_app')
-  const data = route.useLoaderData()
-
-  const [docs, setDocs] = React.useState<Array<ApiDocumentSnippet>>(
-    data.documents,
-  )
-
-  React.useEffect(() => {
-    const abortController = new AbortController()
-
-    const connect = async () => {
-      await subscribeToDocumentEvents(
-        abortController,
-        (doc: ApiDocumentSnippet) => {
-          // Update the documents state with the new document
-          setDocs((prevDocs) => {
-            const existingDoc = prevDocs.find((d) => d.uri === doc.uri)
-            if (existingDoc) {
-              return prevDocs.map((d) => (d.uri === doc.uri ? doc : d))
-            } else {
-              return [...prevDocs, doc]
-            }
-          })
-        },
-        (deleted: ApiDocumentDelete) => {
-          // Remove the deleted document from the documents state
-          setDocs((prevDocs) =>
-            prevDocs.filter((doc) => doc.uri !== deleted.uri),
-          )
-        },
-      )
-    }
-
-    connect()
-
-    // Cleanup function to abort the connection when the component unmounts or query changes
-    return () => {
-      abortController.abort()
-    }
-  }, [data])
+  const docs = userConvStore((state) => state.documents)
+  // get the values of docs as an array
+  const docsArray = Object.values(docs)
 
   return (
     <Sidebar>
@@ -61,7 +21,7 @@ export default function LeftPanel() {
           <SidebarGroupLabel>Seemantic</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <FileTree docs={docs} />
+              <FileTree docs={docsArray} />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
