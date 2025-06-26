@@ -32,8 +32,8 @@
 
 # DOING
 
-- [Ref] manage explorer / doc state in zustand (more robust, centralize complexity and complexity)
 - [Bug] When a new file is added in MinIO, it does not appears in UI (need refresh or even restart)
+- [Bug] seemantic_drive bucket is not created at startup.
 
 # DONE
 
