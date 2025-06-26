@@ -1,13 +1,18 @@
 # MVP TODO LIST
 
+## Functional
+
+- manage pdf, md, txt, word files
+- searchable only through text
+- Can add / remove / move / rename files and directories (directly using tree)
+- can display doc (by clicking tree) as markdown if it has been indexed (click on tree or on ref). Not clickable if file is not indexed
+- agent RAG, multi-turn conversation, reset by user
+
+## Technical
+
 - Can host the app on a server (no login)
 - A Docker-compose to run everything
-- Requires a Mistral API Key in config
-- Can add / remove / move rename files and directories
-- Can do a one-turn request and get a streamed request
-- Can open files + passage from reference or file tree
-- manage pdf, md, txt, word files
-- manage only text
+- Requires an liteLLM-compatible config
 
 ## TODO
 
@@ -27,6 +32,7 @@
 
 # DOING
 
+- [Ref] manage explorer / doc state in zustand (more robust, centralize complexity and complexity)
 - [Bug] When a new file is added in MinIO, it does not appears in UI (need refresh or even restart)
 
 # DONE
