@@ -64,7 +64,7 @@ export const subscribeToDocumentEvents = async (
       if (event.event === 'delete') {
         const documentDelete: ApiDocumentDelete = JSON.parse(event.data)
         onDelete(documentDelete)
-      } else {
+      } else if (event.event === 'update') {
         const documentSnippet: ApiDocumentSnippet = JSON.parse(event.data)
         onUpdate(documentSnippet)
       }

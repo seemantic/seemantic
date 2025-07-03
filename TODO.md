@@ -29,11 +29,12 @@
 - [Bug] display grow as the answer is written when a doc is not displayed (no splitter)
 - [Feat] add / delete / rename files and folders in file tree
 - [Bug] files not (yet)successfully indexed are clickable but it raise an error as there is not parsed version -> icon indexed/indexing/error in the tree.
+- [CI] Replace scripts by proper setup (use https://taskfile.dev/installation/)
 
 # DOING
 
-- [Bug] When a new file is added in MinIO, it does not appears in UI (need refresh or even restart)
 - [Bug] seemantic_drive bucket is not created at startup.
+- [Bug] error on delete (and not taken into account)
 
 # DONE
 
@@ -41,3 +42,4 @@
 - [QA] Fix linters
 - [Bug] app crash when user click on nested link
 - [Feat] Implement File-Tree
+- [Bug] When a new file is added in MinIO, it does not appears in UI (need refresh or even restart)

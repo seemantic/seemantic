@@ -14,6 +14,7 @@ import { useTree } from '@headless-tree/react'
 import { useNavigate } from '@tanstack/react-router'
 import cn from 'classnames'
 import { Check, CircleX, LoaderCircle } from 'lucide-react'
+import React from 'react'
 
 type TreeItem = {
   uri: string
@@ -91,7 +92,8 @@ export const FileTree = (props: FileTreeProps) => {
   const navigate = useNavigate()
   const docs: Array<ApiDocumentSnippet> = props.docs
 
-  const itemsMap = uriToItem(docs)
+  // only rebuild the itemsMap when docs change
+  const itemsMap = React.useMemo(() => uriToItem(docs), [docs])
 
   const tree = useTree<FileItem | FolderItem>({
     rootItemId: '/',
@@ -114,6 +116,11 @@ export const FileTree = (props: FileTreeProps) => {
       }
     },
   })
+
+  // rebuild the tree when itemsMap changes
+  React.useEffect(() => {
+    tree.rebuildTree()
+  }, [itemsMap, tree])
 
   return (
     <div {...tree.getContainerProps()} className="tree">
