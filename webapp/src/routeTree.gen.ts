@@ -8,47 +8,76 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-// Import Routes
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as AppRouteRouteImport } from './routes/_app/route'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppDocDocUriRouteImport } from './routes/_app/doc.$docUri'
+import { Route as AppConvConvIdRouteImport } from './routes/_app/conv.$convId'
 
-import { Route as rootRoute } from './routes/__root'
-import { Route as AppRouteImport } from './routes/_app/route'
-import { Route as DashboardIndexImport } from './routes/dashboard/index'
-import { Route as AppIndexImport } from './routes/_app/index'
-import { Route as AppDocDocUriImport } from './routes/_app/doc.$docUri'
-import { Route as AppConvConvIdImport } from './routes/_app/conv.$convId'
-
-// Create/Update Routes
-
-const AppRouteRoute = AppRouteImport.update({
+const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const DashboardIndexRoute = DashboardIndexImport.update({
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/dashboard/',
   path: '/dashboard/',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const AppIndexRoute = AppIndexImport.update({
+const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRouteRoute,
 } as any)
-
-const AppDocDocUriRoute = AppDocDocUriImport.update({
+const AppDocDocUriRoute = AppDocDocUriRouteImport.update({
   id: '/doc/$docUri',
   path: '/doc/$docUri',
   getParentRoute: () => AppRouteRoute,
 } as any)
-
-const AppConvConvIdRoute = AppConvConvIdImport.update({
+const AppConvConvIdRoute = AppConvConvIdRouteImport.update({
   id: '/conv/$convId',
   path: '/conv/$convId',
   getParentRoute: () => AppRouteRoute,
 } as any)
 
-// Populate the FileRoutesByPath interface
+export interface FileRoutesByFullPath {
+  '/': typeof AppIndexRoute
+  '/dashboard': typeof DashboardIndexRoute
+  '/conv/$convId': typeof AppConvConvIdRoute
+  '/doc/$docUri': typeof AppDocDocUriRoute
+}
+export interface FileRoutesByTo {
+  '/': typeof AppIndexRoute
+  '/dashboard': typeof DashboardIndexRoute
+  '/conv/$convId': typeof AppConvConvIdRoute
+  '/doc/$docUri': typeof AppDocDocUriRoute
+}
+export interface FileRoutesById {
+  __root__: typeof rootRouteImport
+  '/_app': typeof AppRouteRouteWithChildren
+  '/_app/': typeof AppIndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
+  '/_app/conv/$convId': typeof AppConvConvIdRoute
+  '/_app/doc/$docUri': typeof AppDocDocUriRoute
+}
+export interface FileRouteTypes {
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths: '/' | '/dashboard' | '/conv/$convId' | '/doc/$docUri'
+  fileRoutesByTo: FileRoutesByTo
+  to: '/' | '/dashboard' | '/conv/$convId' | '/doc/$docUri'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/_app/'
+    | '/dashboard/'
+    | '/_app/conv/$convId'
+    | '/_app/doc/$docUri'
+  fileRoutesById: FileRoutesById
+}
+export interface RootRouteChildren {
+  AppRouteRoute: typeof AppRouteRouteWithChildren
+  DashboardIndexRoute: typeof DashboardIndexRoute
+}
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
@@ -56,41 +85,39 @@ declare module '@tanstack/react-router' {
       id: '/_app'
       path: ''
       fullPath: ''
-      preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRoute
-    }
-    '/_app/': {
-      id: '/_app/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AppIndexImport
-      parentRoute: typeof AppRouteImport
+      preLoaderRoute: typeof AppRouteRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/dashboard/': {
       id: '/dashboard/'
       path: '/dashboard'
       fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardIndexImport
-      parentRoute: typeof rootRoute
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/conv/$convId': {
-      id: '/_app/conv/$convId'
-      path: '/conv/$convId'
-      fullPath: '/conv/$convId'
-      preLoaderRoute: typeof AppConvConvIdImport
-      parentRoute: typeof AppRouteImport
+    '/_app/': {
+      id: '/_app/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/doc/$docUri': {
       id: '/_app/doc/$docUri'
       path: '/doc/$docUri'
       fullPath: '/doc/$docUri'
-      preLoaderRoute: typeof AppDocDocUriImport
-      parentRoute: typeof AppRouteImport
+      preLoaderRoute: typeof AppDocDocUriRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/conv/$convId': {
+      id: '/_app/conv/$convId'
+      path: '/conv/$convId'
+      fullPath: '/conv/$convId'
+      preLoaderRoute: typeof AppConvConvIdRouteImport
+      parentRoute: typeof AppRouteRoute
     }
   }
 }
-
-// Create and export the route tree
 
 interface AppRouteRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
@@ -108,92 +135,10 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
   AppRouteRouteChildren,
 )
 
-export interface FileRoutesByFullPath {
-  '': typeof AppRouteRouteWithChildren
-  '/': typeof AppIndexRoute
-  '/dashboard': typeof DashboardIndexRoute
-  '/conv/$convId': typeof AppConvConvIdRoute
-  '/doc/$docUri': typeof AppDocDocUriRoute
-}
-
-export interface FileRoutesByTo {
-  '/': typeof AppIndexRoute
-  '/dashboard': typeof DashboardIndexRoute
-  '/conv/$convId': typeof AppConvConvIdRoute
-  '/doc/$docUri': typeof AppDocDocUriRoute
-}
-
-export interface FileRoutesById {
-  __root__: typeof rootRoute
-  '/_app': typeof AppRouteRouteWithChildren
-  '/_app/': typeof AppIndexRoute
-  '/dashboard/': typeof DashboardIndexRoute
-  '/_app/conv/$convId': typeof AppConvConvIdRoute
-  '/_app/doc/$docUri': typeof AppDocDocUriRoute
-}
-
-export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '' | '/' | '/dashboard' | '/conv/$convId' | '/doc/$docUri'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/conv/$convId' | '/doc/$docUri'
-  id:
-    | '__root__'
-    | '/_app'
-    | '/_app/'
-    | '/dashboard/'
-    | '/_app/conv/$convId'
-    | '/_app/doc/$docUri'
-  fileRoutesById: FileRoutesById
-}
-
-export interface RootRouteChildren {
-  AppRouteRoute: typeof AppRouteRouteWithChildren
-  DashboardIndexRoute: typeof DashboardIndexRoute
-}
-
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   DashboardIndexRoute: DashboardIndexRoute,
 }
-
-export const routeTree = rootRoute
+export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-/* ROUTE_MANIFEST_START
-{
-  "routes": {
-    "__root__": {
-      "filePath": "__root.tsx",
-      "children": [
-        "/_app",
-        "/dashboard/"
-      ]
-    },
-    "/_app": {
-      "filePath": "_app/route.tsx",
-      "children": [
-        "/_app/",
-        "/_app/conv/$convId",
-        "/_app/doc/$docUri"
-      ]
-    },
-    "/_app/": {
-      "filePath": "_app/index.tsx",
-      "parent": "/_app"
-    },
-    "/dashboard/": {
-      "filePath": "dashboard/index.tsx"
-    },
-    "/_app/conv/$convId": {
-      "filePath": "_app/conv.$convId.tsx",
-      "parent": "/_app"
-    },
-    "/_app/doc/$docUri": {
-      "filePath": "_app/doc.$docUri.tsx",
-      "parent": "/_app"
-    }
-  }
-}
-ROUTE_MANIFEST_END */

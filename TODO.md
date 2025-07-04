@@ -34,10 +34,10 @@
 # DOING
 
 - [Bug] seemantic_drive bucket is not created at startup.
-- [Bug] error on delete (and not taken into account)
 
 # DONE
 
+- [Bug] error on delete (and not taken into account)
 - [Bug] on refresh, the conv message is restreamed instead of loaded from db
 - [QA] Fix linters
 - [Bug] app crash when user click on nested link
