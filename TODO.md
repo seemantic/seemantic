@@ -30,13 +30,16 @@
 - [Feat] add / delete / rename files and folders in file tree
 - [Bug] files not (yet)successfully indexed are clickable but it raise an error as there is not parsed version -> icon indexed/indexing/error in the tree.
 - [CI] Replace scripts by proper setup (use https://taskfile.dev/installation/)
+- [Ref] create specific type for different ids (doc, indexedDoc) to not pass one for the other. Add indexedDocUniqueKey (docId, indexerVersion) and same with URI if needed
 
 # DOING
 
-- [Bug] seemantic_drive bucket is not created at startup.
+- [Bug] 404 not found when clicking on document
+- [Fix] fix inconsistant state between db and vector db at restart of indexer
 
 # DONE
 
+- [Bug] seemantic_drive bucket is not created at startup.
 - [Bug] error on delete (and not taken into account)
 - [Bug] on refresh, the conv message is restreamed instead of loaded from db
 - [QA] Fix linters
