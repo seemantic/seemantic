@@ -1,0 +1,65 @@
+# https://taskfile.dev
+
+version: "3"
+
+tasks:
+  rebuild-minio:
+    cmds:
+      - docker stop seemantic-minio || true
+      - docker rm seemantic-minio || true
+
+  run-minio:
+    cmds:
+      - >
+        docker run -d -p 9000:9000 -p 9001:9001 --name seemantic-minio
+        -e "MINIO_ROOT_USER=dev_minio_root_user"
+        -e "MINIO_ROOT_PASSWORD=dev_minio_root_password"
+        quay.io/minio/minio server /data
+        --console-address ":9001"
+
+  start-minio:
+    cmds:
+      - docker start seemantic-minio
+      - docker logs seemantic-minio
+
+  rr-minio:
+    desc: Rebuild, run, and start the MinIO Docker container
+    cmds:
+      - task: rebuild-minio
+      - task: run-minio
+
+  rebuild-postgres:
+    desc: Remove and rebuild the Postgres Docker image/container
+    cmds:
+      - docker rm -f seemantic-db || true
+      - docker build ./back/postgres_db -t seemantic-db-img
+
+  run-postgres:
+    desc: Run the Postgres Docker container
+    cmds:
+      - docker run -d --publish 5432:5432 --name seemantic-db seemantic-db-img
+      - docker logs seemantic-db
+
+  start-postgres:
+    desc: Start the Postgres Docker container if stopped
+    cmds:
+      - docker start seemantic-db
+      - docker logs seemantic-db
+
+  rr-postgres:
+    desc: Rebuild, run, and start the Postgres Docker container
+    cmds:
+      - task: rebuild-postgres
+      - task: run-postgres
+
+  rr-back:
+    desc: Rebuild the back-end Docker image
+    cmds:
+      - task: rr-minio
+      - task: rr-postgres
+
+  start-back:
+    desc: Start the back-end Docker container
+    cmds:
+      - task: start-minio
+      - task: start-postgres
