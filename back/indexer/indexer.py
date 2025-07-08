@@ -215,12 +215,31 @@ class Indexer:
             logging.info(f"Enqueuing documents: {docs_enqueued}")
             await self._enqueue_doc_refs(docs_enqueued)
 
+    async def fix_inconsistent_documents(self) -> None:
+        """Set indexed_content to None for documents where indexed content is not found in lance db"""
+        logging.info("Fixing inconsistent documents")
+        db_docs = await self.db.get_all_documents(indexer_version=self.indexer_version)
+        parsed_hashes_in_vector_db = set(await self.vector_db.get_indexed_documents_hashes())
+        # get the list of all documents that are indexed in db but not in vector db
+        inconsistent_docs = [
+            doc for doc in db_docs if doc.indexed_content and doc.indexed_content.parsed_hash not in parsed_hashes_in_vector_db
+        ]
+        if inconsistent_docs:
+            # log the inconsistent documents
+            inconsistent_docs_uris = [doc.uri for doc in inconsistent_docs]
+            logging.warning(f"Inconsistent documents found: {inconsistent_docs_uris}. Their indexed_content will be reset.")
+            # set indexed_content to None for these documents
+            await self.db.reset_indexed_documents_status(
+                [doc.indexed_document_id for doc in inconsistent_docs])
+
+
     async def start(self) -> None:
         """Start the indexer
         1. Make a list of document diffs between source and db, process the diff
         2. Listen to source events and process them as they come
         """
         logging.info("Starting indexer")
+        await self.fix_inconsistent_documents()
         await self._start_queue_processing()
 
         source_doc_refs = await self.source.all_doc_refs()

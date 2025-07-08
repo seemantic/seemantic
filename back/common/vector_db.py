@@ -165,6 +165,17 @@ class VectorDB:
 
         return results
 
+    async def get_indexed_documents_hashes(self) -> list[str]:
+        await self.connect_if_needed()
+
+        parsed_table: pa.Table = (
+            await self._parsed_doc_table.query()
+            .select([row_parsed_content_hash])
+            .to_arrow()
+        )
+
+        return cast("list[str]", parsed_table.column(row_parsed_content_hash).to_pylist())
+
     async def is_indexed(self, parsed_content_hash: str) -> bool:
         await self.connect_if_needed()
 

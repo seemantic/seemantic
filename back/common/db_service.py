@@ -102,7 +102,6 @@ class DbDocumentStatus(BaseModel):
     last_status_change: datetime
     error_status_message: str | None
 
-
 class DbDocument(BaseModel):
     uri: str
     indexed_document_id: UUID
@@ -147,7 +146,6 @@ def to_doc(row_indexed_doc: TableIndexedDocument) -> DbDocument:
 
 # https://docs.sqlalchemy.org/en/14/orm/extensions/asyncio.html#using-multiple-asyncio-event-loops
 class DbService:
-    indexer_version: int
     url: str
     session_factory: async_sessionmaker[AsyncSession]
     subscribed_clients: set[asyncio.Queue[DbIndexedDocumentEvent]]
@@ -266,6 +264,38 @@ class DbService:
             uuid = result.scalar_one()
             await session.commit()
             return uuid
+
+    async def remove_unsinchronized_indexed_content(self, parsed_hashes_to_keep: list[str], indexer_version: int) -> None:
+        async with self.session_factory() as session, session.begin():
+            await session.execute(
+                delete(TableIndexedContent)
+                .where(TableIndexedContent.parsed_hash.not_in(parsed_hashes_to_keep))
+                .where(TableIndexedContent.indexer_version == indexer_version),
+            )
+
+            # reset indexed_content_id in TableIndexedDocument for these parsed_hashes
+            now = datetime.now(tz=dt.UTC)
+            await session.execute(
+                update(TableIndexedDocument)
+                .where(TableIndexedContent.parsed_hash.not_in(parsed_hashes_to_keep))
+                .where(TableIndexedDocument.indexer_version == indexer_version)
+                .values(
+                    status=TableIndexedDocumentStatusEnum.pending,
+                    last_status_change=now,
+                    last_indexing=None,
+                    error_status_message=None,
+                    indexed_source_version=None,
+                    indexed_content_id=None,
+                    raw_hash_if_indexed=None,
+                    parsed_hash_if_indexed=None,
+                ),
+            )
+
+            await session.commit()
+
+
+
+
 
     async def update_indexed_document_indexed_content_id(
         self,
