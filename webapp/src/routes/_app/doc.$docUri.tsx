@@ -9,6 +9,7 @@ export const Route = createFileRoute('/_app/doc/$docUri')({
     const doc = await getParsedDocument(docUri)
     return doc
   },
+  pendingComponent: () => <div>Loading...</div>,
 })
 
 function RouteComponent() {
