@@ -63,3 +63,22 @@ tasks:
     cmds:
       - task: start-minio
       - task: start-postgres
+
+  kill-backend:
+    desc: Kill backend and frontend services
+    cmds:
+      - pkill -f vite || true
+      - pkill -f uvicorn || true
+      - |
+        ps ux | grep main_indexer | grep -v grep | awk '{print $2}' | xargs -r -I{} sh -c 'echo "Killing PID {}"; kill -9 {}'
+
+  start-backend:
+    desc: Start backend and frontend services
+    cmds:
+      - pkill -f vite || true
+      - pkill -f uvicorn || true
+      - |
+        ps ux | grep main_indexer | grep -v grep | awk '{print $2}' | xargs -r -I{} sh -c 'echo "Killing PID {}"; kill -9 {}'
+      - cd back && python -m main_indexer &
+      - cd back && uvicorn main:app &
+      - cd webapp && npm run start &
