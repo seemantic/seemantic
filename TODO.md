@@ -18,7 +18,6 @@
 
 - [QA] Check ESLint config
 - [CI] run linters in CI
-- [Feat] Implemnt file view
 - [QA] test conversation in rest api test
 - [QA] add unit tests, improve test coverage
 - [DEP] Add plug-and-play Docker-compose
@@ -27,17 +26,17 @@
 - [Feat] add authent
 - [Bug] If user changes litellm embedding settings, it should change the indexer version
 - [Bug] display grow as the answer is written when a doc is not displayed (no splitter)
-- [Feat] add / delete / rename files and folders in file tree
-- [Bug] files not (yet)successfully indexed are clickable but it raise an error as there is not parsed version -> icon indexed/indexing/error in the tree.
-- [Ref] create specific type for different ids (doc, indexedDoc) to not pass one for the other. Add indexedDocUniqueKey (docId, indexerVersion) and same with URI if needed
-- [Bug] 404 not found when clicking on document
+- [Feat] Implement file view
 
 # DOING
 
-- [CI] Replace scripts by proper setup (use https://taskfile.dev/installation/)
+- [Feat] add / delete / rename files and folders in file tree
 
 # DONE
 
+- [Bug] files not (yet)successfully indexed are clickable but it raise an error as there is not parsed version -> icon indexed/indexing/error in the tree.
+- [Bug] make not parsed doc unclickable in file tree
+- [CI] Replace scripts by proper setup (use https://taskfile.dev/installation/)
 - [Bug] seemantic_drive bucket is not created at startup.
 - [Bug] error on delete (and not taken into account)
 - [Bug] on refresh, the conv message is restreamed instead of loaded from db
@@ -45,3 +44,8 @@
 - [Bug] app crash when user click on nested link
 - [Feat] Implement File-Tree
 - [Bug] When a new file is added in MinIO, it does not appears in UI (need refresh or even restart)
+
+# POSTPONED
+
+- [Ref] create specific type for different ids (doc, indexedDoc) to not pass one for the other. Add indexedDocUniqueKey (docId, indexerVersion) and same with URI if needed
+- [Bug] 404 not found when clicking on document (inconsistent state between db and vector db)

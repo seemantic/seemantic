@@ -124,79 +124,91 @@ export const FileTree = (props: FileTreeProps) => {
 
   return (
     <div {...tree.getContainerProps()} className="tree">
-      {tree.getItems().map((item) => (
-        <HoverCard key={item.getId()} openDelay={200} closeDelay={0}>
-          <HoverCardTrigger asChild>
-            <button
-              {...item.getProps()}
+      {tree.getItems().map((item) => {
+        const isDisabled =
+          !item.isFolder() &&
+          (item.getItemData() as FileItem).doc.status !== 'indexing_success'
+        return (
+          <HoverCard key={item.getId()} openDelay={200} closeDelay={0}>
+            <HoverCardTrigger asChild>
+              <button
+                {...item.getProps()}
+                style={{
+                  paddingLeft: `${item.getItemMeta().level * 20}px`,
+                  width: '100%',
+                  textAlign: 'left',
+                  opacity: isDisabled ? 0.5 : 1,
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                }}
+                disabled={isDisabled}
+              >
+                <div
+                  className={cn('treeitem', {
+                    focused: item.isFocused(),
+                    expanded: item.isExpanded(),
+                    selected: item.isSelected(),
+                    folder: item.isFolder(),
+                  })}
+                  style={{ display: 'flex', alignItems: 'center' }}
+                >
+                  {/* Show icon only for files, and select icon by doc.status */}
+                  {!item.isFolder() &&
+                    (() => {
+                      const doc = (item.getItemData() as FileItem).doc
+                      if (doc.status === 'indexing_success') {
+                        return (
+                          <Check color="green" style={{ marginRight: 8 }} />
+                        )
+                      } else if (
+                        doc.status === 'indexing' ||
+                        doc.status === 'pending'
+                      ) {
+                        return (
+                          <LoaderCircle
+                            color="orange"
+                            style={{ marginRight: 8 }}
+                          />
+                        )
+                      } else {
+                        return (
+                          <CircleX color="red" style={{ marginRight: 8 }} />
+                        )
+                      }
+                    })()}
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      maxWidth: 180,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      verticalAlign: 'bottom',
+                    }}
+                    title={item.getItemName()}
+                  >
+                    {item.getItemName()}
+                  </span>
+                </div>
+              </button>
+            </HoverCardTrigger>
+            <HoverCardContent
               style={{
-                paddingLeft: `${item.getItemMeta().level * 20}px`,
-                width: '100%',
-                textAlign: 'left',
+                whiteSpace: 'nowrap',
+                overflow: 'visible',
+                paddingTop: 4,
+                paddingBottom: 4,
+                width: 'auto',
+                minWidth: 'unset',
+                maxWidth: 'none',
               }}
             >
-              <div
-                className={cn('treeitem', {
-                  focused: item.isFocused(),
-                  expanded: item.isExpanded(),
-                  selected: item.isSelected(),
-                  folder: item.isFolder(),
-                })}
-                style={{ display: 'flex', alignItems: 'center' }}
-              >
-                {/* Show icon only for files, and select icon by doc.status */}
-                {!item.isFolder() &&
-                  (() => {
-                    const doc = (item.getItemData() as FileItem).doc
-                    if (doc.status === 'indexing_success') {
-                      return <Check color="green" style={{ marginRight: 8 }} />
-                    } else if (
-                      doc.status === 'indexing' ||
-                      doc.status === 'pending'
-                    ) {
-                      return (
-                        <LoaderCircle
-                          color="orange"
-                          style={{ marginRight: 8 }}
-                        />
-                      )
-                    } else {
-                      return <CircleX color="red" style={{ marginRight: 8 }} />
-                    }
-                  })()}
-                <span
-                  style={{
-                    display: 'inline-block',
-                    maxWidth: 180,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    verticalAlign: 'bottom',
-                  }}
-                  title={item.getItemName()}
-                >
-                  {item.getItemName()}
-                </span>
-              </div>
-            </button>
-          </HoverCardTrigger>
-          <HoverCardContent
-            style={{
-              whiteSpace: 'nowrap',
-              overflow: 'visible',
-              paddingTop: 4,
-              paddingBottom: 4,
-              width: 'auto',
-              minWidth: 'unset',
-              maxWidth: 'none',
-            }}
-          >
-            <span style={{ fontFamily: 'monospace' }}>
-              {item.getItemData().uri}
-            </span>
-          </HoverCardContent>
-        </HoverCard>
-      ))}
+              <span style={{ fontFamily: 'monospace' }}>
+                {item.getItemData().uri}
+              </span>
+            </HoverCardContent>
+          </HoverCard>
+        )
+      })}
     </div>
   )
 }
