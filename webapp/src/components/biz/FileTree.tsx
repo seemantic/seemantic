@@ -1,5 +1,11 @@
 import '@/components/biz/FileTree.css' // Assuming you have a CSS file for styles
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/shadcn/components/ui/context-menu'
+import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
@@ -128,60 +134,87 @@ export const FileTree = (props: FileTreeProps) => {
           !item.isFolder() &&
           (item.getItemData() as FileItem).doc.status !== 'indexing_success'
         return (
-          <HoverCard key={item.getId()} openDelay={200} closeDelay={0}>
-            <HoverCardTrigger asChild>
-              <button
-                {...item.getProps()}
-                style={{
-                  paddingLeft: `${item.getItemMeta().level * 20}px`,
-                  width: '100%',
-                  textAlign: 'left',
-                  opacity: isDisabled ? 0.5 : 1,
-                  cursor: isDisabled ? 'not-allowed' : 'pointer',
-                }}
-                disabled={isDisabled}
-              >
-                <div
-                  className={cn('treeitem', {
-                    focused: item.isFocused(),
-                    expanded: item.isExpanded(),
-                    selected: item.isSelected(),
-                    folder: item.isFolder(),
-                  })}
-                  style={{ display: 'flex', alignItems: 'center' }}
-                >
-                  <span
+          <ContextMenu key={item.getId()}>
+            <HoverCard openDelay={200} closeDelay={0}>
+              <HoverCardTrigger asChild>
+                <ContextMenuTrigger>
+                  <button
+                    {...item.getProps()}
                     style={{
-                      display: 'inline-block',
-                      maxWidth: 180,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      verticalAlign: 'bottom',
+                      paddingLeft: `${item.getItemMeta().level * 20}px`,
+                      width: '100%',
+                      textAlign: 'left',
+                      opacity: isDisabled ? 0.5 : 1,
+                      cursor: isDisabled ? 'not-allowed' : 'pointer',
                     }}
-                    title={item.getItemName()}
                   >
-                    {item.getItemName()}
-                  </span>
-                </div>
-              </button>
-            </HoverCardTrigger>
-            <HoverCardContent
-              style={{
-                whiteSpace: 'nowrap',
-                overflow: 'visible',
-                paddingTop: 4,
-                paddingBottom: 4,
-                width: 'auto',
-                minWidth: 'unset',
-                maxWidth: 'none',
-              }}
-            >
-              <span style={{ fontFamily: 'monospace' }}>
-                {item.getItemData().uri}
-              </span>
-            </HoverCardContent>
-          </HoverCard>
+                    <div
+                      className={cn('treeitem', {
+                        focused: item.isFocused(),
+                        expanded: item.isExpanded(),
+                        selected: item.isSelected(),
+                        folder: item.isFolder(),
+                      })}
+                      style={{ display: 'flex', alignItems: 'center' }}
+                    >
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          maxWidth: 180,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          verticalAlign: 'bottom',
+                        }}
+                        title={item.getItemName()}
+                      >
+                        {item.getItemName()}
+                      </span>
+                    </div>
+                  </button>
+                </ContextMenuTrigger>
+              </HoverCardTrigger>
+              <HoverCardContent
+                style={{
+                  whiteSpace: 'nowrap',
+                  overflow: 'visible',
+                  paddingTop: 4,
+                  paddingBottom: 4,
+                  width: 'auto',
+                  minWidth: 'unset',
+                  maxWidth: 'none',
+                }}
+              >
+                <span style={{ fontFamily: 'monospace' }}>
+                  {item.getItemData().uri}
+                </span>
+              </HoverCardContent>
+            </HoverCard>
+            <ContextMenuContent>
+              {/* Example context menu items */}
+              <ContextMenuItem
+                onClick={() => {
+                  /* handle open */
+                }}
+              >
+                Open
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => {
+                  /* handle rename */
+                }}
+              >
+                Rename
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => {
+                  /* handle delete */
+                }}
+              >
+                Delete
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         )
       })}
     </div>
