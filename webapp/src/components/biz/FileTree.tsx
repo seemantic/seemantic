@@ -13,7 +13,6 @@ import {
 import { useTree } from '@headless-tree/react'
 import { useNavigate } from '@tanstack/react-router'
 import cn from 'classnames'
-import { Check, CircleX, LoaderCircle } from 'lucide-react'
 import React from 'react'
 
 type TreeItem = {
@@ -151,30 +150,6 @@ export const FileTree = (props: FileTreeProps) => {
                   })}
                   style={{ display: 'flex', alignItems: 'center' }}
                 >
-                  {/* Show icon only for files, and select icon by doc.status */}
-                  {!item.isFolder() &&
-                    (() => {
-                      const doc = (item.getItemData() as FileItem).doc
-                      if (doc.status === 'indexing_success') {
-                        return (
-                          <Check color="green" style={{ marginRight: 8 }} />
-                        )
-                      } else if (
-                        doc.status === 'indexing' ||
-                        doc.status === 'pending'
-                      ) {
-                        return (
-                          <LoaderCircle
-                            color="orange"
-                            style={{ marginRight: 8 }}
-                          />
-                        )
-                      } else {
-                        return (
-                          <CircleX color="red" style={{ marginRight: 8 }} />
-                        )
-                      }
-                    })()}
                   <span
                     style={{
                       display: 'inline-block',
