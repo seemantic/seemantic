@@ -2,13 +2,11 @@ import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
-  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
 } from '@/shadcn/components/ui/sidebar'
 import { userConvStore } from '@/utils/conv_manager'
-import { FolderPlus } from 'lucide-react'
 import { FileTree } from './FileTree'
 
 export default function LeftPanel() {
@@ -21,15 +19,6 @@ export default function LeftPanel() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Seemantic</SidebarGroupLabel>
-          <SidebarGroupAction
-            title="New Folder"
-            onClick={() => {
-              // Dummy action
-              alert('New Folder action clicked')
-            }}
-          >
-            <FolderPlus /> <span className="sr-only">New Folder</span>
-          </SidebarGroupAction>
           <SidebarGroupContent>
             <SidebarMenu>
               <FileTree docs={docsArray} />
