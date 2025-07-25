@@ -3,10 +3,9 @@ import logging
 import urllib
 import urllib.parse
 from collections.abc import AsyncGenerator
-from io import BytesIO
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -20,6 +19,8 @@ from app.rest_api_data import (
     ApiExplorer,
     ApiIndexedContentHash,
     ApiParsedDocument,
+    ApiPresignedUrlRequest,
+    ApiPresignedUrlResponse,
     ApiQuery,
     ApiQueryResponseUpdate,
     ApiSearchResult,
@@ -43,27 +44,21 @@ async def root() -> str:
     return "seemantic API says hello!"
 
 
-# relative_path:path is a fastApi "path converter" to capture a path parameter with "/" inside 'relative_path'
-@router.put("/files/{relative_path:path}", status_code=status.HTTP_201_CREATED)
-async def upsert_file(relative_path: str, file: UploadFile, response: Response, minio_service: DepMinioService) -> None:
-    binary = BytesIO(file.file.read())
-    minio_service.create_or_update_document(key=get_file_path(relative_path), file=binary)
-    location = f"/files/{relative_path}"
-    response.headers["Location"] = location
+# Use minio_service to handle upload using presigned URLs
+@router.post("/documents/presigned_url", status_code=status.HTTP_201_CREATED)
+async def get_presigned_url(
+    payload: ApiPresignedUrlRequest,
+    minio_service: DepMinioService,
+) -> ApiPresignedUrlResponse:
+    key = get_file_path(payload.relative_path)
+    url= minio_service.get_presigned_url_for_upload(key)
+    return ApiPresignedUrlResponse(url=url)
 
 
-@router.delete("/files/{relative_path:path}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/documents/{relative_path:path}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_file(relative_path: str, minio_service: DepMinioService) -> None:
     minio_service.delete_document(get_file_path(relative_path))
 
-
-@router.get("/files/{relative_path:path}")
-async def get_file(relative_path: str, minio_service: DepMinioService) -> StreamingResponse:
-    file = minio_service.get_document(get_file_path(relative_path))
-    if file:
-        return StreamingResponse(file.content, media_type="application/octet-stream")
-
-    raise HTTPException(status_code=404, detail=f"File {relative_path} not found")
 
 
 def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:

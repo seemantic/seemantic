@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections.abc import AsyncGenerator, Generator
+from datetime import timedelta
 from io import BytesIO
 from typing import Any
 
@@ -89,6 +90,7 @@ class MinioService:
                 logging.warning(f"Error: {e}, Reconnecting in 5 seconds...")
                 await asyncio.sleep(5)  # Wait before reconnecting
 
+    # TODO: to delete
     def create_or_update_document(self, key: str, file: BytesIO) -> None:
         self._minio_client.put_object(
             self._bucket_name,
@@ -97,6 +99,7 @@ class MinioService:
             len(file.getbuffer()),
         )
 
+    # TODO: to delete
     def get_document(self, object_name: str) -> MinioObjectContent | None:
         file: BaseHTTPResponse | None = None
         try:
@@ -130,3 +133,18 @@ class MinioService:
 
     def delete_document(self, key: str) -> None:
         self._minio_client.remove_object(self._bucket_name, key)
+
+    def get_presigned_url_for_upload(self, key: str) -> str:
+        return self._minio_client.presigned_put_object(
+            self._bucket_name,
+            key,
+            expires=timedelta(seconds=300),
+        )
+
+    def get_presigned_url_for_download(self, key: str) -> str:
+        return self._minio_client.presigned_get_object(
+            self._bucket_name,
+            key,
+            expires=timedelta(seconds=300),
+        )
+

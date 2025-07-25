@@ -79,3 +79,9 @@ class ApiQuery(BaseModel):
 
 
 ApiEventType = Literal["update", "delete"]
+
+class ApiPresignedUrlRequest(BaseModel):
+    relative_path: str
+
+class ApiPresignedUrlResponse(BaseModel):
+    url: str
