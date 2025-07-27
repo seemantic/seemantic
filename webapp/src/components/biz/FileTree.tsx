@@ -10,6 +10,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/shadcn/components/ui/hover-card'
+import { deleteFile } from '@/utils/api'
 import type { ApiDocumentSnippet } from '@/utils/api_data'
 import {
   hotkeysCoreFeature,
@@ -207,8 +208,14 @@ export const FileTree = (props: FileTreeProps) => {
                 Rename
               </ContextMenuItem>
               <ContextMenuItem
-                onClick={() => {
-                  /* handle delete */
+                onClick={async () => {
+                  if (item.isFolder()) {
+                    // handle folder delete
+                  } else {
+                    const fileItem = item.getItemData() as FileItem
+                    // handle file delete
+                    await deleteFile({ uri: fileItem.doc.uri })
+                  }
                 }}
               >
                 Delete

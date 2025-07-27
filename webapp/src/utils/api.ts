@@ -5,6 +5,7 @@ import type {
   ApiParsedDocument,
   ApiQuery,
   ApiQueryResponseUpdate,
+  DeleteFileRequest,
 } from '@/utils/api_data'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 
@@ -19,6 +20,38 @@ export const fetchApi = async <T>(route: string): Promise<T> => {
     )
   }
   return (await response.json()) as T
+}
+
+export const deleteApi = async (uri: string): Promise<void> => {
+  const url = `${apiUrl}/${uri}`
+  const response = await fetch(url, {
+    method: 'DELETE',
+  })
+  if (!response.ok) {
+    throw new Error(
+      `HTTP error! Status: ${response.status} - ${response.statusText}`,
+    )
+  }
+}
+
+export const postToApi = async <TInput, TOutput>(
+  route: string,
+  payload: TInput,
+): Promise<TOutput> => {
+  const url = `${apiUrl}/${route}`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    throw new Error(
+      `HTTP error! Status: ${response.status} - ${response.statusText}`,
+    )
+  }
+  return (await response.json()) as TOutput
 }
 
 export const get_explorer = (): Promise<ApiExplorer> =>
@@ -70,4 +103,29 @@ export const subscribeToDocumentEvents = async (
       }
     },
   })
+}
+
+export const deleteFile = async (req: DeleteFileRequest): Promise<void> => {
+  await deleteApi(`documents/${encodeURIComponent(req.uri)}`)
+}
+
+// upload a file to s3 by getting a presigned url and then uploading the file
+export const uploadFile = async (
+  uri: string,
+  file: File,
+): Promise<void> => {
+  // Use postToApi to get the presigned URL
+  const { url: presignedUrl } = await postToApi<{ uri: string }, { url: string }>('documents/presigned_url', { uri: uri })
+
+  // Now upload the file to the presigned URL
+  const uploadResponse = await fetch(presignedUrl, {
+    method: 'PUT',
+    body: file,
+  })
+
+  if (!uploadResponse.ok) {
+    throw new Error(
+      `File upload failed! Status: ${uploadResponse.status} - ${uploadResponse.statusText}`,
+    )
+  }
 }

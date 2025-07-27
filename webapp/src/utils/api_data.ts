@@ -59,3 +59,20 @@ export interface ApiParsedDocument {
   hash: string
   markdown_content: string
 }
+
+// Upsert file request type
+export interface UpsertFileRequest {
+  relative_path: string
+  file: File
+}
+
+// Upsert file response type (empty, but Location header is set)
+export interface UpsertFileResponse {}
+
+// Delete file request type
+export interface DeleteFileRequest {
+  uri: string
+}
+
+// Delete file response type (empty)
+export interface DeleteFileResponse {}

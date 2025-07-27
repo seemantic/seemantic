@@ -90,7 +90,6 @@ class MinioService:
                 logging.warning(f"Error: {e}, Reconnecting in 5 seconds...")
                 await asyncio.sleep(5)  # Wait before reconnecting
 
-    # TODO: to delete
     def create_or_update_document(self, key: str, file: BytesIO) -> None:
         self._minio_client.put_object(
             self._bucket_name,
@@ -99,7 +98,7 @@ class MinioService:
             len(file.getbuffer()),
         )
 
-    # TODO: to delete
+
     def get_document(self, object_name: str) -> MinioObjectContent | None:
         file: BaseHTTPResponse | None = None
         try:

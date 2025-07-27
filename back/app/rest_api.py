@@ -50,15 +50,15 @@ async def get_presigned_url(
     payload: ApiPresignedUrlRequest,
     minio_service: DepMinioService,
 ) -> ApiPresignedUrlResponse:
-    key = get_file_path(payload.relative_path)
+    key = get_file_path(payload.uri)
     url= minio_service.get_presigned_url_for_upload(key)
     return ApiPresignedUrlResponse(url=url)
 
 
-@router.delete("/documents/{relative_path:path}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_file(relative_path: str, minio_service: DepMinioService) -> None:
-    minio_service.delete_document(get_file_path(relative_path))
-
+@router.delete("/documents/{encoded_uri:path}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_file(encoded_uri: str, minio_service: DepMinioService) -> None:
+    decoded_uri = urllib.parse.unquote(encoded_uri)
+    minio_service.delete_document(get_file_path(decoded_uri))
 
 
 def _to_api_doc(db_doc: DbDocument) -> ApiDocumentSnippet:
