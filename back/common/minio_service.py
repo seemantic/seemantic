@@ -78,10 +78,14 @@ class MinioService:
                     prefix=prefix,
                     events=("s3:ObjectCreated:*", "s3:ObjectRemoved:*"),
                 ) as events:
-                    event = await loop.run_in_executor(None, next, events)
-                    my_events = self._get_event(event)
-                    for my_event in my_events:
-                        yield my_event
+                    while True:
+                        try:
+                            event = await loop.run_in_executor(None, next, events)
+                        except StopIteration:
+                            break
+                        my_events = self._get_event(event)
+                        for my_event in my_events:
+                            yield my_event
             except asyncio.CancelledError:
                 break
             except StopIteration:
