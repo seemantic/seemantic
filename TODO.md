@@ -26,11 +26,18 @@
 - [Feat] add authent
 - [Bug] If user changes litellm embedding settings, it should change the indexer version
 - [Bug] display grow as the answer is written when a doc is not displayed (no splitter)
+
 - [Feat] Implement file view
+  - [Feat] Add 1 or several files
+  - [Feat] rename 1 file
+  - [Feat] move 1 or several files
+  - [Feat] create new folder
+  - [Feat] delete 1 or several folder (with confirmation)
+  - [Feat] rename folder
 
 # DOING
 
-- [Feat] add / delete / rename files and folders in file tree
+- [Feat] delete 1 or several files (with confirmation)
 
 # DONE
 
