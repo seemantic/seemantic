@@ -209,12 +209,16 @@ export const FileTree = (props: FileTreeProps) => {
               </ContextMenuItem>
               <ContextMenuItem
                 onClick={async () => {
-                  if (item.isFolder()) {
-                    // handle folder delete
-                  } else {
-                    const fileItem = item.getItemData() as FileItem
-                    // handle file delete
-                    await deleteFile({ uri: fileItem.doc.uri })
+                  const selectedItems = tree.getSelectedItems()
+
+                  for (const selectedItem of selectedItems) {
+                    if (selectedItem.isFolder()) {
+                      // handle folder delete
+                    } else {
+                      const fileItem = selectedItem.getItemData() as FileItem
+                      // handle file delete
+                      await deleteFile({ uri: fileItem.doc.uri })
+                    }
                   }
                 }}
               >
