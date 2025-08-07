@@ -26,6 +26,7 @@
 - [Feat] add authent
 - [Bug] If user changes litellm embedding settings, it should change the indexer version
 - [Bug] display grow as the answer is written when a doc is not displayed (no splitter)
+- [Feat] if link to a missing document, display an error on the document content panel (instead of global 404)
 
 - [Feat] Implement file view
   - [Feat] Add 1 or several files
